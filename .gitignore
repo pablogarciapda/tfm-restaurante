@@ -1,0 +1,31 @@
+# Nuxt 4
+.nuxt/
+.output/
+dist/
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Testing
+playwright-report/
+test-results/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Nitro
+.output/

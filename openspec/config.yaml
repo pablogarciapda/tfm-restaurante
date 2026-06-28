@@ -1,0 +1,81 @@
+# openspec/config.yaml — La Zíngara / tfm-restaurant
+schema: spec-driven
+
+context: |
+  Project: La Zíngara restaurant platform (www.lazingara.es), Santa María del Páramo, León, Spain.
+  Stack: Nuxt 3+/4+ (SSR public + SPA admin at /cocina), Tailwind CSS, konva+vue-konva (Canvas 2D),
+         Supabase (PostgreSQL, Realtime, Auth, Storage), VPS deploy (persistent Node).
+  Status: greenfield. No app code yet — only AGENTS.md, doc/, capturas web/ exist.
+  Nuxt app NOT bootstrapped. No package.json, no node_modules, no test runner installed.
+  Data model: configuracion, platos, mesas, reservas. Routes: public 6 pages, admin 5 pages under /cocina.
+  Conventions: Vue 3 Composition API + <script setup> + TypeScript, file-based routing, utility-first Tailwind,
+               @supabase/supabase-js (never expose service_role key on client).
+  NFRs: OWASP Top 10 (2025) + RLS on all tables, TDD mandatory, 60 FPS Canvas table manager.
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Tag Phase (1: MVP public, 2: admin+auth, 3: Konva engine)
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - UI copy (user-facing) MUST be Spanish (es-ES, neutral); code/comments in English
+  design:
+    - Include sequence diagrams for complex flows (e.g., table fusion, Realtime sync)
+    - Document architecture decisions with rationale
+    - Prefer Nuxt server routes over separate backend; Supabase handles auth/data
+  tasks:
+    - Group by phase, use hierarchical numbering (1.1, 1.2, …)
+    - Keep tasks completable in one session
+    - TDD: tests MUST be written before or alongside implementation
+  apply:
+    - Follow existing code patterns (Composition API, Tailwind utilities, file-based routing)
+    - Never expose Supabase service_role key on client
+    - All DB changes via Supabase migration tool; never hardcode generated IDs
+    tdd: true
+    test_command: "npx vitest run"
+  verify:
+    test_command: "npx vitest run"
+    build_command: "npx nuxi build"
+    coverage_threshold: 70
+  archive:
+    - Warn before merging destructive deltas
+
+strict_tdd: true
+
+testing:
+  note: |
+    NOT YET INSTALLED. Proposed setup for Nuxt 3+ TypeScript project.
+    Detection-only; no packages installed. Bootstrapping required before Phase 1 implementation.
+  runner:
+    framework: Vitest
+    command: "npx vitest run"
+    deps: ["vitest", "@vue/test-utils", "@nuxt/test-utils", "happy-dom"]
+  layers:
+    unit:
+      available: false
+      tool: "Vitest + @vue/test-utils"
+    integration:
+      available: false
+      tool: "@nuxt/test-utils (Vitest)"
+    e2e:
+      available: false
+      tool: "Playwright"
+      command: "npx playwright test"
+  coverage:
+    available: false
+    command: "npx vitest run --coverage"
+    tool: "v8 (Vitest built-in)"
+  quality:
+    linter:
+      available: false
+      tool: "ESLint (Nuxt default)"
+      command: "npx eslint ."
+    type_checker:
+      available: false
+      tool: "vue-tsc"
+      command: "npx vue-tsc --noEmit"
+    formatter:
+      available: false
+      tool: "Prettier"
+      command: "npx prettier --check ."
