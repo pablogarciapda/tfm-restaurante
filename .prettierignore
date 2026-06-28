@@ -1,0 +1,10 @@
+# Auto-generated / non-source artifacts (excluded from Prettier)
+.nuxt/
+.output/
+dist/
+node_modules/
+playwright-report/
+test-results/
+
+# SDD auto-generated artifacts
+openspec/changes/**/verify-report.md

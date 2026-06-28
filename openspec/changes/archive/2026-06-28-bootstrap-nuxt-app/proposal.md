@@ -49,26 +49,26 @@ None — greenfield. No existing specs.
 
 ## Affected Areas
 
-| Area | Impact | Description |
-|------|--------|-------------|
-| `/` (project root) | New | `package.json`, `nuxt.config.ts`, `tsconfig.json`, `vitest.config.ts`, `playwright.config.ts`, `eslint.config.mjs`, `.prettierrc`, `app.vue` |
-| `pages/` | New | `index.vue` — minimal SSR home page |
-| `components/` | New | Skeleton directory for auto-imports |
-| `composables/` | New | Skeleton directory |
-| `layouts/` | New | `default.vue` — base layout |
-| `stores/` | New | Skeleton for Pinia (Phase 2) |
-| `tests/` | New | Unit, integration, and e2e test files |
-| `assets/css/` | New | `main.css` — Tailwind v4 import |
-| `server/` | New | Skeleton directory |
+| Area               | Impact | Description                                                                                                                                  |
+| ------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/` (project root) | New    | `package.json`, `nuxt.config.ts`, `tsconfig.json`, `vitest.config.ts`, `playwright.config.ts`, `eslint.config.mjs`, `.prettierrc`, `app.vue` |
+| `pages/`           | New    | `index.vue` — minimal SSR home page                                                                                                          |
+| `components/`      | New    | Skeleton directory for auto-imports                                                                                                          |
+| `composables/`     | New    | Skeleton directory                                                                                                                           |
+| `layouts/`         | New    | `default.vue` — base layout                                                                                                                  |
+| `stores/`          | New    | Skeleton for Pinia (Phase 2)                                                                                                                 |
+| `tests/`           | New    | Unit, integration, and e2e test files                                                                                                        |
+| `assets/css/`      | New    | `main.css` — Tailwind v4 import                                                                                                              |
+| `server/`          | New    | Skeleton directory                                                                                                                           |
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| Tailwind v4 `@tailwindcss/vite` Nuxt compat | Medium | Pin known-compatible versions; fallback to `@nuxtjs/tailwindcss` module |
-| Nuxt 4 GA makes Nuxt 3 stale mid-project | Low | Nuxt 3 LTS stable; upgrade path documented; re-evaluate at Change #3 |
-| `@nuxt/test-utils` + Vitest 2.x peer mismatch | Medium | Use `@nuxt/test-utils` latest (built for Vitest 2.x); verify peer deps on install |
-| Playwright browser download size | Low | Chromium-only; `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` env fallback |
+| Risk                                          | Likelihood | Mitigation                                                                        |
+| --------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
+| Tailwind v4 `@tailwindcss/vite` Nuxt compat   | Medium     | Pin known-compatible versions; fallback to `@nuxtjs/tailwindcss` module           |
+| Nuxt 4 GA makes Nuxt 3 stale mid-project      | Low        | Nuxt 3 LTS stable; upgrade path documented; re-evaluate at Change #3              |
+| `@nuxt/test-utils` + Vitest 2.x peer mismatch | Medium     | Use `@nuxt/test-utils` latest (built for Vitest 2.x); verify peer deps on install |
+| Playwright browser download size              | Low        | Chromium-only; `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` env fallback                  |
 
 ## Rollback Plan
 

@@ -15,7 +15,7 @@ context: |
 rules:
   proposal:
     - Include rollback plan for risky changes
-    - Tag Phase (1: MVP public, 2: admin+auth, 3: Konva engine)
+    - 'Tag Phase (1: MVP public, 2: admin+auth, 3: Konva engine)'
   specs:
     - Use Given/When/Then for scenarios
     - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
@@ -32,11 +32,9 @@ rules:
     - Follow existing code patterns (Composition API, Tailwind utilities, file-based routing)
     - Never expose Supabase service_role key on client
     - All DB changes via Supabase migration tool; never hardcode generated IDs
-    tdd: true
-    test_command: "npx vitest run"
   verify:
-    test_command: "npx vitest run"
-    build_command: "npx nuxi build"
+    test_command: 'npx vitest run'
+    build_command: 'npx nuxi build'
     coverage_threshold: 70
   archive:
     - Warn before merging destructive deltas
@@ -49,33 +47,33 @@ testing:
     Detection-only; no packages installed. Bootstrapping required before Phase 1 implementation.
   runner:
     framework: Vitest
-    command: "npx vitest run"
-    deps: ["vitest", "@vue/test-utils", "@nuxt/test-utils", "happy-dom"]
+    command: 'npx vitest run'
+    deps: ['vitest', '@vue/test-utils', '@nuxt/test-utils', 'happy-dom']
   layers:
     unit:
       available: false
-      tool: "Vitest + @vue/test-utils"
+      tool: 'Vitest + @vue/test-utils'
     integration:
       available: false
-      tool: "@nuxt/test-utils (Vitest)"
+      tool: '@nuxt/test-utils (Vitest)'
     e2e:
       available: false
-      tool: "Playwright"
-      command: "npx playwright test"
+      tool: 'Playwright'
+      command: 'npx playwright test'
   coverage:
     available: false
-    command: "npx vitest run --coverage"
-    tool: "v8 (Vitest built-in)"
+    command: 'npx vitest run --coverage'
+    tool: 'v8 (Vitest built-in)'
   quality:
     linter:
       available: false
-      tool: "ESLint (Nuxt default)"
-      command: "npx eslint ."
+      tool: 'ESLint (Nuxt default)'
+      command: 'npx eslint .'
     type_checker:
       available: false
-      tool: "vue-tsc"
-      command: "npx vue-tsc --noEmit"
+      tool: 'vue-tsc'
+      command: 'npx vue-tsc --noEmit'
     formatter:
       available: false
-      tool: "Prettier"
-      command: "npx prettier --check ."
+      tool: 'Prettier'
+      command: 'npx prettier --check .'

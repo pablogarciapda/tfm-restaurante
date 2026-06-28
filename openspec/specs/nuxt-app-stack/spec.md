@@ -10,13 +10,13 @@ Nuxt 4.4.8 SSR application shell for Restaurante La Zíngara. Establishes the bu
 
 The system MUST be scaffolded via `pnpm create nuxt@latest` (NOT `nuxi`). Nuxt version MUST be 4.4.8. `compatibilityDate` field MUST be present in `nuxt.config.ts`. All Vue components MUST use Composition API `<script setup lang="ts">`. Options API is NOT permitted. Package manager MUST be pnpm; `pnpm-lock.yaml` is the sole lockfile. Root component MUST be `app/app.vue` (not root-level `app.vue`).
 
-| Success Criterion | Verification |
-|---|---|
-| `pnpm build` exits 0 | No TS errors, no build errors |
-| `vue-tsc -b --noEmit` exits 0 | Strict null checks, no implicit any |
-| `pnpm-lock.yaml` exists; no `package-lock.json` or `yarn.lock` | Sole lockfile |
-| `app/app.vue` uses `<script setup lang="ts">` | No Options API |
-| `nuxt.config.ts` contains `compatibilityDate` | Config field present |
+| Success Criterion                                              | Verification                        |
+| -------------------------------------------------------------- | ----------------------------------- |
+| `pnpm build` exits 0                                           | No TS errors, no build errors       |
+| `vue-tsc -b --noEmit` exits 0                                  | Strict null checks, no implicit any |
+| `pnpm-lock.yaml` exists; no `package-lock.json` or `yarn.lock` | Sole lockfile                       |
+| `app/app.vue` uses `<script setup lang="ts">`                  | No Options API                      |
+| `nuxt.config.ts` contains `compatibilityDate`                  | Config field present                |
 
 #### Scenario: Scaffold produces buildable project
 

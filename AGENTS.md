@@ -11,13 +11,13 @@
 
 ## 2. Stack Tecnológico
 
-| Capa           | Tecnología                                       |
-| -------------- | ------------------------------------------------ |
-| Frontend       | Nuxt 4 (4.4.8) — SSR público, SPA admin (`/cocina/**`) |
-| Estilos        | Tailwind CSS                                     |
-| Motor gráfico  | `konva` + `vue-konva` (Canvas 2D, 60 FPS)         |
-| BaaS           | Supabase (PostgreSQL, Realtime, Auth, Storage)   |
-| Despliegue     | VPS dedicado, Nuxt en modo Node persistente      |
+| Capa          | Tecnología                                             |
+| ------------- | ------------------------------------------------------ |
+| Frontend      | Nuxt 4 (4.4.8) — SSR público, SPA admin (`/cocina/**`) |
+| Estilos       | Tailwind CSS                                           |
+| Motor gráfico | `konva` + `vue-konva` (Canvas 2D, 60 FPS)              |
+| BaaS          | Supabase (PostgreSQL, Realtime, Auth, Storage)         |
+| Despliegue    | VPS dedicado, Nuxt en modo Node persistente            |
 
 ### Convenciones del stack
 

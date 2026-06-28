@@ -10,11 +10,11 @@ TDD-ready test stack for Restaurante La Zíngara. Proves all three testing layer
 
 The system MUST use Vitest 2.x with `@nuxt/test-utils` configured via the Vitest **projects** approach (`defineVitestConfig` from `@nuxt/test-utils/config`). Three separate projects: `unit`, `nuxt` (integration), `e2e`. `happy-dom` MUST be an explicit `devDependency`. Unit component tests MUST use `mountSuspended` from `@nuxt/test-utils/runtime`. Integration tests MUST use `$fetch` from `@nuxt/test-utils/e2e`. Playwright MUST be installed for E2E. Test files for Nuxt context live in `test/nuxt/`.
 
-| Success Criterion | Verification |
-|---|---|
-| No unresolved peer conflicts | `pnpm ls` shows clean dependency tree |
+| Success Criterion                                            | Verification                                     |
+| ------------------------------------------------------------ | ------------------------------------------------ |
+| No unresolved peer conflicts                                 | `pnpm ls` shows clean dependency tree            |
 | `vitest.config.ts` uses `defineVitestConfig` with 3 projects | Config references `unit`, `nuxt`, `e2e` projects |
-| `happy-dom` in `devDependencies` | `package.json` lists it explicitly |
+| `happy-dom` in `devDependencies`                             | `package.json` lists it explicitly               |
 
 #### Scenario: Dependencies install without peer conflicts
 
