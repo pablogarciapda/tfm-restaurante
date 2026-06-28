@@ -8,12 +8,12 @@ TDD-ready test stack for Restaurante La Zíngara. Proves all three testing layer
 
 ### Requirement: TH-001 — Vitest Stack with @nuxt/test-utils (Projects Approach)
 
-The system MUST use Vitest 2.x with `@nuxt/test-utils` configured via the Vitest **projects** approach (`defineVitestConfig` from `@nuxt/test-utils/config`). Three separate projects: `unit`, `nuxt` (integration), `e2e`. `happy-dom` MUST be an explicit `devDependency`. Unit component tests MUST use `mountSuspended` from `@nuxt/test-utils/runtime`. Integration tests MUST use `$fetch` from `@nuxt/test-utils/e2e`. Playwright MUST be installed for E2E. Test files for Nuxt context live in `test/nuxt/`.
+The system MUST use Vitest 4.x with `@nuxt/test-utils` configured via the Vitest **projects** approach (`defineVitestProject` from `@nuxt/test-utils/config`). Two separate projects: `unit`, `nuxt` (integration). `happy-dom` MUST be an explicit `devDependency`. Unit component tests MUST use `mount()` from `@vue/test-utils` with happy-dom environment. Integration tests MUST use `$fetch` from `@nuxt/test-utils/e2e`. Playwright MUST be installed for E2E as a separate runner. Test files for Nuxt context live in `test/nuxt/`.
 
 | Success Criterion                                            | Verification                                     |
 | ------------------------------------------------------------ | ------------------------------------------------ |
 | No unresolved peer conflicts                                 | `pnpm ls` shows clean dependency tree            |
-| `vitest.config.ts` uses `defineVitestConfig` with 3 projects | Config references `unit`, `nuxt`, `e2e` projects |
+| `vitest.config.ts` uses `defineVitestProject` with 2 projects | Config references `unit`, `nuxt` projects |
 | `happy-dom` in `devDependencies`                             | `package.json` lists it explicitly               |
 
 #### Scenario: Dependencies install without peer conflicts
@@ -32,7 +32,7 @@ The system MUST use Vitest 2.x with `@nuxt/test-utils` configured via the Vitest
 
 #### Scenario: Vitest projects config resolves
 
-- GIVEN `vitest.config.ts` defines `unit`, `nuxt`, and `e2e` projects
+- GIVEN `vitest.config.ts` defines `unit` and `nuxt` projects
 - WHEN `pnpm test` runs
 - THEN each project's test files are discovered and executed
 - AND the nuxt project uses `environment: 'nuxt'` with all Nuxt auto-imports available
@@ -41,10 +41,10 @@ The system MUST use Vitest 2.x with `@nuxt/test-utils` configured via the Vitest
 
 The system MUST have three smoke tests written BEFORE the production code they verify (TDD RED phase). All three MUST pass after implementation.
 
-#### Scenario: Unit — Vue component renders via mountSuspended
+#### Scenario: Unit — Vue component renders via @vue/test-utils mount()
 
-- GIVEN a Vue component exists in `app/components/` or `app/pages/`
-- WHEN Vitest mounts it via `mountSuspended` from `@nuxt/test-utils/runtime`
+- GIVEN a Vue component exists in `app/components/` or `app/pages/` and vitest unit project uses environment 'happy-dom'
+- WHEN Vitest mounts it via `mount()` from `@vue/test-utils` (NOT `mountSuspended` — unit project has no Nuxt runtime)
 - THEN the wrapper is truthy and contains expected text
 - AND no mount-time errors are thrown
 

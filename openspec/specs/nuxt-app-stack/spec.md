@@ -67,14 +67,14 @@ The system MUST use Tailwind v4 via `@tailwindcss/vite` plugin registered in `nu
 
 ### Requirement: NX-004 — Nuxt 4 Directory Structure (app/ srcDir)
 
-The project MUST use Nuxt 4 `app/` as `srcDir`. Directories under `app/`: `pages/`, `components/`, `composables/`, `layouts/`, `middleware/`, `plugins/`, `utils/`, `assets/`. Root directories: `server/`, `public/`, `shared/`, `tests/`. `~` alias MUST resolve to `app/`. `nuxt.config.ts` MUST include `imports: { dirs: ['app/stores'] }` for Pinia auto-import (Phase 2). `shared/` MUST be auto-imported on both app and server sides.
+The project MUST use Nuxt 4 `app/` as `srcDir`. Directories under `app/`: `pages/`, `components/`, `composables/`, `layouts/`, `middleware/`, `plugins/`, `utils/`, `assets/`. Root directories: `server/`, `public/`, `shared/`, `test/`. `~` alias MUST resolve to `app/`. `nuxt.config.ts` MUST include `imports: { dirs: ['app/stores'] }` for Pinia auto-import (Phase 2). `shared/` MUST be auto-imported on both app and server sides.
 
 #### Scenario: Directory structure matches Nuxt 4 convention
 
 - GIVEN scaffold is complete
 - WHEN listing `app/` directory
 - THEN all eight `app/` subdirectories exist
-- AND `server/`, `public/`, `shared/`, `tests/` exist at root
+- AND `server/`, `public/`, `shared/`, `test/` exist at root
 
 #### Scenario: shared/ is auto-importable
 
