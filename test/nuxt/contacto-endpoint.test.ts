@@ -29,14 +29,15 @@ describe('POST /api/contacto (CO-004)', () => {
   })
 
   it('returns 400 when nombre is missing', async () => {
-    const response = await $fetch<{ statusCode?: number; message?: string; url?: string }>(
-      '/api/contacto',
-      {
-        method: 'POST',
-        body: { email: 'maria@example.com', mensaje: 'Hola' },
-        ignoreResponseError: true,
-      },
-    )
+    const response = await $fetch<{
+      statusCode?: number
+      message?: string
+      url?: string
+    }>('/api/contacto', {
+      method: 'POST',
+      body: { email: 'maria@example.com', mensaje: 'Hola' },
+      ignoreResponseError: true,
+    })
 
     expect(response.statusCode).toBe(400)
   })

@@ -18,7 +18,13 @@ const PAGES = [
     label: 'Home',
     heading: 'Restaurante La Zíngara',
     headingTag: 'h1',
-    extraAssertions: ['Carta', 'Menú del Día', 'Reservas', 'Eventos', 'Contacto'],
+    extraAssertions: [
+      'Carta',
+      'Menú del Día',
+      'Reservas',
+      'Eventos',
+      'Contacto',
+    ],
   },
   {
     path: '/carta',
@@ -70,7 +76,9 @@ test.describe('public-pages-design — full navigation smoke', () => {
       await page.goto(pageDef.path, { waitUntil: 'networkidle' })
 
       // Assert heading
-      await expect(page.locator(pageDef.headingTag)).toContainText(pageDef.heading)
+      await expect(page.locator(pageDef.headingTag)).toContainText(
+        pageDef.heading,
+      )
 
       // Assert extra Spanish content items
       for (const text of pageDef.extraAssertions) {
@@ -86,11 +94,15 @@ test.describe('public-pages-design — full navigation smoke', () => {
     await page.goto('/', { waitUntil: 'networkidle' })
 
     // 5 navigation cards visible — each has a heading with the card name
-    const cardNames = ['Carta', 'Menú del Día', 'Reservas', 'Eventos', 'Contacto']
+    const cardNames = [
+      'Carta',
+      'Menú del Día',
+      'Reservas',
+      'Eventos',
+      'Contacto',
+    ]
     for (const name of cardNames) {
-      await expect(
-        page.locator('h2', { hasText: name }).first()
-      ).toBeVisible()
+      await expect(page.locator('h2', { hasText: name }).first()).toBeVisible()
     }
   })
 
@@ -108,7 +120,9 @@ test.describe('public-pages-design — full navigation smoke', () => {
     expect(cardCount).toBeGreaterThan(0)
   })
 
-  test('Menu Diario page has price display and 5 sections', async ({ page }) => {
+  test('Menu Diario page has price display and 5 sections', async ({
+    page,
+  }) => {
     await page.goto('/menu-diario', { waitUntil: 'networkidle' })
 
     // Price display with euro sign
@@ -116,17 +130,30 @@ test.describe('public-pages-design — full navigation smoke', () => {
     await expect(page.locator('body')).toContainText('€')
 
     // 5 section headings
-    const sectionHeadings = ['Primer Plato', 'Segundo Plato', 'Postre', 'Bebida', 'Pan y Cubiertos']
+    const sectionHeadings = [
+      'Primer Plato',
+      'Segundo Plato',
+      'Postre',
+      'Bebida',
+      'Pan y Cubiertos',
+    ]
     for (const heading of sectionHeadings) {
-      await expect(page.locator('h2', { hasText: heading }).first()).toBeVisible()
+      await expect(
+        page.locator('h2', { hasText: heading }).first(),
+      ).toBeVisible()
     }
   })
 
-  test('Eventos page has grid with at least one EventCard', async ({ page }) => {
+  test('Eventos page has grid with at least one EventCard', async ({
+    page,
+  }) => {
     await page.goto('/eventos', { waitUntil: 'networkidle' })
 
     // Grid of events — at least 1 card visible
-    const eventCards = page.locator('section').filter({ hasText: 'Próximos eventos' }).locator('.grid')
+    const eventCards = page
+      .locator('section')
+      .filter({ hasText: 'Próximos eventos' })
+      .locator('.grid')
     await expect(eventCards).toBeVisible()
 
     // "Próximos eventos" heading
@@ -173,7 +200,9 @@ test.describe('public-pages-design — full navigation smoke', () => {
     await expect(page.locator('input#email')).toBeVisible()
   })
 
-  test('No console errors on any public page during navigation', async ({ page }) => {
+  test('No console errors on any public page during navigation', async ({
+    page,
+  }) => {
     const consoleErrors: string[] = []
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text())

@@ -14,6 +14,18 @@ const noop = () => {}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mock = () => ((..._args: any[]) => noop) as any
 
-export { mock, noop as beforeAll, noop as afterAll, noop as beforeEach, noop as afterEach }
+export {
+  mock,
+  noop as beforeAll,
+  noop as afterAll,
+  noop as beforeEach,
+  noop as afterEach,
+}
 
-export default { mock, beforeAll: noop, afterAll: noop, beforeEach: noop, afterEach: noop }
+export default {
+  mock,
+  beforeAll: noop,
+  afterAll: noop,
+  beforeEach: noop,
+  afterEach: noop,
+}

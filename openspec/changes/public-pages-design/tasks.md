@@ -98,8 +98,8 @@ Chain strategy: pending
 
 ## 4. Tests Hardening & E2E (PR 4 — ~330 lines)
 
-- [ ] 4.1 [TDD-RED → GREEN] `test/e2e/smoke-navigation.spec.ts`: home→carta(scroll-spy)→menu-diario→eventos→contacto, Spanish content per page. Run `pnpm playwright test` → green.
-- [ ] 4.2 Add `/api/contacto` POST integration test (valid→200, invalid→400). (CO-004)
-- [ ] 4.3 Verify all SSRs `$fetch` 200 + Spanish content, SMS endpoints behavioral correctness.
-- [ ] 4.4 Run `pnpm vitest run --coverage` → ≥70%. Fix coverage gaps.
-- [ ] 4.5 Final gate: `pnpm vitest run` → all green, `pnpm playwright test` → green, `pnpm vue-tsc --noEmit` → clean, `pnpm eslint .` → clean.
+- [x] 4.1 [TDD-RED → GREEN] `test/e2e/smoke-navigation.spec.ts`: home→carta(scroll-spy)→menu-diario→eventos→contacto, Spanish content per page. Run `pnpm playwright test` → green.
+- [x] 4.2 Add `/api/contacto` POST integration test (valid→200, invalid→400). (CO-004)
+- [x] 4.3 Verify all SSRs `$fetch` 200 + Spanish content, SMS endpoints behavioral correctness.
+- [x] 4.4 Run `pnpm vitest run --coverage` → ≥70%. Fix coverage gaps.
+- [x] 4.5 Final gate: `pnpm vitest run` → all green, `pnpm playwright test` → green, `pnpm vue-tsc --noEmit` → clean, `pnpm eslint .` → clean.
