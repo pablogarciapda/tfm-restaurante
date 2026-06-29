@@ -35,6 +35,23 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
 
+  // Runtime config — server-only secrets + public vars
+  runtimeConfig: {
+    // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
+    smsProvider: 'mock',
+
+    // LabsMobile credentials (server-only, NEVER exposed to client) (SM-006)
+    labsMobileUsername: '',
+    labsMobileToken: '',
+    labsMobileSender: 'LaZingara',
+    labsMobileTest: '1',
+
+    // Public (exposed to client bundle)
+    public: {
+      siteUrl: 'https://www.lazingara.es',
+    },
+  },
+
   // TypeScript project references
   typescript: {
     strict: true,
