@@ -13,7 +13,7 @@ test('E2E Smoke — Home page loads with Spanish text', async ({ page }) => {
 
   // Spanish text visible on the home page
   await expect(page.locator('h1')).toContainText('Restaurante La Zíngara')
-  await expect(page.locator('p')).toContainText('Santa María del Páramo')
+  await expect(page.locator('p').first()).toContainText('Santa María del Páramo')
 
   // No uncaught console errors
   expect(consoleErrors).toHaveLength(0)
