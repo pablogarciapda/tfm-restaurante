@@ -21,6 +21,7 @@ logs
 # Test runner artifacts
 playwright-report/
 test-results/
+coverage/
 
 # Local env files
 .env

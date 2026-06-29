@@ -7,10 +7,8 @@ import { setup, $fetch } from '@nuxt/test-utils/e2e'
  * Note: /reservas is Slice 3 — if it 404s, document as slice-3 pending.
  */
 await setup({
-  host: 'http://localhost:3000',
-  server: true,
+  dev: true,
   browser: false,
-  // dev: true — use the built server
 })
 
 describe('Public pages SSR integration', () => {

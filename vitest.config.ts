@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 import vue from '@vitejs/plugin-vue'
@@ -20,6 +21,16 @@ export default defineConfig({
           environment: 'nuxt',
           environmentOptions: {
             nuxt: { domEnvironment: 'happy-dom' },
+          },
+        },
+        resolve: {
+          alias: {
+            // Workaround for @nuxt/test-utils@4.0.3: Vite import-analysis cannot
+            // resolve `bun:test` in Node runtime. Alias to a stub that satisfies
+            // the dynamic import in setupBun() without Vite trying to bundle it.
+            'bun:test': fileURLToPath(
+              new URL('./test/__fixtures__/bun-test-stub.ts', import.meta.url),
+            ),
           },
         },
       }),

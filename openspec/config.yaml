@@ -5,9 +5,11 @@ context: |
   Project: La Zíngara restaurant platform (www.lazingara.es), Santa María del Páramo, León, Spain.
   Stack: Nuxt 3+/4+ (SSR public + SPA admin at /cocina), Tailwind CSS, konva+vue-konva (Canvas 2D),
          Supabase (PostgreSQL, Realtime, Auth, Storage), VPS deploy (persistent Node).
-  Status: Nuxt 4.4.8 app bootstrapped (Change #1 archived 2026-06-28). Scaffold + 3 smoke tests
-          running. Change #2 `public-pages-design` in planning (proposal+spec+design done, tasks pending).
-          Public pages (/carta, /menu-diario, /reservas, /eventos, /contacto) NOT yet implemented.
+  Status: Nuxt 4.4.8 app bootstrapped (Change #1 archived 2026-06-28). Change #2 `public-pages-design`
+          ARCHIVED 2026-06-29. 6 public pages (/carta, /menu-diario, /reservas, /eventos, /contacto, /)
+          implemented with mock data + provider-agnostic SMS verification module. 202 Vitest + 14 Playwright
+          tests green, 87.86% coverage, 38/38 reqs + 104/104 scenarios verified.
+          Next: Phase 2 (panel & auth — /cocina Supabase Auth, CRUDs) or Phase 3 (Konva mesas).
   Data model: configuracion, platos, mesas, reservas. Routes: public 6 pages, admin 5 pages under /cocina.
   Conventions: Vue 3 Composition API + <script setup> + TypeScript, file-based routing, utility-first Tailwind,
                @supabase/supabase-js (never expose service_role key on client).
