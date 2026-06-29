@@ -65,9 +65,6 @@ describe('BaseCard — Image prop', () => {
       slots: { default: '<p>Card content</p>' },
     })
 
-    const img = wrapper.get('img')
-    const content = wrapper.get('p')
-
     // Image element should appear before content element in the DOM
     const html = wrapper.html()
     const imgIndex = html.indexOf('<img')
