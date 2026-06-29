@@ -89,8 +89,9 @@ describe('LabsMobileProvider (SM-003)', () => {
 
   it('handles 401 invalid credentials gracefully', async () => {
     mockFetch.mockRejectedValueOnce(
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      { response: { status: 401, _data: { error: 'UNAUTHORIZED' } } }
+      Object.assign(new Error('Unauthorized'), {
+        response: { status: 401, _data: { error: 'UNAUTHORIZED' } },
+      })
     )
 
     const result = await provider.sendVerificationCode('+34600000000')

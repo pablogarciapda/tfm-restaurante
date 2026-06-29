@@ -16,12 +16,10 @@ import type {
 
 // Runtime mock to verify interface shape
 class MockSms implements SmsProvider {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendVerificationCode(_phone: string): Promise<SmsSendResponse> {
     return { success: true, code: '1234' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async verifyCode(_phone: string, _code: string): Promise<SmsVerifyResponse> {
     return { valid: true }
   }

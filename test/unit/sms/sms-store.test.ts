@@ -66,7 +66,6 @@ describe('sms-store (AD7)', () => {
 
   it('expires after TTL', () => {
     vi.useFakeTimers()
-    const now = Date.now()
     storeCode('+34600000000', '1234', 1000) // 1s TTL
 
     expect(getCode('+34600000000')).not.toBeNull()

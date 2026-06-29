@@ -53,7 +53,6 @@ export class LabsMobileProvider implements SmsProvider {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await $fetch<{ code: string; message: string }>('https://api.labsmobile.com/json/send', {
         method: 'POST',
         headers: {
