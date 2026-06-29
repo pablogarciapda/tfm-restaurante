@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-06-28',
 
   // ESLint flat config (v1.x)
-  modules: ['@nuxt/eslint'],
+  modules: ['@nuxt/eslint', '@nuxt/fonts'],
 
   // Devtools only in development
   devtools: { enabled: process.env.NODE_ENV !== 'production' },
