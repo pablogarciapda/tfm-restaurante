@@ -1,1 +1,28 @@
 @import 'tailwindcss';
+
+/* ── Design Tokens — La Zíngara ──
+   PU-001: Terracotta-cream-slate editorial palette
+   PU-002: Playfair Display serif + Inter sans typography */
+
+@theme {
+  --color-terracotta: #C67B5C;
+  --color-cream: #FAF7F2;
+  --color-slate: #2D3748;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    color: var(--color-slate);
+    background-color: var(--color-cream);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+  }
+}
