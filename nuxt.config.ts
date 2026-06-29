@@ -5,8 +5,16 @@ export default defineNuxtConfig({
   ssr: true,
   compatibilityDate: '2026-06-28',
 
-  // ESLint flat config (v1.x)
-  modules: ['@nuxt/eslint'],
+  // ESLint flat config (v1.x) + font loading
+  modules: ['@nuxt/eslint', '@nuxt/fonts'],
+
+  // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)
+  fonts: {
+    families: [
+      { name: 'Playfair Display', provider: 'google' },
+      { name: 'Inter', provider: 'google' },
+    ],
+  },
 
   // Devtools only in development
   devtools: { enabled: process.env.NODE_ENV !== 'production' },
@@ -25,6 +33,23 @@ export default defineNuxtConfig({
   css: ['@/assets/css/main.css'],
   vite: {
     plugins: [tailwindcss()],
+  },
+
+  // Runtime config — server-only secrets + public vars
+  runtimeConfig: {
+    // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
+    smsProvider: 'mock',
+
+    // LabsMobile credentials (server-only, NEVER exposed to client) (SM-006)
+    labsMobileUsername: '',
+    labsMobileToken: '',
+    labsMobileSender: 'LaZingara',
+    labsMobileTest: '1',
+
+    // Public (exposed to client bundle)
+    public: {
+      siteUrl: 'https://www.lazingara.es',
+    },
   },
 
   // TypeScript project references
