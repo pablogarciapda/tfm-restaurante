@@ -91,10 +91,10 @@ Chain strategy: pending
 - [x] 3.3.4 Write `test/nuxt/sms-endpoints.test.ts`: documented infra limitation (endpoint handlers require Nuxt runtime). Gate: underlying SM-001–SM-004 logic already covered by unit tests. (SM-005, SM-006)
 
 ### 3.4 Reservas UI
-- [ ] 3.4.1 [TDD-RED → GREEN] `ReservationForm.vue`: 5 fields (nombre, teléfono E.164, email, fecha/hora future, comensales 1-20), Spanish validation, emits submit. Test `test/unit/components/ReservationForm.test.ts`. (RF-001)
-- [ ] 3.4.2 [TDD-RED → GREEN] `SmsVerificationStep.vue`: 4-digit input, POST verify, 3-retry limit, 60s resend cooldown, emits verified/back. Test `test/unit/components/SmsVerificationStep.test.ts`. (RF-002, RF-003)
-- [ ] 3.4.3 [TDD-GREEN] `app/pages/reservas.vue`: multi-step (form→SMS→confirmation), "Elegir mesa" button disabled title="Próximamente", POST /api/reservas. (RF-001–RF-005)
-- [ ] 3.4.4 Run full suite → green; `pnpm vue-tsc --noEmit` → clean.
+- [x] 3.4.1 [TDD-RED → GREEN] `ReservationForm.vue`: 5 fields (nombre, teléfono E.164, email, fecha/hora future, comensales 1-20), Spanish validation, emits submit. Test `test/unit/components/ReservationForm.test.ts`. (RF-001)
+- [x] 3.4.2 [TDD-RED → GREEN] `SmsVerificationStep.vue`: 4-digit input, POST verify, 3-retry limit, 60s resend cooldown, emits verified/back. Test `test/unit/components/SmsVerificationStep.test.ts`. (RF-002, RF-003)
+- [x] 3.4.3 [TDD-GREEN] `app/pages/reservas.vue`: multi-step (form→SMS→confirmation), "Elegir mesa" button disabled title="Próximamente", POST /api/reservas. (RF-001–RF-005)
+- [x] 3.4.4 Run full suite → green; `pnpm vue-tsc --noEmit` → clean.
 
 ## 4. Tests Hardening & E2E (PR 4 — ~330 lines)
 
