@@ -5,8 +5,9 @@ context: |
   Project: La Zíngara restaurant platform (www.lazingara.es), Santa María del Páramo, León, Spain.
   Stack: Nuxt 3+/4+ (SSR public + SPA admin at /cocina), Tailwind CSS, konva+vue-konva (Canvas 2D),
          Supabase (PostgreSQL, Realtime, Auth, Storage), VPS deploy (persistent Node).
-  Status: greenfield. No app code yet — only AGENTS.md, doc/, capturas web/ exist.
-  Nuxt app NOT bootstrapped. No package.json, no node_modules, no test runner installed.
+  Status: Nuxt 4.4.8 app bootstrapped (Change #1 archived 2026-06-28). Scaffold + 3 smoke tests
+          running. Change #2 `public-pages-design` in planning (proposal+spec+design done, tasks pending).
+          Public pages (/carta, /menu-diario, /reservas, /eventos, /contacto) NOT yet implemented.
   Data model: configuracion, platos, mesas, reservas. Routes: public 6 pages, admin 5 pages under /cocina.
   Conventions: Vue 3 Composition API + <script setup> + TypeScript, file-based routing, utility-first Tailwind,
                @supabase/supabase-js (never expose service_role key on client).
@@ -33,8 +34,8 @@ rules:
     - Never expose Supabase service_role key on client
     - All DB changes via Supabase migration tool; never hardcode generated IDs
   verify:
-    test_command: 'npx vitest run'
-    build_command: 'npx nuxi build'
+    test_command: 'pnpm vitest run'
+    build_command: 'pnpm nuxi build'
     coverage_threshold: 70
   archive:
     - Warn before merging destructive deltas
@@ -43,37 +44,38 @@ strict_tdd: true
 
 testing:
   note: |
-    NOT YET INSTALLED. Proposed setup for Nuxt 3+ TypeScript project.
-    Detection-only; no packages installed. Bootstrapping required before Phase 1 implementation.
+    INSTALLED during Change #1 bootstrap. Vitest 4.1.0 + @vue/test-utils 2.4.11 +
+    @nuxt/test-utils 4.0.0 + happy-dom 20.0.11 (unit/integration), Playwright 1.61.0 (e2e).
+    3 smoke tests green (unit/nuxt/e2e) targeting app/pages/index.vue placeholder.
   runner:
     framework: Vitest
-    command: 'npx vitest run'
+    command: 'pnpm vitest run'
     deps: ['vitest', '@vue/test-utils', '@nuxt/test-utils', 'happy-dom']
   layers:
     unit:
-      available: false
+      available: true
       tool: 'Vitest + @vue/test-utils'
     integration:
-      available: false
+      available: true
       tool: '@nuxt/test-utils (Vitest)'
     e2e:
-      available: false
+      available: true
       tool: 'Playwright'
-      command: 'npx playwright test'
+      command: 'pnpm playwright test'
   coverage:
-    available: false
-    command: 'npx vitest run --coverage'
+    available: true
+    command: 'pnpm vitest run --coverage'
     tool: 'v8 (Vitest built-in)'
   quality:
     linter:
-      available: false
-      tool: 'ESLint (Nuxt default)'
-      command: 'npx eslint .'
+      available: true
+      tool: 'ESLint (@nuxt/eslint)'
+      command: 'pnpm eslint .'
     type_checker:
-      available: false
+      available: true
       tool: 'vue-tsc'
-      command: 'npx vue-tsc --noEmit'
+      command: 'pnpm vue-tsc --noEmit'
     formatter:
-      available: false
+      available: true
       tool: 'Prettier'
-      command: 'npx prettier --check .'
+      command: 'pnpm prettier --check .'
