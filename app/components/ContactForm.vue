@@ -79,7 +79,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form class="space-y-5" @submit.prevent="handleSubmit" novalidate>
+  <form novalidate class="space-y-5" @submit.prevent="handleSubmit">
     <!-- Success message -->
     <div
       v-if="success"

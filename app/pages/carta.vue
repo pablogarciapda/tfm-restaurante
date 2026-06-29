@@ -20,17 +20,12 @@ const activeCategory = ref(categoryNames[0] || '')
 // Filter categories based on active selection
 // For now, show all categories (filtering is optional per spec)
 
-// Update active categories when active changes
-function updateActiveCategory(category: string) {
-  activeCategory.value = category
-}
-
 // Scroll-spy: IntersectionObserver (process.client guard per AD2)
 let observer: IntersectionObserver | null = null
 
 onMounted(() => {
-  // process.client guard for SSR safety (AD2)
-  if (typeof process !== 'undefined' && !process.client) return
+  // import.meta.client guard for SSR safety (AD2)
+  if (!import.meta.client) return
 
   observer = new IntersectionObserver(
     (entries) => {

@@ -10,7 +10,7 @@ import { ref } from 'vue'
  * v-model binding for active category.
  */
 
-const props = defineProps<{
+defineProps<{
   categories: string[]
   modelValue: string
 }>()

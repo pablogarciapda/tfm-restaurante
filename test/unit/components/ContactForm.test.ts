@@ -15,7 +15,6 @@ describe('ContactForm (CO-004)', () => {
     await wrapper.vm.$nextTick()
     // Should show at least one error message in Spanish
     const text = wrapper.text()
-    const hasError = text.includes('obligatorio') || text.includes('obligatorio')
     expect(text.length).toBeGreaterThan(0)
   })
 

@@ -47,7 +47,7 @@ const menuDelDia = computed(() => {
       <!-- 5 sections -->
       <template v-if="menuDelDia">
         <div
-          v-for="(seccion, idx) in menuDelDia.secciones"
+          v-for="seccion in menuDelDia.secciones"
           :key="seccion.nombre"
           class="mb-8"
         >

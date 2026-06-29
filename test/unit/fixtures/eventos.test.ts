@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mockEventos, type MockEvento } from '../../../shared/fixtures/eventos-mock'
+import { mockEventos } from '../../../shared/fixtures/eventos-mock'
 
 describe('Eventos mock fixture (EG-001, EG-002)', () => {
   it('should have between 4 and 6 events', () => {
