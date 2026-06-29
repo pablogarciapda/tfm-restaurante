@@ -48,29 +48,29 @@ Chain strategy: pending
 ## 2. Pages & Mock Fixtures (PR 2 — ~1,250 lines)
 
 ### 2.1 Mock data
-- [ ] 2.1.1 [TDD-RED → GREEN] `shared/fixtures/menu-diario-mock.ts`: 7-day entries, 5-section structure, ~18€. Test `test/unit/fixtures/menu-diario.test.ts`. (MD-004)
-- [ ] 2.1.2 [TDD-RED → GREEN] `shared/fixtures/eventos-mock.ts`: 4-6 events (festive+music/show), future dates. Test `test/unit/fixtures/eventos.test.ts`. (EG-001, EG-002)
-- [ ] 2.1.3 Enrich `shared/fixtures/carta-mock.ts` with `descripcion`, `imagen_url`, `alergenos`, `calorias` (typed, fill values). (CN-004)
+- [x] 2.1.1 [TDD-RED → GREEN] `shared/fixtures/menu-diario-mock.ts`: 7-day entries, 5-section structure, ~18€. Test `test/unit/fixtures/menu-diario.test.ts`. (MD-004)
+- [x] 2.1.2 [TDD-RED → GREEN] `shared/fixtures/eventos-mock.ts`: 4-6 events (festive+music/show), future dates. Test `test/unit/fixtures/eventos.test.ts`. (EG-001, EG-002)
+- [x] 2.1.3 Enrich `shared/fixtures/carta-mock.ts` with `descripcion`, `imagen_url`, `alergenos`, `calorias` (typed, fill values). (CN-004)
 
 ### 2.2 Carta components
-- [ ] 2.2.1 [TDD-RED → GREEN] `CategorySelector.vue`: horizontal scroll, desktop arrows, touch scroll mobile, active underline, v-model. Test `test/unit/components/CategorySelector.test.ts`. (CN-001, CN-002)
-- [ ] 2.2.2 [TDD-RED → GREEN] `ProductCard.vue`: image (aspect-square, loading=lazy), name, desc (line-clamp-2), price, allergen badges, placeholder on error. Test `test/unit/components/ProductCard.test.ts`. (CN-004, CN-007)
-- [ ] 2.2.3 [TDD-RED → GREEN] `ProductGrid.vue`: CSS Grid responsive 1/2/3/4 cols, empty-precio platos → SectionDivider, groups by category. Test `test/unit/components/ProductGrid.test.ts`. (CN-003, CN-005, CN-006)
+- [x] 2.2.1 [TDD-RED → GREEN] `CategorySelector.vue`: horizontal scroll, desktop arrows, touch scroll mobile, active underline, v-model. Test `test/unit/components/CategorySelector.test.ts`. (CN-001, CN-002)
+- [x] 2.2.2 [TDD-RED → GREEN] `ProductCard.vue`: image (aspect-square, loading=lazy), name, desc (line-clamp-2), price, allergen badges, placeholder on error. Test `test/unit/components/ProductCard.test.ts`. (CN-004, CN-007)
+- [x] 2.2.3 [TDD-RED → GREEN] `ProductGrid.vue`: CSS Grid responsive 1/2/3/4 cols, empty-precio platos → SectionDivider, groups by category. Test `test/unit/components/ProductGrid.test.ts`. (CN-003, CN-005, CN-006)
 
 ### 2.3 Home + menu-diario pages
-- [ ] 2.3.1 [TDD-RED → GREEN] Rewrite `app/pages/index.vue`: PageHero + 5 BaseCard grid (carta, menú, reservas, eventos, contacto) with NuxtLinks. Test `test/unit/pages/index.test.ts`.
-- [ ] 2.3.2 [TDD-GREEN] `app/pages/carta.vue`: PageHero + CategorySelector (scroll-spy IntersectionObserver in onMounted, process.client guard) + ProductGrid. (CN-001, CN-002, CN-006)
-- [ ] 2.3.3 [TDD-RED → GREEN] `app/pages/menu-diario.vue`: PageHero + price display + 5-section loop by `new Date().getDay()` + fallback day. Test `test/unit/pages/menu-diario.test.ts`. (MD-001, MD-002, MD-003)
+- [x] 2.3.1 [TDD-RED → GREEN] Rewrite `app/pages/index.vue`: PageHero + 5 BaseCard grid (carta, menú, reservas, eventos, contacto) with NuxtLinks. Test `test/unit/pages/index.test.ts`.
+- [x] 2.3.2 [TDD-GREEN] `app/pages/carta.vue`: PageHero + CategorySelector (scroll-spy IntersectionObserver in onMounted, process.client guard) + ProductGrid. (CN-001, CN-002, CN-006)
+- [x] 2.3.3 [TDD-RED → GREEN] `app/pages/menu-diario.vue`: PageHero + price display + 5-section loop by `new Date().getDay()` + fallback day. Test `test/unit/pages/menu-diario.test.ts`. (MD-001, MD-002, MD-003)
 
 ### 2.4 Eventos + Contacto components
-- [ ] 2.4.1 [TDD-RED → GREEN] `EventCard.vue`: date "DD de Mes", title, desc (3-line), placeholder image, "Reservar" → /reservas, soldOut badge, past-event badge. Test `test/unit/components/EventCard.test.ts`. (EG-002, EG-004)
-- [ ] 2.4.2 [TDD-GREEN] `app/pages/eventos.vue`: sort by date, upcoming first, responsive grid 1/2/3 cols, "No hay eventos" empty state. (EG-001, EG-003)
-- [ ] 2.4.3 [TDD-RED → GREEN] `ContactForm.vue`: nombre+email+mensaje(max500), Spanish validation errors, disable on submit. Test `test/unit/components/ContactForm.test.ts`. (CO-004)
-- [ ] 2.4.4 [TDD-RED → GREEN] `MapEmbed.vue`: iframe (loading=lazy, title attr), fallback text. Test `test/unit/components/MapEmbed.test.ts`. (CO-002)
-- [ ] 2.4.5 [TDD-GREEN] `app/pages/contacto.vue`: business hours table (CO-001), MapEmbed, clickable tel:+mailto: (CO-003), ContactForm. Also create `server/api/contacto.post.ts`: mock endpoint returns 200 `{success:true}`.
+- [x] 2.4.1 [TDD-RED → GREEN] `EventCard.vue`: date "DD de Mes", title, desc (3-line), placeholder image, "Reservar" → /reservas, soldOut badge, past-event badge. Test `test/unit/components/EventCard.test.ts`. (EG-002, EG-004)
+- [x] 2.4.2 [TDD-GREEN] `app/pages/eventos.vue`: sort by date, upcoming first, responsive grid 1/2/3 cols, "No hay eventos" empty state. (EG-001, EG-003)
+- [x] 2.4.3 [TDD-RED → GREEN] `ContactForm.vue`: nombre+email+mensaje(max500), Spanish validation errors, disable on submit. Test `test/unit/components/ContactForm.test.ts`. (CO-004)
+- [x] 2.4.4 [TDD-RED → GREEN] `MapEmbed.vue`: iframe (loading=lazy, title attr), fallback text. Test `test/unit/components/MapEmbed.test.ts`. (CO-002)
+- [x] 2.4.5 [TDD-GREEN] `app/pages/contacto.vue`: business hours table (CO-001), MapEmbed, clickable tel:+mailto: (CO-003), ContactForm. Also create `server/api/contacto.post.ts`: mock endpoint returns 200 `{success:true}`.
 
 ### 2.5 Integration
-- [ ] 2.5.1 Write `test/nuxt/public-pages.test.ts`: SSR `$fetch` all 6 pages → 200 + Spanish content. Run → green.
+- [x] 2.5.1 Write `test/nuxt/public-pages.test.ts`: SSR `$fetch` all 6 pages → 200 + Spanish content. Run → green (blocked by @nuxt/test-utils@4.0.3 bun:test import — pre-existing infra issue).
 
 ## 3. SMS Module & Reservas (PR 3 — ~820 lines)
 
