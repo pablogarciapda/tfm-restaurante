@@ -68,4 +68,4 @@ Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, L
 ## SDD Status
 
 - **Change #1** `bootstrap-nuxt-app` — ARCHIVED 2026-06-28 (Nuxt 4.4.8 scaffold + TDD tooling foundation).
-- **Change #2** `public-pages-design` — IN PLANNING (proposal + spec + design complete; tasks pending). 6 public pages with mock data + provider-agnostic SMS verification module.
+- **Change #2** `public-pages-design` — ARCHIVED 2026-06-29 (6 public pages + SMS verification module + mock data, 202 vitest tests + 14 playwright, 87.86% coverage, 38/38 reqs + 104/104 scenarios verified).
