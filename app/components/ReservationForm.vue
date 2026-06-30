@@ -48,7 +48,7 @@ function validate(): boolean {
   if (!email.value.trim()) {
     newErrors.email = 'El email es obligatorio'
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
-    newErrors.email = 'Email no valido'
+    newErrors.email = 'Email no válido'
   }
 
   if (!fecha_hora.value) {

@@ -49,7 +49,7 @@ describe('ReservationForm (RF-001)', () => {
     const wrapper = mount(ReservationForm)
     await wrapper.find('#email').setValue('not-an-email')
     await wrapper.find('form').trigger('submit.prevent')
-    expect(wrapper.text()).toContain('Email no valido')
+    expect(wrapper.text()).toContain('Email no válido')
   })
 
   it('shows error when fecha_hora is not future', async () => {
