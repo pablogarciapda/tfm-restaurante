@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.9",
+    "@supabase/supabase-js": "^2.108.2",
     "nuxt": "4.4.8",
     "vue": "latest",
     "vue-router": "latest"
