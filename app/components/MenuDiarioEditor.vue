@@ -32,7 +32,6 @@ interface MenuItem {
 const selectedDay = ref(0)
 const configs = ref<Config[]>([])
 const items = ref<MenuItem[]>([])
-const loading = ref(false)
 
 const newDish = reactive({ plato_nombre: '', descripcion: '', seccion: 'primer' })
 

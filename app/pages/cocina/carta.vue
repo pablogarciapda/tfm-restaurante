@@ -122,7 +122,7 @@ onMounted(() => {
     <!-- Form -->
     <div v-if="showForm" class="mb-6">
       <PlatoForm
-        :initial-plato="editingPlato as Record<string, unknown> | null"
+        :initial-plato="editingPlato ?? undefined"
         @submit="handleSubmit"
         @cancel="handleCancel"
       />

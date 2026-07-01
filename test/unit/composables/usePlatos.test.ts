@@ -128,16 +128,11 @@ describe('usePlatos composable (CN-006)', () => {
       { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'Ensaladas', puesto: 2, disponible: true },
     ]
 
-    g.useAsyncData = (_key: string, fn: () => Promise<unknown>) => {
-      // Execute fn and get the resolved result
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(fn() as Promise<any>).then(() => { /* noop */ })
-      return {
-        data: ref(mockPlatos),
-        error: ref(null),
-        pending: ref(false),
-      }
-    }
+    g.useAsyncData = (_key: string, _fn: () => Promise<unknown>) => ({
+      data: ref(mockPlatos),
+      error: ref(null),
+      pending: ref(false),
+    })
 
     const { data } = await getUsePlatos()
     expect(data.value).toEqual(mockPlatos)
@@ -146,7 +141,7 @@ describe('usePlatos composable (CN-006)', () => {
   it('respects useAsyncData cache key "platos"', async () => {
     let capturedKey = ''
 
-    g.useAsyncData = (key: string, fn: () => Promise<unknown>) => {
+    g.useAsyncData = (key: string, _fn: () => Promise<unknown>) => {
       capturedKey = key
       return {
         data: ref(null),

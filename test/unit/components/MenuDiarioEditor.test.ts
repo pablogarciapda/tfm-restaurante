@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { ref } from 'vue'
 
 function createChain(value: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

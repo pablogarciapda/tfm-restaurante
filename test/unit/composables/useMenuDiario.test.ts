@@ -67,7 +67,6 @@ const mockUseSupabaseClient = () => ({
 const g = globalThis as Record<string, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 g.computed = computed as any
-let capturedKey = ''
 
 describe('useMenuDiario composable (MD-004, MD-005)', () => {
   beforeEach(() => {
@@ -75,18 +74,14 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     fromSpies.length = 0
     mockConfig = null
     mockDishes.length = 0
-    capturedKey = ''
 
     g.useSupabaseClient = mockUseSupabaseClient
 
-    g.useAsyncData = (key: string, _fn: () => Promise<unknown>) => {
-      capturedKey = key
-      return {
-        data: ref(null),
-        error: ref(null),
-        pending: ref(false),
-      }
-    }
+    g.useAsyncData = (_key: string, _fn: () => Promise<unknown>) => ({
+      data: ref(null),
+      error: ref(null),
+      pending: ref(false),
+    })
   })
 
   async function getUseMenuDiario() {
@@ -106,9 +101,9 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
 
     // Set up mock config for today
     mockConfig = { id: 'cfg-1', day_of_week: new Date().getDay(), precio: '16', activo: true }
-    const result = await capturedFn!()
+    await capturedFn!()
 
-    // Verify config query with both filters
+    // Verify config query
     const configSpy = fromSpies.find((s) => s.table === 'menu_diario_config')
     expect(configSpy).toBeDefined()
     expect(configSpy!.methods).toContain('select')
@@ -129,11 +124,7 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     let capturedFn: (() => Promise<unknown>) | null = null
     g.useAsyncData = (_key: string, fn: () => Promise<unknown>) => {
       capturedFn = fn
-      return {
-        data: ref(null),
-        error: ref(null),
-        pending: ref(false),
-      }
+      return { data: ref(null), error: ref(null), pending: ref(false) }
     }
 
     await getUseMenuDiario()
@@ -190,7 +181,6 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
   })
 
   it('returns null when config exists but is inactive', async () => {
-    // The query filters activo=true, so an inactive config won't be returned
     mockConfig = null // simulate no active config
 
     let capturedFn: (() => Promise<unknown>) | null = null

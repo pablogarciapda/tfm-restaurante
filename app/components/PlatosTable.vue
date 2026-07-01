@@ -4,8 +4,6 @@
   Emits edit/delete for row actions.
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
 interface Plato {
   id: string
   nombre: string

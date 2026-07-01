@@ -3,9 +3,8 @@
  *
  * Sortable table: nombre, categoria, precio, disponible toggle, edit/delete.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { ref } from 'vue'
 
 const g = globalThis as Record<string, unknown>
 g.useSupabaseClient = () => ({

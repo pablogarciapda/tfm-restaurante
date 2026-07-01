@@ -76,7 +76,7 @@ onMounted(() => loadEventos())
     </div>
 
     <div v-if="showForm" class="mb-6">
-      <EventoForm :initial-evento="editingEvento as Record<string, unknown> | null" @submit="handleSubmit" @cancel="showForm = false; editingEvento = null" />
+      <EventoForm :initial-evento="editingEvento ?? undefined" @submit="handleSubmit" @cancel="showForm = false; editingEvento = null" />
     </div>
 
     <EventosTable v-else :eventos="eventos" @edit="handleEdit" @delete="handleDelete" @toggle-activo="handleToggleActivo" />
