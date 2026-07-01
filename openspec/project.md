@@ -5,7 +5,7 @@
 Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, León, Spain; www.lazingara.es). Two surfaces:
 
 - **Public website** (SSR, SEO): home, carta, menú diario, reservas, eventos, contacto.
-- **Admin panel** at `/cocina/**` (SPA, auth-protected): dashboard, CRUD platos/menús/eventos, and a Konva.js Canvas table manager with table-fusion logic + Realtime sync.
+- **Admin panel** at `/cocina/**` (SPA, auth-protected): dashboard, CRUD platos/menús/eventos, configuracion, usuarios, and a Konva.js Canvas table manager with table-fusion logic + Realtime sync.
 
 ## Stack
 
@@ -23,16 +23,23 @@ Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, L
 
 - **Nuxt 4 `srcDir: app/`**: pages, components, composables, layouts, middleware, plugins, stores, utils, assets, app.vue live under `app/`. Root keeps `server/`, `public/`, `shared/`, `nuxt.config.ts`.
 - **File-based routing**: `app/pages/**` → public SSR routes; `/cocina/**` guarded by Nuxt middleware with `routeRules: { '/cocina/**': { ssr: false } }` for SPA mode.
+- **Middleware chain (3-tier)**: `auth.ts` (session check) → `role.ts` (profile load, set $role/$permissions) → `permissions.ts` (route→resource map, jsonb check). Registered in order.
 - **Modular by domain**: each module has single responsibility + low coupling. Cross-module interaction only via interfaces/contracts/events — never via internal references.
 - **Shared contracts**: `shared/` is auto-imported on both client and server in Nuxt 4. Contracts (`shared/contracts/`), types (`shared/types/`), utils (`shared/utils/`), fixtures (`shared/fixtures/`).
-- **Server routes over separate backend**: Nuxt Nitro handles API; Supabase handles auth/data.
+- **Server routes over separate backend**: Nuxt Nitro handles API; Supabase handles auth/data. Server routes in `server/api/cocina/` use `serverSupabaseServiceRole` for admin operations.
 
 ## Data Model (PostgreSQL / Supabase)
 
+- `profiles` (`id` uuid PK FK→auth.users, `role` text, `permissions` jsonb, `activo` boolean)
+- `platos` (`nombre`, `descripcion`, `precio`, `categoria`, `tipo_menu`, `imagen_url`, `disponible`, `calorias`, `alergenos text[]`, `puesto`)
+- `eventos` (`titulo`, `descripcion`, `fecha`, `categoria`, `imagen_url`, `activo`)
+- `menu_diario_config` (`dia_semana` int 0-6, `activo` bool, `precio` numeric)
+- `menu_diario_items` (`config_id` FK, `seccion` text, `nombre`, `descripcion`)
 - `configuracion` (`cliente_elige_mesa`, `capacidad_total_local`)
-- `platos` (`nombre`, `descripcion`, `precio`, `categoria`, `tipo_menu`, `imagen_url`, `disponible`, `calorias`, `alergenos text[]`)
 - `mesas` (`numero_mesa`, `capacidad_base`, `posicion_x/y`, `ancho`, `alto`, `rotacion`, `zona`, `mesa_padre_id` FK, `id_fusion`, `capacidad_actual`)
 - `reservas` (`nombre_cliente`, `telefono`, `email`, `fecha_hora`, `numero_comensales`, `estado`, `mesa_id` FK)
+
+**Permissions**: 2 roles (admin/editor). Editor permissions stored as jsonb: `{carta, menu_diario, eventos, reservas, configuracion, usuarios}`. RLS enforced via `can_write(resource)` Postgres function. Auth trigger auto-creates profiles row on `auth.users` INSERT.
 
 **Table fusion**: two+ tables join logically → shared `id_fusion` + `mesa_padre_id`. Realistic capacity: two 4-seat tables fused seat 6 (not 8). Occupation subtracts from configurable `capacidad_total_local`.
 
@@ -40,7 +47,7 @@ Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, L
 
 - **Vue 3**: Composition API with `<script setup>` + TypeScript. NEVER Options API.
 - **Tailwind**: utility-first; avoid custom CSS except justified cases (Tailwind v4 `@theme` for tokens).
-- **Supabase**: access via `@supabase/supabase-js`; never expose `service_role` key on the client.
+- **Supabase**: access via `@nuxtjs/supabase`; never expose `service_role` key on the client.
 - **DB migrations**: always via Supabase migration tool; never hardcode generated IDs.
 - **RLS**: required on ALL Supabase tables. Run `supabase_get_advisors(type=security)` after schema changes.
 - **Testing**: TDD (Test-Driven Development). Tests written before or alongside implementation. `strict_tdd: true` in `openspec/config.yaml`.
@@ -61,11 +68,12 @@ Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, L
 
 ## Roadmap
 
-- **Phase 1 — MVP Usuario** (current): public frontend, SEO local, carta/menú read, form reservations.
-- **Phase 2 — Panel & Auth**: blind route `/cocina`, Supabase Auth, navigation, CRUDs.
-- **Phase 3 — Motor de Mesas**: Konva.js table plan, fusion logic in DB, Realtime sync.
+- **Phase 1 — MVP Usuario** (complete): public frontend, SEO local, carta/menú read, form reservations.
+- **Phase 2 — Panel & Auth** (complete): blind route `/cocina`, Supabase Auth, navigation, CRUDs, public migration.
+- **Phase 3 — Motor de Mesas** (next): Konva.js table plan, fusion logic in DB, Realtime sync.
 
 ## SDD Status
 
 - **Change #1** `bootstrap-nuxt-app` — ARCHIVED 2026-06-28 (Nuxt 4.4.8 scaffold + TDD tooling foundation).
 - **Change #2** `public-pages-design` — ARCHIVED 2026-06-29 (6 public pages + SMS verification module + mock data, 202 vitest tests + 14 playwright, 87.86% coverage, 38/38 reqs + 104/104 scenarios verified).
+- **Change #3** `panel-auth` — ARCHIVED 2026-07-01 (8 admin pages + Supabase Auth + 2 roles + permissions JSON + 7-table DB + RLS + public migration. 384 tests, 82.22% coverage, 53/53 reqs + 75/75 scenarios verified). Next: Phase 3 (Konva mesas).

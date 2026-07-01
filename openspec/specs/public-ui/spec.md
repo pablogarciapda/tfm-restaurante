@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Shared design system and reusable UI components for all public pages. Establishes the visual identity (terracotta+cream+slate palette, serif+sans typography) and layout primitives consumed by `/`, `/carta`, `/menu-diario`, `/reservas`, `/eventos`, and `/contacto`.
+Shared design system and reusable UI components for all La Zíngara pages — public and admin. Establishes the visual identity (terracotta+cream+slate palette, serif+sans typography) and layout primitives consumed by `/`, `/carta`, `/menu-diario`, `/reservas`, `/eventos`, `/contacto`, and `/cocina/**`.
 
 ## Requirements
 
@@ -16,6 +16,8 @@ Shared design system and reusable UI components for all public pages. Establishe
 | PU-006 | BaseCard — default slot, optional image prop (object-cover top), rounded shadow, cream bg | MUST | Unit |
 | PU-007 | PageHero — title (h1), optional subtitle + background image | SHOULD | Unit |
 | PU-008 | SectionDivider — horizontal rule with optional label, role="separator" | SHOULD | Unit |
+| PU-009 | AdminSidebar — vertical navigation for `/cocina/**`, permission-aware link visibility, mobile collapsible | MUST | Unit |
+| PU-010 | Admin layout shell — sidebar + topbar + main content for all `/cocina/**` pages | MUST | Unit |
 
 ### Requirement: PU-001 — Design Tokens
 
@@ -87,6 +89,27 @@ The system SHOULD provide SectionDivider: horizontal rule with optional label te
 |----------|-------|------|------|
 | Labeled divider | label="ENTRANTES" | Mount | Line with "ENTRANTES" visible; role="separator" |
 
+### Requirement: PU-009 — Admin Sidebar Navigation
+
+The system MUST provide an `AdminSidebar` component for all `/cocina/**` pages. It SHALL render a vertical navigation with links: **"Panel de Control"** (`/cocina/dashboard`), **"Carta"** (`/cocina/carta`), **"Menú Diario"** (`/cocina/menu-diario`), **"Eventos"** (`/cocina/eventos`), **"Reservas"** (`/cocina/reservas`), **"Configuración"** (`/cocina/configuracion`), **"Usuarios"** (`/cocina/usuarios`). Active link SHALL be highlighted. Links the user lacks permission for SHALL be hidden (not just disabled). The sidebar SHALL be collapsible on mobile (<768px) via hamburger toggle.
+
+| Scenario | GIVEN | WHEN | THEN |
+|----------|-------|------|------|
+| Admin sees all links | Admin user is authenticated | Viewing any `/cocina/**` page | Sidebar shows all 7 navigation links; current page highlighted |
+| Editor sees permitted links only | Editor with only `carta`, `menu_diario`, `eventos` permissions | Viewing any `/cocina/**` page | Sidebar shows: Panel de Control, Carta, Menú Diario, Eventos, Reservas; Configuración and Usuarios hidden |
+| Mobile sidebar collapses | Viewport < 768px | Hamburger toggled | Sidebar collapses/expands without page reload |
+
+### Requirement: PU-010 — Admin Layout Shell
+
+The system MUST provide an admin layout (`app/layouts/cocina.vue`) wrapping all `/cocina/**` pages. It SHALL include: `AdminSidebar` (left, fixed width), main content area (right, scrollable), and a top bar with user email + logout button **"Cerrar sesión"**. The layout MUST use the same design tokens as public pages (terracotta, cream, slate). Admin pages are SPA (`ssr: false`), so no SSR hydration applies.
+
+(Previously: No admin layout existed — Phase 1 was public-only)
+
+| Scenario | GIVEN | WHEN | THEN |
+|----------|-------|------|------|
+| Admin layout renders | Authenticated user on any `/cocina/**` page | Page renders | Sidebar on left, content area fills remaining width; top bar shows user email and "Cerrar sesión" |
+| Logout from admin layout | User is on `/cocina/carta` | User clicks "Cerrar sesión" in top bar | Session cleared; redirected to `/cocina` |
+
 ## Edge Cases
 
 - **Mobile nav**: hamburger accessible via keyboard (Enter/Space), focus trapped when open
@@ -94,3 +117,4 @@ The system SHOULD provide SectionDivider: horizontal rule with optional label te
 - **Font fallback**: if `@nuxt/fonts` fails, serif fallback = Georgia; sans fallback = system-ui
 - **Button focus**: visible focus ring (outline or ring) on keyboard focus
 - **Card image**: broken image → show placeholder gradient; alt text required
+- **Admin sidebar**: permission-conditional rendering uses `v-if` so unauthorized links are excluded from DOM, not just hidden
