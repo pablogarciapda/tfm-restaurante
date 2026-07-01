@@ -5,8 +5,8 @@ export default defineNuxtConfig({
   ssr: true,
   compatibilityDate: '2026-06-28',
 
-  // ESLint flat config (v1.x) + font loading
-  modules: ['@nuxt/eslint', '@nuxt/fonts'],
+  // ESLint flat config (v1.x) + font loading + Supabase
+  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase'],
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)
   fonts: {
