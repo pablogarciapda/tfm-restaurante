@@ -2,26 +2,28 @@
 
 ## Purpose
 
-Events listing page at `/eventos`. Displays upcoming restaurant events (festive + music/show) sourced from mock data. Each event card shows date, title, description, placeholder image, and a "Reservar" CTA button.
+Events listing page at `/eventos`. Displays upcoming restaurant events (festive + music/show) sourced from Supabase `eventos` table. Each event card shows date, title, description, placeholder image, and a "Reservar" CTA button.
 
 ## Requirements
 
 | ID | Requirement | RFC 2119 | Test Layer |
 |----|------------|----------|------------|
-| EG-001 | Display 4-6 mock events from `shared/fixtures/eventos-mock.ts`. Upcoming events first; past events MAY be hidden or marked. | MUST | Unit |
+| EG-001 | Events sourced from Supabase `eventos` table via `useEventos()` composable. Upcoming events only (activo=true, fecha >= today). | MUST | Unit |
 | EG-002 | Event card fields: `fecha` (date), `titulo`, `descripcion`, `imagen_url` (placeholder), `categoria` (festivo|espectaculo), CTA "Reservar". | MUST | Unit |
 | EG-003 | Responsive grid: 1 col mobile, 2 tablet, 3 desktop. Cards equal height within row. | MUST | Unit |
 | EG-004 | Categories: "Eventos Festivos" (Navidad, Nochevieja, San Valentín, verano) and "Espectáculos" (flamenco, mago, comedia + cena). Visual distinction via badge or section grouping. | SHOULD | Unit |
 
 ### Requirement: EG-001 — Events Listing
 
-The system MUST render 4-6 mock events from `shared/fixtures/eventos-mock.ts`. Events MUST be sorted by date ascending (upcoming first). Past events (date < today) SHALL be visually marked as "Evento pasado" or hidden by default. The page SHALL show "Próximos eventos" as heading.
+The system MUST source event data from Supabase `eventos` table via `useEventos()` composable using `useAsyncData`. Events MUST be filtered where `activo=true` and sorted by `fecha ASC` (upcoming first). Past events SHALL NOT appear (filtered by `fecha >= CURRENT_DATE`). The mock fixture `shared/fixtures/eventos-mock.ts` is retired as a data source; its data becomes DB seed. The page SHALL show **"Próximos eventos"** as heading. Empty state: **"No hay eventos programados"**.
+
+(Previously: Sourced 4-6 mock events from `shared/fixtures/eventos-mock.ts` with past events marked "Evento pasado")
 
 | Scenario | GIVEN | WHEN | THEN |
 |----------|-------|------|------|
-| Upcoming events shown | Mock has 4 future events | Page loads at `/eventos` | 4 cards rendered; past events hidden or marked |
-| No events available | Mock array empty | Page loads | "No hay eventos programados" message shown |
-| Past events marked | Mock has 1 past + 3 future | Page loads | Past event shows "Evento pasado" badge; 3 future cards normal |
+| Upcoming events from Supabase | `eventos` table has 3 future events with activo=true and 1 inactive event | `/eventos` page loads | 3 active future events rendered; inactive event hidden |
+| No events available | `eventos` table returns empty or all events are inactive/past | `/eventos` loads | **"No hay eventos programados"** message shown |
+| Supabase fetch error | Supabase is unreachable | `/eventos` attempts to fetch | Error state **"Error al cargar los eventos"** is shown; no crash |
 
 ### Requirement: EG-002 — Event Card Fields
 
@@ -54,8 +56,8 @@ The system SHOULD distinguish event categories: "Eventos Festivos" (Navidad, Noc
 
 ## Edge Cases
 
-- **Sold-out event**: if mock includes `soldOut: true`, CTA disabled with "Agotado" text
+- **Sold-out event**: if data includes `soldOut: true`, CTA disabled with "Agotado" text
 - **Missing image**: imagen_url empty → show gradient placeholder + "Imagen no disponible" alt text
 - **Long title**: title > 50 chars → truncated to 2 lines with ellipsis
 - **Empty description**: descripcion missing → omit description line, don't leave empty space
-- **SSR**: all events render on server; client hydrates — no mismatch (static mock data)
+- **SSR**: all events render on server; client hydrates with Supabase data
