@@ -24,11 +24,9 @@ test.describe('Cocina Admin Panel', () => {
 
     // Email and password fields should exist
     const emailInput = page.locator('input[type="email"]')
-    const passwordInput = page.locator('input[type="password"]')
 
     // At least one of these should be visible (depends on auth state)
     const emailVisible = await emailInput.isVisible().catch(() => false)
-    const passwordVisible = await passwordInput.isVisible().catch(() => false)
 
     // If not authenticated, login form should show
     if (emailVisible) {
