@@ -41,17 +41,17 @@ Chain strategy: pending
 
 ## 2. Auth + Middleware + Layout + Dashboard (PR 2 — ~700 lines)
 
-- [ ] 2.1 [TDD:RED→GREEN] `app/middleware/auth.ts`: check session; unauthenticated → redirect `/cocina`. (AUTH-003, AR-005)
-- [ ] 2.2 [TDD:RED→GREEN] `app/middleware/role.ts`: load `profiles` row; set `$role`+`$permissions`; missing profile → force logout. (PERM-001, PERM-005, AR-005)
-- [ ] 2.3 [TDD:RED→GREEN] `app/middleware/permissions.ts`: map route→resource; check jsonb; denied → redirect `/cocina/dashboard`. (PERM-005, AR-005)
-- [ ] 2.4 [TDD:RED→GREEN] `app/composables/useAuth.ts`: wrap `useSupabaseClient().auth` signIn/signOut/onAuthStateChange. (AUTH-001, AUTH-004)
-- [ ] 2.5 [TDD:RED→GREEN] `app/pages/cocina/index.vue`: login form email+password, error state, auth redirect. (AUTH-001, AUTH-005)
-- [ ] 2.6 [TDD:RED→GREEN] `app/layouts/cocina.vue`: sidebar + main + topbar (email + logout). ClientOnly. (PU-010)
-- [ ] 2.7 [TDD:RED→GREEN] `app/components/AdminSidebar.vue`: 7 nav links, active highlight, hide unauthorized, hamburger <768px. (PU-009)
-- [ ] 2.8 [TDD:RED→GREEN] `app/components/MetricCard.vue`: label + value + icon slot. (DASH-001)
-- [ ] 2.9 [TDD:RED→GREEN] `app/composables/useDashboard.ts`: parallel `useAsyncData` for 3 metrics. (DASH-002, DASH-003, DASH-004)
-- [ ] 2.10 [TDD:RED→GREEN] `app/pages/cocina/dashboard.vue`: 3 MetricCards; read-only. (DASH-001 to DASH-005)
-- [ ] 2.11 [GATE] All middleware tests green; login→dashboard flow verified.
+- [x] 2.1 [TDD:RED→GREEN] `app/middleware/auth.ts`: check session; unauthenticated → redirect `/cocina`. (AUTH-003, AR-005)
+- [x] 2.2 [TDD:RED→GREEN] `app/middleware/role.ts`: load `profiles` row; set `$role`+`$permissions`; missing profile → force logout. (PERM-001, PERM-005, AR-005)
+- [x] 2.3 [TDD:RED→GREEN] `app/middleware/permissions.ts`: map route→resource; check jsonb; denied → redirect `/cocina/dashboard`. (PERM-005, AR-005)
+- [x] 2.4 [TDD:RED→GREEN] `app/composables/useAuth.ts`: wrap `useSupabaseClient().auth` signIn/signOut/onAuthStateChange. (AUTH-001, AUTH-004)
+- [x] 2.5 [TDD:RED→GREEN] `app/pages/cocina/index.vue`: login form email+password, error state, auth redirect. (AUTH-001, AUTH-005)
+- [x] 2.6 [TDD:RED→GREEN] `app/layouts/cocina.vue`: sidebar + main + topbar (email + logout). ClientOnly. (PU-010)
+- [x] 2.7 [TDD:RED→GREEN] `app/components/AdminSidebar.vue`: 7 nav links, active highlight, hide unauthorized, hamburger <768px. (PU-009)
+- [x] 2.8 [TDD:RED→GREEN] `app/components/MetricCard.vue`: label + value + icon slot. (DASH-001)
+- [x] 2.9 [TDD:RED→GREEN] `app/composables/useDashboard.ts`: parallel `useAsyncData` for 3 metrics. (DASH-002, DASH-003, DASH-004) — IMPLEMENTED INLINE in dashboard page
+- [x] 2.10 [TDD:RED→GREEN] `app/pages/cocina/dashboard.vue`: 3 MetricCards; read-only. (DASH-001 to DASH-005)
+- [x] 2.11 [GATE] All middleware tests green; login→dashboard flow verified.
 
 ## 3. CRUDs + Public Migration (PR 3 — ~1,350 lines)
 
