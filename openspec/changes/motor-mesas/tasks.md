@@ -38,12 +38,12 @@ Chain strategy: pending
 
 ## 2. Canvas Core (PR 2 — ~550 lines)
 
-- [ ] 2.1 [TDD:RED→GREEN] `app/stores/canvas-store.ts` (Pinia): `selectedId`, `fusionMode`, `occupancyMode`, `mesas[]`. `test/unit/stores/canvas-store.test.ts`. (AD-03)
-- [ ] 2.2 [TDD:RED→GREEN] `app/features/mesas/components/TableNode.vue`: `v-group(Rect+Text(num,pax))`, status fill from reservas (#22C55E/#EF4444/#F59E0B). Test: color transitions. (MCA-005)
-- [ ] 2.3 [TDD:RED→GREEN] `app/features/mesas/components/ZoneSection.vue`: 5 labeled zone rects, background layer (`listening:false`, `cache()`). Test: zones render. (MCA-002)
-- [ ] 2.4 [TDD:RED→GREEN] `app/features/mesas/composables/useMesas.ts`: `useAsyncData` from `server/api/cocina/mesas/list`. Realtime skeleton. `test/integration/composables/useMesas.test.ts`.
-- [ ] 2.5 [TDD:RED→GREEN] `app/features/mesas/components/TableCanvas.vue`: `v-stage` 3-layer (bg `listening:false` + main + drag), `v-for`→TableNode on main layer, `perfectDrawEnabled:false`, `batchDraw`. Test: renders tables. (MCA-001/008)
-- [ ] 2.6 Replace `app/pages/cocina/reservas.vue` placeholder → `TableCanvas` + `canvas-store`, `ClientOnly` wrapper.
+- [x] 2.1 [TDD:RED→GREEN] `app/features/mesas/stores/canvas-store.ts` (Pinia): `selectedMesaId`, `mesas[]`, `parentMesas` getter, CRUD actions. `test/unit/stores/canvas-store.test.ts` (24 tests green). (AD-03)
+- [x] 2.2 [TDD:RED→GREEN] `app/features/mesas/components/TableNode.vue`: v-group(Rect+Text(num+pax)), status fill (#22C55E/#EF4444/#F59E0B), selected=#C67B5C, fused=strokeDash. `test/unit/components/TableNode.test.ts` (18 tests green). (MCA-005)
+- [x] 2.3 [TDD:RED→GREEN] `app/features/mesas/components/ZoneSection.vue`: 5 labeled zone rects with correct colors (#E8D5C4 etc.), semi-transparent, background layer ready. `test/unit/components/ZoneSection.test.ts` (12 tests green). (MCA-002)
+- [x] 2.4 [TDD:RED→GREEN] `app/features/mesas/composables/useMesas.ts`: loadMesas, createMesa, updateMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime. `test/unit/composables/useMesas.test.ts` (8 tests green).
+- [x] 2.5 [TDD:RED→GREEN] `app/features/mesas/components/TableCanvas.vue`: v-stage 3-layer (bg listening:false + main + drag), v-for→TableNode, v-transformer, ZoneSections, on-demand import, pixelRatio limit. `test/unit/components/TableCanvas.test.ts` (10 tests green). (MCA-001/008)
+- [x] 2.6 Replace `app/pages/cocina/reservas.vue` placeholder → TableCanvas + "Gestor de Mesas" title, loadMesas on mount, subscribeRealtime/unsubscribeRealtime. `test/unit/pages/cocina/reservas.test.ts` (6 tests green).
 - [ ] 2.7 [GATE] `/cocina/reservas` renders zones + tables; vitest green.
 
 ## 3. CRUD + Toolbar + Aforo (PR 3 — ~500 lines)

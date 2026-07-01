@@ -1,12 +1,16 @@
 /**
- * TDD: RED → GREEN → TRIANGULATE — /cocina/reservas placeholder
+ * TDD: RED → GREEN → TRIANGULATE — /cocina/reservas page (MCA-008)
  *
- * Permission-controlled placeholder: "Próximamente" message.
- * Middleware: auth, role, permissions (reservas).
+ * Replaces placeholder with TableCanvas + "Gestor de Mesas" title.
+ * Uses TableCanvas component (stubbed), loads mesas on mount,
+ * subscribes/unsubscribes Realtime on mount/unmount.
+ *
+ * Middleware: auth, role, permissions (reservas). Layout: cocina.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { ref } from 'vue'
+import { ref, defineComponent, h } from 'vue'
+import { setActivePinia, createPinia } from 'pinia'
 
 // ── Nuxt auto-import mocks ──
 const userRef = ref({ id: 'editor-1', email: 'editor@test.com' })
@@ -34,35 +38,87 @@ g.definePageMeta = vi.fn()
 g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina/reservas' })
 
-describe('/cocina/reservas placeholder', () => {
+// Mock useMesas composable
+vi.mock('../../../../app/features/mesas/composables/useMesas', () => ({
+  useMesas: () => ({
+    loadMesas: vi.fn().mockResolvedValue(undefined),
+    createMesa: vi.fn(),
+    updateMesa: vi.fn(),
+    deleteMesa: vi.fn(),
+    subscribeRealtime: vi.fn(),
+    unsubscribeRealtime: vi.fn(),
+  }),
+}))
+
+// Stub TableCanvas — renders a placeholder div
+const TableCanvasStub = defineComponent({
+  setup() {
+    return () => h('div', { 'data-testid': 'table-canvas' }, 'Canvas')
+  },
+})
+
+// ============================================================================
+// /cocina/reservas Page Tests
+// ============================================================================
+
+describe('/cocina/reservas — table manager page', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
   async function mountPage() {
     const mod = await import('../../../../app/pages/cocina/reservas.vue')
-    return mount(mod.default)
+    return mount(mod.default, {
+      global: {
+        stubs: {
+          TableCanvas: TableCanvasStub,
+        },
+      },
+    })
   }
 
-  // ── RED: Shows "Gestor de Reservas" heading ──
-  it('renders "Gestor de Reservas" heading', async () => {
+  // ── Page heading ──
+
+  it('renders "Gestor de Mesas" heading', async () => {
     const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('Gestor de Reservas')
+    expect(wrapper.text()).toContain('Gestor de Mesas')
   })
 
-  // ── RED: Shows "Próximamente" text ──
-  it('renders "Próximamente" placeholder text', async () => {
+  // ── TableCanvas rendering ──
+
+  it('renders the TableCanvas component', async () => {
     const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('Próximamente')
+    expect(wrapper.find('[data-testid="table-canvas"]').exists()).toBe(true)
   })
 
-  // ── RED: Shows explanatory message about interactive floor plan ──
-  it('mentions the interactive floor plan coming in a future phase', async () => {
-    const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('plano interactivo')
-  })
+  // ── Page meta middleware ──
 
-  // ── RED: Has definePageMeta with middleware ──
   it('registers definePageMeta with auth, role, and permissions middleware', async () => {
     await mountPage()
     expect(g.definePageMeta).toHaveBeenCalled()
     const callArgs = (g.definePageMeta as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(callArgs.middleware).toBeDefined()
+    expect(callArgs.middleware).toContain('auth')
+    expect(callArgs.middleware).toContain('role')
+    expect(callArgs.middleware).toContain('permissions')
+  })
+
+  it('page meta includes layout: cocina', async () => {
+    await mountPage()
+    const callArgs = (g.definePageMeta as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(callArgs.layout).toBe('cocina')
+  })
+
+  // ── Removed placeholder assertions ──
+
+  it('no longer shows "Próximamente" placeholder text', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.text()).not.toContain('Próximamente')
+  })
+
+  it('no longer references interactive floor plan as future feature', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.text()).not.toContain('plano interactivo')
   })
 })

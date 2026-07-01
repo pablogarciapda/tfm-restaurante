@@ -26,7 +26,13 @@ export default defineNuxtConfig({
 
   // Auto-import dirs
   imports: {
-    dirs: ['app/stores', 'shared/types', 'shared/contracts', 'shared/utils'],
+    dirs: [
+      'app/stores',
+      'app/features/mesas/stores',
+      'shared/types',
+      'shared/contracts',
+      'shared/utils',
+    ],
   },
 
   // Tailwind v4 CSS-first
