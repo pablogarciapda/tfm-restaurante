@@ -75,8 +75,6 @@ describe('AforoIndicator', () => {
       },
     })
 
-    const bar = wrapper.find('.h-2\\.5 + div > div') // inner filled bar
-    // The progress bar inner div should have style width 40%
     const allDivs = wrapper.findAll('div')
     const progressBar = allDivs.filter(
       (d) => d.attributes('style')?.includes('width'),

@@ -12,21 +12,6 @@
 
 // ── Types ──
 
-interface MesaRecord {
-  id?: string
-  numero_mesa: number
-  capacidad_base: number
-  posicion_x: number
-  posicion_y: number
-  ancho: number
-  alto: number
-  rotacion: number
-  zona: string
-  mesa_padre_id?: string | null
-  id_fusion?: string | null
-  capacidad_actual?: number
-}
-
 interface SupabaseAdminClient {
   from: (table: string) => {
     select: (...args: unknown[]) => QueryChain

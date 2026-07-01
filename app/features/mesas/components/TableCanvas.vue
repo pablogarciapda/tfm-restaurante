@@ -45,7 +45,8 @@ function mesaEstado(_mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
   return 'libre'
 }
 
-// ── Drag bounds (MCA-004) ──
+// ── Drag bounds (MCA-004) — wired via TableNode group config ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function dragBoundFunc(pos: { x: number; y: number }) {
   return {
     x: Math.max(0, Math.min(pos.x, store.stageWidth - 50)),
