@@ -6,12 +6,7 @@
 -->
 <script setup lang="ts">
 const user = useSupabaseUser()
-const client = useSupabaseClient()
-
-async function handleLogout() {
-  await client.auth.signOut()
-  await navigateTo('/cocina')
-}
+const { signOut } = useAuth()
 </script>
 
 <template>
@@ -52,7 +47,7 @@ async function handleLogout() {
           <button
             data-testid="logout-button"
             class="rounded-md px-3 py-1.5 text-sm font-medium text-slate transition-colors hover:bg-cream hover:text-terracotta"
-            @click="handleLogout"
+            @click="signOut"
           >
             Cerrar sesión
           </button>

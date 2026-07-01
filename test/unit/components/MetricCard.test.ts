@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 
 describe('MetricCard (DASH-001)', () => {
   async function mountCard(props: Record<string, unknown>) {

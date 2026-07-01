@@ -28,7 +28,7 @@ function setStateValue(key: string, value: unknown) {
 
 // ---------- Inject Nuxt auto-imports on globalThis ----------
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useState = (key: string, _init?: unknown) => getOrCreateState(key)
 g.useSupabaseUser = () => ref({ id: 'user-1', email: 'test@test.com' })
@@ -148,7 +148,7 @@ describe('permissions middleware (PERM-005)', () => {
 
     // carta → should pass (true)
     mockNavigateTo.mockClear()
-    let result = mod.default(
+    const result = mod.default(
       { path: '/cocina/carta', fullPath: '/cocina/carta' },
       { path: '/', fullPath: '/' },
     )

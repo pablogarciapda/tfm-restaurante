@@ -48,7 +48,7 @@ const mockSelect = vi.fn(() => {
 })
 
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 g.definePageMeta = (_meta: unknown) => {}
 g.useSupabaseUser = () => ref({ id: '1', email: 'admin@test.com' })
 g.useSupabaseClient = () => ({

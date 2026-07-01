@@ -34,6 +34,16 @@ g.useSupabaseClient = () => ({
   auth: { signOut: mockSignOut },
   from: vi.fn(),
 })
+g.useAuth = () => ({
+  signIn: vi.fn(),
+  signOut: async () => {
+    await mockSignOut()
+    await mockNavigateTo('/cocina')
+  },
+  user: ref({ id: '1', email: 'admin@lazingara.es' }),
+  isLoading: ref(false),
+  error: ref(null),
+})
 g.useSupabaseUser = () => ref({ id: '1', email: 'admin@lazingara.es' })
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useState = (key: string, _init?: unknown) => getOrCreateState(key)

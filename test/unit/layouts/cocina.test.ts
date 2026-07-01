@@ -16,8 +16,18 @@ const mockNavigateTo = vi.fn((path: string) => path)
 const userRef = ref<{ id: string; email: string } | null>({ id: '1', email: 'admin@lazingara.es' })
 
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 g.useSupabaseUser = () => userRef
+g.useAuth = () => ({
+  signIn: vi.fn(),
+  signOut: async () => {
+    await mockSignOut()
+    await mockNavigateTo('/cocina')
+  },
+  user: userRef,
+  isLoading: ref(false),
+  error: ref(null),
+})
 g.useSupabaseClient = () => ({
   auth: { signOut: mockSignOut },
   from: vi.fn(),

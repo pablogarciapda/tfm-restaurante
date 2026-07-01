@@ -15,7 +15,7 @@ const mockSignOut = vi.fn()
 
 // ---------- Inject Nuxt auto-imports ----------
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 g.useSupabaseUser = () => userRef
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useSupabaseClient = () => ({

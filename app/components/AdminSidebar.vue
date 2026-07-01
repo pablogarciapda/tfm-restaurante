@@ -10,11 +10,7 @@ import { computed } from 'vue'
 
 const role = useState<string | null>('cocina-role')
 const permissions = useState<Record<string, boolean> | null>('cocina-permissions')
-const client = useSupabaseClient()
-
-const emit = defineEmits<{
-  logout: []
-}>()
+const { signOut } = useAuth()
 
 // ── Nav items with permission keys ──
 interface NavItem {
@@ -44,8 +40,7 @@ const visibleItems = computed(() =>
 
 // ── Logout ──
 async function handleLogout() {
-  await client.auth.signOut()
-  await navigateTo('/cocina')
+  await signOut()
 }
 </script>
 

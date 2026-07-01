@@ -22,6 +22,7 @@ g.useSupabaseClient = () => ({
 })
 g.useSupabaseUser = () => userRef
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
+g.useState = (key: string, init?: unknown) => ref(init ?? null)
 g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina' })
 

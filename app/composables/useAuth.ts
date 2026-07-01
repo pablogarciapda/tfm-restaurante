@@ -33,6 +33,11 @@ export function useAuth() {
 
   async function signOut() {
     await client.auth.signOut()
+    // Clear role and permissions state
+    const role = useState<string | null>('cocina-role')
+    role.value = null
+    const perms = useState<Record<string, boolean> | null>('cocina-permissions')
+    perms.value = null
     await navigateTo('/cocina')
   }
 

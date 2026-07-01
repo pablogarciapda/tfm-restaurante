@@ -15,13 +15,12 @@ const mockSignOut = vi.fn()
 
 // Profile query result
 let profileData: unknown = null
-let profileError: unknown = null
 
 const mockFromSelect = vi.fn()
 
 // ---------- Inject Nuxt auto-imports ----------
 const g = globalThis as Record<string, unknown>
-g.defineNuxtRouteMiddleware = (fn: Function) => fn
+g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
 g.useSupabaseUser = () => userRef
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useSupabaseClient = () => ({
@@ -39,7 +38,6 @@ describe('role middleware (PERM-001, PERM-005)', () => {
     vi.clearAllMocks()
     userRef.value = { id: 'user-1', email: 'test@test.com' }
     profileData = null
-    profileError = null
     mockFromSelect.mockReset()
   })
 
@@ -75,7 +73,7 @@ describe('role middleware (PERM-001, PERM-005)', () => {
     })
 
     const mod = await import('../../../app/middleware/role')
-    const result = await mod.default(
+    await mod.default(
       { path: '/cocina/dashboard', fullPath: '/cocina/dashboard' },
       { path: '/', fullPath: '/' },
     )
