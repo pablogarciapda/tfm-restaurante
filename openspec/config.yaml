@@ -9,8 +9,13 @@ context: |
           ARCHIVED 2026-06-29. 6 public pages (/carta, /menu-diario, /reservas, /eventos, /contacto, /)
           implemented with mock data + provider-agnostic SMS verification module. 202 Vitest + 14 Playwright
           tests green, 87.86% coverage, 38/38 reqs + 104/104 scenarios verified.
-          Next: Phase 2 (panel & auth — /cocina Supabase Auth, CRUDs) or Phase 3 (Konva mesas).
-  Data model: configuracion, platos, mesas, reservas. Routes: public 6 pages, admin 5 pages under /cocina.
+          Change #3 `panel-auth` ARCHIVED 2026-07-01. Admin panel (/cocina) with Supabase Auth (email/password),
+          2 roles (admin/editor) + jsonb permissions, 8 admin SPA pages, 3-tier middleware, 7-table DB + RLS
+          + profiles trigger. Public pages migrated from mock → Supabase. 53/53 reqs + 75/75 scenarios verified,
+          384 unit tests (82.22% coverage). 15 delta specs synced to openspec/specs/.
+          Next: Phase 3 (Konva mesas — interactive table manager with fusion logic + Realtime sync).
+  Data model: configuracion, platos, mesas, reservas, profiles, eventos, menu_diario_config, menu_diario_items.
+  Routes: public 6 pages, admin 8 pages under /cocina.
   Conventions: Vue 3 Composition API + <script setup> + TypeScript, file-based routing, utility-first Tailwind,
                @supabase/supabase-js (never expose service_role key on client).
   NFRs: OWASP Top 10 (2025) + RLS on all tables, TDD mandatory, 60 FPS Canvas table manager.
@@ -49,6 +54,7 @@ testing:
     INSTALLED during Change #1 bootstrap. Vitest 4.1.0 + @vue/test-utils 2.4.11 +
     @nuxt/test-utils 4.0.0 + happy-dom 20.0.11 (unit/integration), Playwright 1.61.0 (e2e).
     3 smoke tests green (unit/nuxt/e2e) targeting app/pages/index.vue placeholder.
+    Coverage: @vitest/coverage-v8 configured (82.22% on panel-auth, threshold 70%).
   runner:
     framework: Vitest
     command: 'pnpm vitest run'

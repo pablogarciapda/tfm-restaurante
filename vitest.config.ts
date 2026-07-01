@@ -5,6 +5,12 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['app/**/*.{ts,vue}', 'server/**/*.{ts,vue}', 'shared/**/*.{ts,vue}'],
+      exclude: ['**/*.test.*', '**/*.spec.*', '**/__fixtures__/**'],
+    },
     projects: [
       {
         test: {

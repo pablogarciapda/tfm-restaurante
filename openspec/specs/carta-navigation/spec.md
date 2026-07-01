@@ -2,7 +2,7 @@
 
 ## Purpose
 
-La Zíngara carta (menu) page at `/carta`. Category-based browsing with sticky scroll-spy navigation, responsive product grid, and product cards sourced from `shared/fixtures/carta-mock.ts`. Dividers ("— CARNES —") render as sub-headers, NOT product cards.
+La Zíngara carta (menu) page at `/carta`. Category-based browsing with sticky scroll-spy navigation, responsive product grid, and product cards sourced from Supabase `platos` table. Dividers ("— CARNES —") render as sub-headers, NOT product cards.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ La Zíngara carta (menu) page at `/carta`. Category-based browsing with sticky s
 | CN-003 | ProductGrid — responsive CSS Grid: 1-2 cols mobile, 2-3 tablet, 3-4 desktop | MUST | Unit |
 | CN-004 | ProductCard — image (aspect-square object-cover), name, truncated description (2 lines), price, allergen icons; lazy loading images | MUST | Unit |
 | CN-005 | Divider platos — dishes with empty precio render as category sub-headers, NOT ProductCards | MUST | Unit |
-| CN-006 | Data source — `shared/fixtures/carta-mock.ts` (MockCategoria[], MockPlato[]) | MUST | Integration |
+| CN-006 | Data source — Supabase `platos` table via `usePlatos()` composable | MUST | Integration |
 | CN-007 | Image lazy loading — native `loading="lazy"` or `@nuxt/image`; placeholder on load error | MUST | Unit |
 
 ### Requirement: CN-001 — CategorySelector
@@ -69,12 +69,15 @@ The system MUST detect dishes with empty `precio` field (e.g., "— CARNES —")
 
 ### Requirement: CN-006 — Data Source
 
-The system MUST source carta data from `shared/fixtures/carta-mock.ts`. Structure: `MockCategoria[]` with nested `platos[]`. Categories sorted by `puesto`.
+The system MUST source carta data from Supabase `platos` table via `usePlatos()` composable. The composable SHALL use `useAsyncData` for SSR-safe fetching. The existing mock fixture `shared/fixtures/carta-mock.ts` is retired as a data source but retained as reference; its data becomes DB seed. Structure: categories derived from `platos.categoria`, sorted by `puesto` (if the column exists) or alphabetically. Platos grouped under their category.
+
+(Previously: Sourced from `shared/fixtures/carta-mock.ts` mock data with MockCategoria[] and nested platos[])
 
 | Scenario | GIVEN | WHEN | THEN |
 |----------|-------|------|------|
-| Data imports correctly | Import mockCarta from fixtures | Map categories to ProductGrid | All categories render with their platos |
-| Empty category | Category has no platos | ProductGrid processes | Category header renders; no cards below |
+| Data fetches from Supabase | Supabase `platos` table has seeded data from mock fixtures | `/carta` page loads (SSR) | `useAsyncData` fetches platos grouped by `categoria` |
+| Empty Supabase response | `platos` table returns an empty array | `/carta` page loads | Page shows **"Carta no disponible"** message |
+| Supabase fetch error | Supabase is unreachable | `/carta` attempts to fetch | Error state **"Error al cargar la carta"** shown; no crash |
 
 ### Requirement: CN-007 — Image Lazy Loading
 
@@ -87,7 +90,7 @@ The system MUST lazy-load product images using native `loading="lazy"` or `@nuxt
 
 ## Edge Cases
 
-- **Empty carta**: if `mockCarta` is empty, page shows "Carta no disponible" message
+- **Empty carta**: if `platos` table returns empty, page shows "Carta no disponible" message
 - **Single dish in category**: grid still renders correctly (1 column, no overflow)
 - **Price format variants**: "33/Pers.", "75€/kg", "CONSULTAR" — all render as text without breaking layout
 - **Missing optional fields**: dish without `descripcion` → omit description line; without `alergenos` → omit allergen icons
