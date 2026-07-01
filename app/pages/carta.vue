@@ -1,30 +1,91 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { mockCarta } from '../../shared/fixtures/carta-mock'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 
 /**
- * Carta page — Category-based browsing with scroll-spy (CN-001, CN-002, CN-006)
+ * Carta page — Category-based browsing with Supabase data (CN-006)
  *
- * Scroll-spy: IntersectionObserver in onMounted (process.client guard per AD2)
- * updates activeCategory on scroll. <ClientOnly> NOT used — component shape
- * identical SSR/client per AD2.
- *
- * Data: shared/fixtures/carta-mock.ts, sorted by puesto.
+ * Data sourced from Supabase via usePlatos composable.
+ * Platos grouped by categoria, sorted by puesto.
+ * Scroll-spy via IntersectionObserver for category navigation.
  */
 
-// Sort categories by puesto
-const categories = [...mockCarta].sort((a, b) => a.puesto - b.puesto)
-const categoryNames = categories.map((c) => c.categoria)
-const activeCategory = ref(categoryNames[0] || '')
+interface PlatoSupabase {
+  id: string
+  nombre: string
+  descripcion?: string
+  precio: number
+  categoria: string
+  tipo_menu?: string
+  imagen_url?: string
+  disponible: boolean
+  calorias?: number
+  alergenos?: string[]
+  puesto?: number
+  recomendado?: boolean
+}
 
-// Filter categories based on active selection
-// For now, show all categories (filtering is optional per spec)
+interface PlatoDisplay {
+  plato: string
+  precio: string
+  descripcion?: string
+  imagen_url?: string
+  alergenos?: string[]
+  calorias?: number
+}
 
-// Scroll-spy: IntersectionObserver (process.client guard per AD2)
+interface CategoryGroup {
+  id: string
+  categoria: string
+  puesto: number
+  open: boolean
+  platos: PlatoDisplay[]
+}
+
+const { data: platos, error, pending } = usePlatos()
+
+// Map Supabase rows → display format grouped by categoria
+const categories = computed<CategoryGroup[]>(() => {
+  const raw = platos.value as PlatoSupabase[] | null
+  if (!raw || raw.length === 0) return []
+
+  const groups = new Map<string, { platos: PlatoDisplay[]; minPuesto: number }>()
+
+  for (const p of raw) {
+    const display: PlatoDisplay = {
+      plato: p.nombre,
+      precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
+      descripcion: p.descripcion,
+      imagen_url: p.imagen_url,
+      alergenos: p.alergenos,
+      calorias: p.calorias,
+    }
+
+    if (!groups.has(p.categoria)) {
+      groups.set(p.categoria, { platos: [], minPuesto: p.puesto ?? 99 })
+    }
+    const group = groups.get(p.categoria)!
+    group.platos.push(display)
+    if ((p.puesto ?? 99) < group.minPuesto) {
+      group.minPuesto = p.puesto ?? 99
+    }
+  }
+
+  return Array.from(groups.entries()).map(([cat, g]) => ({
+    id: cat.toLowerCase().replace(/\s+/g, '-'),
+    categoria: cat,
+    puesto: g.minPuesto,
+    open: true,
+    platos: g.platos,
+  })).sort((a, b) => a.puesto - b.puesto)
+})
+
+const categoryNames = computed(() => categories.value.map((c) => c.categoria))
+const activeCategory = ref(categoryNames.value[0] || '')
+
+// Scroll-spy: IntersectionObserver (client-only)
 let observer: IntersectionObserver | null = null
 
 onMounted(() => {
-  // import.meta.client guard for SSR safety (AD2)
   if (!import.meta.client) return
 
   observer = new IntersectionObserver(
@@ -38,10 +99,9 @@ onMounted(() => {
         }
       }
     },
-    { threshold: 0.3, rootMargin: '-80px 0px 0px 0px' }
+    { threshold: 0.3, rootMargin: '-80px 0px 0px 0px' },
   )
 
-  // Observe category section headings
   const sections = document.querySelectorAll('[data-category]')
   sections.forEach((section) => observer!.observe(section))
 })
@@ -62,13 +122,28 @@ onUnmounted(() => {
       subtitle="Sabores tradicionales de la tierra leonesa"
     />
 
-    <!-- Sticky category selector -->
-    <CategorySelector
-      v-model="activeCategory"
-      :categories="categoryNames"
-    />
+    <!-- Loading state -->
+    <div v-if="pending" class="py-20 text-center text-gray-500">
+      <p class="text-lg">Cargando carta...</p>
+    </div>
 
-    <!-- Product grid -->
-    <ProductGrid :categories="categories" />
+    <!-- Error state -->
+    <div v-else-if="error" class="py-20 text-center text-gray-500">
+      <p class="text-lg">Error al cargar la carta</p>
+    </div>
+
+    <!-- Empty state -->
+    <div v-else-if="categories.length === 0" class="py-20 text-center text-gray-500">
+      <p class="text-lg">Carta no disponible</p>
+    </div>
+
+    <!-- Categories -->
+    <template v-else>
+      <CategorySelector
+        v-model="activeCategory"
+        :categories="categoryNames"
+      />
+      <ProductGrid :categories="categories" />
+    </template>
   </div>
 </template>
