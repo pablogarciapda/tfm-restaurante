@@ -15,9 +15,13 @@
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.9",
+    "@pinia/nuxt": "^0.11.3",
     "@supabase/supabase-js": "^2.108.2",
+    "konva": "^10.3.0",
     "nuxt": "4.4.8",
+    "pinia": "^3.0.4",
     "vue": "latest",
+    "vue-konva": "^3.4.0",
     "vue-router": "latest"
   },
   "devDependencies": {
