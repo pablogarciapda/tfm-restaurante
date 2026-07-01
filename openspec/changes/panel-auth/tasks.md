@@ -74,13 +74,13 @@ Chain strategy: pending
 
 - [x] 4.1 [TDD:RED→GREEN] `app/components/ConfiguracionForm.vue`: toggle cliente_elige_mesa + capacidad input. (CFG-001)
 - [x] 4.2 [TDD:RED→GREEN] `app/pages/cocina/configuracion.vue`: form + upsert save; admin-only per middleware. (CFG-001 to CFG-003)
-- [ ] 4.3 [TDD:RED→GREEN] `server/api/cocina/usuarios/create.post.ts`: `serverSupabaseServiceRole` → `auth.admin.createUser()`. (USR-002)
-- [ ] 4.4 [TDD:RED→GREEN] `server/api/cocina/usuarios/list.get.ts`: join auth.users + profiles. (USR-001, USR-006)
-- [ ] 4.5 [TDD:RED→GREEN] `server/api/cocina/usuarios/update.post.ts`: update profile role+permissions. (USR-003)
-- [ ] 4.6 [TDD:RED→GREEN] `server/api/cocina/usuarios/deactivate.post.ts`: set `profiles.activo=false`. (USR-004)
-- [ ] 4.7 [TDD:RED→GREEN] `server/api/cocina/usuarios/reset-password.post.ts`: `auth.admin.generateLink()`. (USR-005)
-- [ ] 4.8 [TDD:RED→GREEN] `app/components/UsuarioForm.vue`: email+password+role select; `UsuariosTable.vue`: email, role badge, perm summary; `PermissionsEditor.vue`: 6 toggles. (USR-001 to USR-003)
-- [ ] 4.9 [TDD:RED→GREEN] `app/pages/cocina/usuarios.vue`: list + create + edit permissions + deactivate + reset password. (USR-001 to USR-006)
-- [ ] 4.10 [TDD:RED→GREEN] `test/e2e/cocina-login.spec.ts`: login→dashboard→logout flow. (AUTH-001 to AUTH-005)
-- [ ] 4.11 [TDD:RED→GREEN] `test/e2e/cocina-crud.spec.ts`: create plato→edit→delete. (CRUD-001 to CRUD-005)
-- [ ] 4.12 [GATE] `pnpm vitest run --coverage` ≥70%; `pnpm playwright test` green; `pnpm vue-tsc --noEmit` clean; `pnpm eslint .` clean.
+- [x] 4.3 [TDD:RED→GREEN] `server/api/cocina/usuarios/create.post.ts`: `serverSupabaseServiceRole` → `auth.admin.createUser()`. (USR-002)
+- [x] 4.4 [TDD:RED→GREEN] `server/api/cocina/usuarios/list.get.ts`: join auth.users + profiles. (USR-001, USR-006)
+- [x] 4.5 [TDD:RED→GREEN] `server/api/cocina/usuarios/update.post.ts`: update profile role+permissions. (USR-003)
+- [x] 4.6 [TDD:RED→GREEN] `server/api/cocina/usuarios/deactivate.post.ts`: set `profiles.activo=false`. (USR-004)
+- [x] 4.7 [TDD:RED→GREEN] `server/api/cocina/usuarios/reset-password.post.ts`: `auth.admin.generateLink()`. (USR-005)
+- [x] 4.8 [TDD:RED→GREEN] `app/components/UsuarioForm.vue`: email+password+role select; `UsuariosTable.vue`: email, role badge, perm summary; `PermissionsEditor.vue`: 6 toggles; `app/pages/cocina/reservas.vue`: placeholder. (USR-001 to USR-003)
+- [x] 4.9 [TDD:RED→GREEN] `app/pages/cocina/usuarios.vue`: list + create + edit permissions + deactivate + reset password. (USR-001 to USR-006)
+- [x] 4.10 [TDD:RED→GREEN] `test/e2e/cocina-flow.spec.ts`: login→dashboard→logout flow + public page checks. (AUTH-001 to AUTH-005)
+- [ ] 4.11 [TDD:RED→GREEN] `test/e2e/cocina-crud.spec.ts`: create plato→edit→delete. (CRUD-001 to CRUD-005) — DEFERRED (requires real Supabase auth)
+- [x] 4.12 [GATE] `pnpm vitest run --coverage` ≥70%; `pnpm playwright test` green; `pnpm vue-tsc --noEmit` clean; `pnpm eslint .` clean.
