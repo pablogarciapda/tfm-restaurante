@@ -22,6 +22,7 @@ definePageMeta({
   layout: 'cocina',
 })
 
+const client = useSupabaseClient()
 const store = useCanvasStore()
 const { loadMesas, createMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
 const {
@@ -90,7 +91,7 @@ const canUnfuse = computed(() => {
 
 // ── Aforo computation (MCA-006) ──
 
-const capacidadTotal = computed(() => 80)
+const capacidadTotal = ref(80)
 const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 
@@ -206,7 +207,27 @@ async function handleReassignStandby(reservaId: string) {
 
 // ── Lifecycle ──
 
+async function loadConfiguracion() {
+  try {
+    const { data, error } = await client
+      .from('configuracion')
+      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual')
+      .single()
+
+    if (error) throw error
+
+    if (data) {
+      capacidadTotal.value = data.capacidad_total_local ?? 80
+      modoOcupacion.value = data.modo_ocupacion ?? 'auto'
+      ocupacionManual.value = data.ocupacion_manual ?? 0
+    }
+  } catch {
+    // Keep defaults on error
+  }
+}
+
 onMounted(async () => {
+  await loadConfiguracion()
   await loadMesas()
   subscribeRealtime()
   await refreshStandbyReservations()
