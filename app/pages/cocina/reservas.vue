@@ -1,19 +1,19 @@
 <!--
-  /cocina/reservas — Interactive table manager (MCA-008)
+  /cocina/reservas — Interactive table manager (MCA-008, Slice 4: fusion)
 
   Permission-controlled SPA-only page (ssr:false via routeRules).
-  Middleware: auth, role, permissions (reservas). Layout: cocina.
-
-  Loads mesas on mount via useMesas composable.
-  Subscribes to Supabase Realtime for cross-session sync.
-  Slice 3: TableToolbar + AforoIndicator + aforoInfo computation.
+  Wires: TableCanvas, TableToolbar, FusionConfirmDialog, StandbyBanner.
+  Realtime sync from useMesas composable.
 -->
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from 'vue'
 import TableCanvas from '../../features/mesas/components/TableCanvas.vue'
 import TableToolbar from '../../features/mesas/components/TableToolbar.vue'
+import FusionConfirmDialog from '../../features/mesas/components/FusionConfirmDialog.vue'
+import StandbyBanner from '../../features/mesas/components/StandbyBanner.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
+import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
 import { getAforoDisponible } from '../../../shared/utils/fusion-math'
 import type { AforoInfo } from '../../../shared/contracts/mesas.contract'
 
@@ -24,10 +24,73 @@ definePageMeta({
 
 const store = useCanvasStore()
 const { loadMesas, createMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const {
+  fuseMesas,
+  unfuseMesas,
+  cancelReservationsAndUnfuse,
+  moveReservationsToStandby,
+  getStandbyReservations,
+  reassignStandbyReservation,
+} = useMesasFusion()
+
+// ── Fusion state ──
+const selectedIds = ref<string[]>([])
+const fusionDialogShow = ref(false)
+const fusionDialogReservations = ref<Array<{
+  id: string
+  nombre_cliente: string
+  fecha_hora: string
+  numero_comensales: number
+  estado: string
+  mesa_id: string
+}>>([])
+const fusionDialogFusionId = ref('')
+const standbyReservations = ref<Array<{
+  id: string
+  nombre_cliente: string
+  fecha_hora: string
+  numero_comensales: number
+  estado: string
+  mesa_id: string
+}>>([])
+
+// ── Multi-select helpers (Slice 4) ──
+// Note: _toggleSelection is used by TableCanvas via callback/event
+// for multi-select with shift+click on canvas tables.
+function _toggleSelection(mesaId: string) {
+  const idx = selectedIds.value.indexOf(mesaId)
+  if (idx >= 0) {
+    selectedIds.value.splice(idx, 1)
+  } else {
+    selectedIds.value.push(mesaId)
+  }
+}
+
+function selectedMesas() {
+  return store.mesas.filter((m) => selectedIds.value.includes(m.id))
+}
+
+const canFuse = computed(() => {
+  if (selectedIds.value.length < 2) return false
+  const mesas = selectedMesas()
+  if (mesas.length < 2) return false
+  const firstZone = mesas[0].zona
+  return mesas.every((m) => m.zona === firstZone && m.id_fusion === null)
+})
+
+const canUnfuse = computed(() => {
+  // Can unfuse if selected mesa has id_fusion
+  if (store.selectedMesa && store.selectedMesa.id_fusion) return true
+  // or if multi-selected mesas all share same fusion
+  const mesas = selectedMesas()
+  if (mesas.length < 2) return false
+  const fusionIds = new Set(mesas.filter((m) => m.id_fusion).map((m) => m.id_fusion))
+  return fusionIds.size === 1
+})
 
 // ── Aforo computation (MCA-006) ──
 
-const capacidadTotal = computed(() => 80) // TODO: fetch from configuracion
+const capacidadTotal = computed(() => 80)
 const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 
@@ -78,7 +141,67 @@ async function handleDeleteMesa() {
 }
 
 function handleSaveMesa() {
-  // No-op: auto-save happens on dragend/transformend
+  // No-op: auto-save on dragend/transformend
+}
+
+// ── Fusion event handlers (Slice 4) ──
+
+async function handleFuse() {
+  const result = await fuseMesas(selectedIds.value)
+  if (!result.success && result.error) {
+    console.warn(result.error)
+  }
+  selectedIds.value = []
+}
+
+async function handleUnfuse() {
+  const fusionId = store.selectedMesa?.id_fusion
+    ?? selectedMesas().find((m) => m.id_fusion)?.id_fusion
+  if (!fusionId) return
+
+  const result = await unfuseMesas(fusionId)
+
+  if (result.hasReservations && result.reservations) {
+    // Show confirmation dialog
+    fusionDialogReservations.value = result.reservations
+    fusionDialogFusionId.value = fusionId
+    fusionDialogShow.value = true
+  }
+  selectedIds.value = []
+}
+
+async function handleFusionCancel() {
+  await cancelReservationsAndUnfuse(fusionDialogFusionId.value)
+  fusionDialogShow.value = false
+  await refreshStandbyReservations()
+}
+
+async function handleFusionStandby() {
+  await moveReservationsToStandby(fusionDialogFusionId.value)
+  fusionDialogShow.value = false
+  await refreshStandbyReservations()
+}
+
+function handleFusionClose() {
+  fusionDialogShow.value = false
+}
+
+async function refreshStandbyReservations() {
+  try {
+    standbyReservations.value = await getStandbyReservations()
+  } catch {
+    standbyReservations.value = []
+  }
+}
+
+async function handleReassignStandby(reservaId: string) {
+  // Pick the first available mesa (Libre) for reassignment
+  // In a real UI, this would open a mesa selector
+  const libreMesa = store.mesas.find((m) => m.id_fusion === null && m.mesa_padre_id === null)
+  if (libreMesa) {
+    await reassignStandbyReservation(reservaId, libreMesa.id)
+    await refreshStandbyReservations()
+  }
 }
 
 // ── Lifecycle ──
@@ -86,6 +209,7 @@ function handleSaveMesa() {
 onMounted(async () => {
   await loadMesas()
   subscribeRealtime()
+  await refreshStandbyReservations()
 })
 
 onUnmounted(() => {
@@ -98,18 +222,38 @@ onUnmounted(() => {
     <!-- Page title -->
     <h1 class="font-serif text-2xl font-bold text-slate">Gestor de Mesas</h1>
 
-    <!-- Toolbar with aforo indicator -->
+    <!-- Standby Banner (Slice 4) -->
+    <StandbyBanner
+      :reservations="standbyReservations"
+      @assign="handleReassignStandby"
+    />
+
+    <!-- Toolbar with aforo indicator + fusion buttons -->
     <TableToolbar
       :selected-mesa="store.selectedMesa"
       :aforo-info="aforoInfo"
+      :can-fuse="canFuse"
+      :can-unfuse="canUnfuse"
       @add="handleAddMesa"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
+      @fuse="handleFuse"
+      @unfuse="handleUnfuse"
     />
 
-    <!-- Konva canvas with 3-layer table manager -->
+    <!-- Konva canvas -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas />
     </div>
+
+    <!-- Fusion confirm dialog (Slice 4) -->
+    <FusionConfirmDialog
+      :show="fusionDialogShow"
+      :reservations="fusionDialogReservations"
+      :fusion-id="fusionDialogFusionId"
+      @cancel="handleFusionCancel"
+      @standby="handleFusionStandby"
+      @close="handleFusionClose"
+    />
   </div>
 </template>

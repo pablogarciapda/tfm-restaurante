@@ -1,10 +1,8 @@
 <!--
-  TableToolbar.vue — Canvas toolbar for table CRUD (MCA-003)
+  TableToolbar.vue — Canvas toolbar (MCA-003, Slice 4: fusion buttons)
 
-  Props: selectedMesa (Mesa | null), aforoInfo (AforoInfo)
-  Emits: add, delete, save
-  Contains AforoIndicator for occupancy display.
-  Sticky top, terracotta/cream/slate palette.
+  Props: selectedMesa, aforoInfo, fusionMode, canFuse, canUnfuse
+  Emits: add, delete, save, fuse, unfuse
 -->
 <script setup lang="ts">
 import type { Mesa, AforoInfo } from '~/shared/contracts/mesas.contract'
@@ -13,12 +11,17 @@ import AforoIndicator from './AforoIndicator.vue'
 defineProps<{
   selectedMesa: Mesa | null
   aforoInfo: AforoInfo
+  fusionMode?: boolean
+  canFuse?: boolean
+  canUnfuse?: boolean
 }>()
 
 const emit = defineEmits<{
   add: []
   delete: []
   save: []
+  fuse: []
+  unfuse: []
 }>()
 </script>
 
@@ -33,6 +36,33 @@ const emit = defineEmits<{
         @click="emit('add')"
       >
         + Nueva Mesa
+      </button>
+
+      <!-- Fusion buttons (Slice 4) -->
+      <button
+        :disabled="!canFuse"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          canFuse
+            ? 'bg-terracotta/80 text-white hover:bg-terracotta focus:ring-terracotta/50'
+            : 'cursor-not-allowed bg-gray-200 text-gray-400'
+        "
+        @click="canFuse && emit('fuse')"
+      >
+        Fusionar
+      </button>
+
+      <button
+        :disabled="!canUnfuse"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          canUnfuse
+            ? 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500/50'
+            : 'cursor-not-allowed bg-gray-200 text-gray-400'
+        "
+        @click="canUnfuse && emit('unfuse')"
+      >
+        Desfusionar
       </button>
 
       <button
