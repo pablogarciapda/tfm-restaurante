@@ -23,6 +23,11 @@ import { useMesas } from '../composables/useMesas'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
 import type { Mesa, Zona } from '~/shared/contracts/mesas.contract'
+import { getMesaEstado } from '../../../../shared/utils/fusion-math'
+
+const props = defineProps<{
+  reservas?: { mesa_id: string | null; estado: string; fecha_hora: string }[]
+}>()
 
 const ZONES: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
   { zona: 'Principal', x: 20, y: 20, w: 380, h: 370 },
@@ -39,10 +44,10 @@ const transformerRef = ref()
 const mainLayerRef = ref()
 const dragLayerRef = ref()
 
-// mesaEstado for each mesa — in Slice 2, default to 'libre' since
-// reservas lookup is wired in later slices with realtime data
-function mesaEstado(_mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
-  return 'libre'
+// mesaEstado derived from today's reservas (MCA-005)
+// Defaults to 'libre' when no reservas data is loaded
+function mesaEstado(mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
+  return getMesaEstado(mesa, props.reservas ?? [])
 }
 
 // ── Drag bounds (MCA-004) — wired via TableNode group config ──

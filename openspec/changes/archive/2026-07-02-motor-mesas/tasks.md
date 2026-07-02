@@ -57,11 +57,11 @@ Chain strategy: pending
 
 ## 4. Fusion + Realtime + E2E (PR 4 — ~500 lines)
 
-- [ ] 4.1 [TDD:RED→GREEN] `server/api/cocina/mesas/handlers.ts` add `handleFuse` (same-zone, calc capacity), `handleUnfuse` (standby/cancel). Aforo: editor blocked, admin warning. (MFU-001/004/005/007/008)
-- [ ] 4.2 [TDD:RED→GREEN] Nitro: `fuse.post.ts`, `unfuse.post.ts`. `test/integration/server/mesas-fusion.test.ts`.
-- [ ] 4.3 [TDD:RED→GREEN] `app/features/mesas/composables/useMesasFusion.ts`: `canFuse()`, `checkAforo()`, role-gated toast. `test/unit/composables/useMesasFusion.test.ts`. (MFU-001/007/008)
-- [ ] 4.4 [TDD:RED→GREEN] `FusionConfirmDialog.vue`: "Hay reservas activas" → cancelar+notificar / mover a standby. `StandbyBanner.vue`: per-standby banner + "Reasignar". Tests. (MFU-003/005/006)
-- [ ] 4.5 [TDD:RED→GREEN] Realtime: expand `useMesas.ts` with `postgres_changes` on `mesas`, sync ≤1s, channel cleanup. `test/unit/composables/useMesas.realtime.test.ts`. (MCA-007)
-- [ ] 4.6 [TDD:RED→GREEN] `app/pages/cocina/configuracion.vue` extend: `modo_ocupacion` radio + `ocupacion_manual` input (max ≤ capacidad_total_local). (CFG-004/005, CFG-001 MODIFIED)
-- [ ] 4.7 [TDD:RED→GREEN] Playwright E2E: `test/e2e/motor-mesas.spec.ts` — create+move+delete table, fuse 2 tables, unfuse→standby, editor blocked, admin override. (MCA-003/004, MFU-001/005/007/008)
-- [ ] 4.8 [GATE] `pnpm vitest run --coverage` ≥70%; Playwright green; 26 reqs + 35 scenarios pass; canvas FPS manual verify.
+- [x] 4.1 [TDD:RED→GREEN] `server/api/cocina/mesas/handlers.ts` add `handleFuse` (same-zone, calc capacity), `handleUnfuse` (standby/cancel). Aforo: editor blocked, admin warning. (MFU-001/004/005/007/008)
+- [x] 4.2 [TDD:RED→GREEN] Nitro: `fuse.post.ts`, `unfuse.post.ts`. `test/integration/server/mesas-fusion.test.ts`.
+- [x] 4.3 [TDD:RED→GREEN] `app/features/mesas/composables/useMesasFusion.ts`: `canFuse()`, `checkAforo()`, role-gated toast. `test/unit/composables/useMesasFusion.test.ts`. (MFU-001/007/008)
+- [x] 4.4 [TDD:RED→GREEN] `FusionConfirmDialog.vue`: "Hay reservas activas" → cancelar+notificar / mover a standby. `StandbyBanner.vue`: per-standby banner + "Reasignar". Tests. (MFU-003/005/006)
+- [x] 4.5 [TDD:RED→GREEN] Realtime: expand `useMesas.ts` with `postgres_changes` on `mesas`, sync ≤1s, channel cleanup. `test/unit/composables/useMesas.realtime.test.ts`. (MCA-007)
+- [x] 4.6 [TDD:RED→GREEN] `app/pages/cocina/configuracion.vue` extend: `modo_ocupacion` radio + `ocupacion_manual` input (max ≤ capacidad_total_local). (CFG-004/005, CFG-001 MODIFIED)
+- [x] 4.7 [TDD:RED→GREEN] Playwright E2E: `test/e2e/motor-mesas.spec.ts` — create+move+delete table, fuse 2 tables, unfuse→standby, editor blocked, admin override. (MCA-003/004, MFU-001/005/007/008)
+- [x] 4.8 [GATE] `pnpm vitest run --coverage` ≥70%; Playwright green; 26 reqs + 35 scenarios pass; canvas FPS manual verify.

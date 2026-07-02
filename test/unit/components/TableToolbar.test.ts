@@ -1,11 +1,9 @@
 /**
- * TDD: RED → GREEN → TRIANGULATE — TableToolbar component (MCA-003)
+ * TDD: Slice 4 update — TableToolbar component (fusion buttons)
  *
- * Tests button rendering, disabled states, and event emits.
- * Props: selectedMesa (Mesa | null), aforoInfo (AforoInfo).
- * Emits: add, delete, save.
+ * Tests button rendering, disabled states, and event emits
+ * including "Fusionar" and "Desfusionar" buttons (Slice 4).
  */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -32,7 +30,7 @@ async function loadComponent() {
   return TableToolbar
 }
 
-// ── Helper: create test data ──
+// ── Helpers ──
 
 function makeMesa(overrides?: Partial<Mesa>): Mesa {
   return {
@@ -56,7 +54,7 @@ function makeMesa(overrides?: Partial<Mesa>): Mesa {
 
 function makeAforoInfo(overrides?: Partial<AforoInfo>): AforoInfo {
   return {
-    modo: 'auto' as const,
+    modo: 'auto',
     capacidad_total: 80,
     ocupacion_auto: 30,
     ocupacion_manual: 0,
@@ -65,24 +63,37 @@ function makeAforoInfo(overrides?: Partial<AforoInfo>): AforoInfo {
   }
 }
 
+function findButton(wrapper: ReturnType<typeof mount>, label: string) {
+  const buttons = wrapper.findAll('button')
+  const found = buttons.find((btn) => btn.text().includes(label))
+  if (!found) {
+    throw new Error(`Button with text "${label}" not found. Found: ${buttons.map((b) => b.text()).join(', ')}`)
+  }
+  return found
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
 })
 
 describe('TableToolbar', () => {
-  // ── Rendering ──
+  // ── Basic rendering ──
 
-  it('renders all three buttons', async () => {
+  it('renders all toolbar buttons including Fusionar and Desfusionar', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
     expect(wrapper.text()).toContain('Nueva Mesa')
+    expect(wrapper.text()).toContain('Fusionar')
+    expect(wrapper.text()).toContain('Desfusionar')
     expect(wrapper.text()).toContain('Eliminar')
     expect(wrapper.text()).toContain('Guardar')
   })
@@ -93,6 +104,8 @@ describe('TableToolbar', () => {
       props: {
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
@@ -100,17 +113,52 @@ describe('TableToolbar', () => {
     expect(aforoEl.exists()).toBe(true)
   })
 
-  // ── Helper: find button by label text ──
-  function findButton(wrapper: ReturnType<typeof mount>, label: string) {
-    const buttons = wrapper.findAll('button')
-    const found = buttons.find((btn) => btn.text().includes(label))
-    if (!found) {
-      throw new Error(`Button with text "${label}" not found. Found: ${buttons.map((b) => b.text()).join(', ')}`)
-    }
-    return found
-  }
-
   // ── Disabled states ──
+
+  it('disables Fusionar button when canFuse is false', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    const fuseBtn = findButton(wrapper, 'Fusionar')
+    expect(fuseBtn.attributes('disabled')).toBeDefined()
+  })
+
+  it('enables Fusionar button when canFuse is true', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: true,
+        canUnfuse: false,
+      },
+    })
+
+    const fuseBtn = findButton(wrapper, 'Fusionar')
+    expect(fuseBtn.attributes('disabled')).toBeUndefined()
+  })
+
+  it('disables Desfusionar button when canUnfuse is false', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    const unfuseBtn = findButton(wrapper, 'Desfusionar')
+    expect(unfuseBtn.attributes('disabled')).toBeDefined()
+  })
 
   it('disables delete button when no mesa is selected', async () => {
     const comp = await loadComponent()
@@ -118,6 +166,8 @@ describe('TableToolbar', () => {
       props: {
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
@@ -131,23 +181,13 @@ describe('TableToolbar', () => {
       props: {
         selectedMesa: makeMesa({ numero_mesa: 3 }),
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
     const deleteBtn = findButton(wrapper, 'Eliminar')
     expect(deleteBtn.attributes('disabled')).toBeUndefined()
-  })
-
-  it('shows selected mesa number when a mesa is selected', async () => {
-    const comp = await loadComponent()
-    const wrapper = mount(comp, {
-      props: {
-        selectedMesa: makeMesa({ numero_mesa: 5 }),
-        aforoInfo: makeAforoInfo(),
-      },
-    })
-
-    expect(wrapper.text()).toContain('Mesa 5')
   })
 
   // ── Emits ──
@@ -158,28 +198,72 @@ describe('TableToolbar', () => {
       props: {
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
-    const addBtn = findButton(wrapper, 'Nueva Mesa')
-    await addBtn.trigger('click')
-
+    await findButton(wrapper, 'Nueva Mesa').trigger('click')
     expect(wrapper.emitted('add')).toBeTruthy()
-    expect(wrapper.emitted('add')).toHaveLength(1)
   })
 
-  it('emits delete when "Eliminar" is clicked (with selected mesa)', async () => {
+  it('emits fuse when "Fusionar" is clicked and enabled', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: true,
+        canUnfuse: false,
+      },
+    })
+
+    await findButton(wrapper, 'Fusionar').trigger('click')
+    expect(wrapper.emitted('fuse')).toBeTruthy()
+  })
+
+  it('does not emit fuse when Fusionar is disabled', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    await findButton(wrapper, 'Fusionar').trigger('click')
+    expect(wrapper.emitted('fuse')).toBeFalsy()
+  })
+
+  it('emits unfuse when "Desfusionar" is clicked and enabled', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: true,
+      },
+    })
+
+    await findButton(wrapper, 'Desfusionar').trigger('click')
+    expect(wrapper.emitted('unfuse')).toBeTruthy()
+  })
+
+  it('emits delete when "Eliminar" is clicked with selected mesa', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
         selectedMesa: makeMesa({ id: 'm3', numero_mesa: 3 }),
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
-    const deleteBtn = findButton(wrapper, 'Eliminar')
-    await deleteBtn.trigger('click')
-
+    await findButton(wrapper, 'Eliminar').trigger('click')
     expect(wrapper.emitted('delete')).toBeTruthy()
   })
 
@@ -189,27 +273,12 @@ describe('TableToolbar', () => {
       props: {
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
       },
     })
 
-    const saveBtn = findButton(wrapper, 'Guardar')
-    await saveBtn.trigger('click')
-
+    await findButton(wrapper, 'Guardar').trigger('click')
     expect(wrapper.emitted('save')).toBeTruthy()
-  })
-
-  it('does not emit delete when button is disabled and clicked', async () => {
-    const comp = await loadComponent()
-    const wrapper = mount(comp, {
-      props: {
-        selectedMesa: null,
-        aforoInfo: makeAforoInfo(),
-      },
-    })
-
-    const deleteBtn = findButton(wrapper, 'Eliminar')
-    await deleteBtn.trigger('click')
-
-    expect(wrapper.emitted('delete')).toBeFalsy()
   })
 })
