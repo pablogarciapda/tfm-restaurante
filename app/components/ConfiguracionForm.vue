@@ -5,13 +5,20 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 
+type OcupacionModo = 'auto' | 'manual'
+
 interface ConfigData {
   cliente_elige_mesa: boolean
   capacidad_total_local: number
+  modo_ocupacion: OcupacionModo
+  ocupacion_manual: number
 }
 
 const props = defineProps<{
-  currentConfig: ConfigData
+  currentConfig: Partial<ConfigData> & {
+    cliente_elige_mesa?: boolean
+    capacidad_total_local?: number
+  }
 }>()
 
 const emit = defineEmits<{
@@ -21,6 +28,8 @@ const emit = defineEmits<{
 const form = reactive<ConfigData>({
   cliente_elige_mesa: props.currentConfig.cliente_elige_mesa ?? false,
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
+  modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
+  ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
 })
 
 const errors = ref<Record<string, string>>({})
@@ -79,6 +88,46 @@ function handleSubmit() {
       <p v-if="errors.capacidad_total_local" class="mt-1 text-sm text-red-600">
         {{ errors.capacidad_total_local }}
       </p>
+    </div>
+
+    <!-- modo_ocupacion -->
+    <div>
+      <span class="mb-1 block text-sm font-medium text-slate">Modo de ocupación</span>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-1 cursor-pointer">
+          <input
+            v-model="form.modo_ocupacion"
+            type="radio"
+            value="auto"
+            class="h-3 w-3 accent-terracotta"
+          />
+          <span class="text-sm text-slate">Automático</span>
+        </label>
+        <label class="flex items-center gap-1 cursor-pointer">
+          <input
+            v-model="form.modo_ocupacion"
+            type="radio"
+            value="manual"
+            class="h-3 w-3 accent-terracotta"
+          />
+          <span class="text-sm text-slate">Manual</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ocupacion_manual -->
+    <div v-if="form.modo_ocupacion === 'manual'">
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-ocupacion-manual">
+        Ocupación manual
+      </label>
+      <input
+        id="cfg-ocupacion-manual"
+        v-model.number="form.ocupacion_manual"
+        data-testid="cfg-ocupacion-manual"
+        type="number"
+        min="0"
+        class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+      />
     </div>
 
     <div class="pt-4">
