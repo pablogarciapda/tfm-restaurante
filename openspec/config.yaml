@@ -13,7 +13,9 @@ context: |
           2 roles (admin/editor) + jsonb permissions, 8 admin SPA pages, 3-tier middleware, 7-table DB + RLS
           + profiles trigger. Public pages migrated from mock → Supabase. 53/53 reqs + 75/75 scenarios verified,
           384 unit tests (82.22% coverage). 15 delta specs synced to openspec/specs/.
-          Next: Phase 3 (Konva mesas — interactive table manager with fusion logic + Realtime sync).
+           Change #4 `motor-mesas` ARCHIVED (2026-07-02). Motor de Mesas complete. Konva canvas table manager,
+>           fusion logic, Realtime sync, dual aforo, 647 tests, 70.1% coverage.
+>           Next: (none — all 3 phases complete; future improvements deferred).
   Data model: configuracion, platos, mesas, reservas, profiles, eventos, menu_diario_config, menu_diario_items.
   Routes: public 6 pages, admin 8 pages under /cocina.
   Conventions: Vue 3 Composition API + <script setup> + TypeScript, file-based routing, utility-first Tailwind,

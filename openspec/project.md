@@ -70,10 +70,11 @@ Restaurant platform for **Restaurante La Zíngara** (Santa María del Páramo, L
 
 - **Phase 1 — MVP Usuario** (complete): public frontend, SEO local, carta/menú read, form reservations.
 - **Phase 2 — Panel & Auth** (complete): blind route `/cocina`, Supabase Auth, navigation, CRUDs, public migration.
-- **Phase 3 — Motor de Mesas** (next): Konva.js table plan, fusion logic in DB, Realtime sync.
+- **Phase 3 — Motor de Mesas** (complete): Konva.js table plan, fusion logic in DB, Realtime sync, dual aforo.
 
 ## SDD Status
 
 - **Change #1** `bootstrap-nuxt-app` — ARCHIVED 2026-06-28 (Nuxt 4.4.8 scaffold + TDD tooling foundation).
 - **Change #2** `public-pages-design` — ARCHIVED 2026-06-29 (6 public pages + SMS verification module + mock data, 202 vitest tests + 14 playwright, 87.86% coverage, 38/38 reqs + 104/104 scenarios verified).
-- **Change #3** `panel-auth` — ARCHIVED 2026-07-01 (8 admin pages + Supabase Auth + 2 roles + permissions JSON + 7-table DB + RLS + public migration. 384 tests, 82.22% coverage, 53/53 reqs + 75/75 scenarios verified). Next: Phase 3 (Konva mesas).
+- **Change #3** `panel-auth` — ARCHIVED 2026-07-01 (8 admin pages + Supabase Auth + 2 roles + permissions JSON + 7-table DB + RLS + public migration. 384 tests, 82.22% coverage, 53/53 reqs + 75/75 scenarios verified).
+- **Change #4** `motor-mesas` — ARCHIVED 2026-07-02 (Konva canvas table manager, fusion, Realtime, aforo dual, 647 tests, 70.1% coverage. 26/26 reqs + 35/35 scenarios verified after remediation).

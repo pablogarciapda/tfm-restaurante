@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-06-28',
 
   // ESLint flat config (v1.x) + font loading + Supabase
-  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase'],
+  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase', '@pinia/nuxt'],
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)
   fonts: {
@@ -26,7 +26,13 @@ export default defineNuxtConfig({
 
   // Auto-import dirs
   imports: {
-    dirs: ['app/stores', 'shared/types', 'shared/contracts', 'shared/utils'],
+    dirs: [
+      'app/stores',
+      'app/features/mesas/stores',
+      'shared/types',
+      'shared/contracts',
+      'shared/utils',
+    ],
   },
 
   // Tailwind v4 CSS-first

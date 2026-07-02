@@ -1,0 +1,102 @@
+<!--
+  TableToolbar.vue — Canvas toolbar (MCA-003, Slice 4: fusion buttons)
+
+  Props: selectedMesa, aforoInfo, fusionMode, canFuse, canUnfuse
+  Emits: add, delete, save, fuse, unfuse
+-->
+<script setup lang="ts">
+import type { Mesa, AforoInfo } from '~/shared/contracts/mesas.contract'
+import AforoIndicator from './AforoIndicator.vue'
+
+defineProps<{
+  selectedMesa: Mesa | null
+  aforoInfo: AforoInfo
+  fusionMode?: boolean
+  canFuse?: boolean
+  canUnfuse?: boolean
+}>()
+
+const emit = defineEmits<{
+  add: []
+  delete: []
+  save: []
+  fuse: []
+  unfuse: []
+}>()
+</script>
+
+<template>
+  <div
+    class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
+  >
+    <!-- Left: action buttons -->
+    <div class="flex items-center gap-2">
+      <button
+        class="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+        @click="emit('add')"
+      >
+        + Nueva Mesa
+      </button>
+
+      <!-- Fusion buttons (Slice 4) -->
+      <button
+        :disabled="!canFuse"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          canFuse
+            ? 'bg-terracotta/80 text-white hover:bg-terracotta focus:ring-terracotta/50'
+            : 'cursor-not-allowed bg-gray-200 text-gray-400'
+        "
+        @click="canFuse && emit('fuse')"
+      >
+        Fusionar
+      </button>
+
+      <button
+        :disabled="!canUnfuse"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          canUnfuse
+            ? 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500/50'
+            : 'cursor-not-allowed bg-gray-200 text-gray-400'
+        "
+        @click="canUnfuse && emit('unfuse')"
+      >
+        Desfusionar
+      </button>
+
+      <button
+        :disabled="!selectedMesa"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          selectedMesa
+            ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500/50'
+            : 'cursor-not-allowed bg-gray-200 text-gray-400'
+        "
+        @click="selectedMesa && emit('delete')"
+      >
+        Eliminar
+      </button>
+
+      <button
+        class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
+        @click="emit('save')"
+      >
+        Guardar
+      </button>
+
+      <!-- Selected mesa info -->
+      <span
+        v-if="selectedMesa"
+        class="ml-2 text-sm text-slate-500"
+      >
+        Mesa {{ selectedMesa.numero_mesa }}
+      </span>
+    </div>
+
+    <!-- Right: Aforo -->
+    <div class="flex items-center gap-2">
+      <AforoIndicator :aforo-info="aforoInfo" />
+    </div>
+  </div>
+</template>
