@@ -1,9 +1,8 @@
 /**
  * TDD: RED → GREEN → TRIANGULATE — /cocina/reservas page (MCA-008)
  *
- * Replaces placeholder with TableCanvas + "Gestor de Mesas" title.
- * Uses TableCanvas component (stubbed), loads mesas on mount,
- * subscribes/unsubscribes Realtime on mount/unmount.
+ * Slice 2: TableCanvas + "Gestor de Mesas" title, loadMesas, Realtime.
+ * Slice 3: TableToolbar + AforoIndicator + aforoInfo computation + event wiring.
  *
  * Middleware: auth, role, permissions (reservas). Layout: cocina.
  */
@@ -39,12 +38,14 @@ g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina/reservas' })
 
 // Mock useMesas composable
+const mockCreateMesa = vi.fn()
+const mockDeleteMesa = vi.fn()
 vi.mock('../../../../app/features/mesas/composables/useMesas', () => ({
   useMesas: () => ({
     loadMesas: vi.fn().mockResolvedValue(undefined),
-    createMesa: vi.fn(),
+    createMesa: mockCreateMesa,
     updateMesa: vi.fn(),
-    deleteMesa: vi.fn(),
+    deleteMesa: mockDeleteMesa,
     subscribeRealtime: vi.fn(),
     unsubscribeRealtime: vi.fn(),
   }),
@@ -55,6 +56,20 @@ const TableCanvasStub = defineComponent({
   setup() {
     return () => h('div', { 'data-testid': 'table-canvas' }, 'Canvas')
   },
+})
+
+// Stub TableToolbar — renders placeholder with slot for selected mesa text
+const TableToolbarStub = defineComponent({
+  props: ['selectedMesa', 'aforoInfo'],
+  emits: ['add', 'delete', 'save'],
+  template: '<div data-testid="table-toolbar"><slot /></div>',
+})
+
+// Stub AforoIndicator — renders placeholder
+const AforoIndicatorStub = defineComponent({
+  props: ['aforoInfo'],
+  emits: ['mode-change', 'manual-change'],
+  template: '<div data-testid="aforo-indicator">{{ aforoInfo?.disponible || 0 }}</div>',
 })
 
 // ============================================================================
@@ -73,6 +88,8 @@ describe('/cocina/reservas — table manager page', () => {
       global: {
         stubs: {
           TableCanvas: TableCanvasStub,
+          TableToolbar: TableToolbarStub,
+          AforoIndicator: AforoIndicatorStub,
         },
       },
     })
@@ -120,5 +137,37 @@ describe('/cocina/reservas — table manager page', () => {
   it('no longer references interactive floor plan as future feature', async () => {
     const wrapper = await mountPage()
     expect(wrapper.text()).not.toContain('plano interactivo')
+  })
+
+  // ── Slice 3: Toolbar + Aforo ──
+
+  it('renders the TableToolbar component', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-testid="table-toolbar"]').exists()).toBe(true)
+  })
+
+  it('passes aforoInfo prop to the TableToolbar', async () => {
+    const wrapper = await mountPage()
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    expect(toolbar.exists()).toBe(true)
+    // aforoInfo should be a computed object with the expected shape
+    const props = toolbar.props()
+    expect(props.aforoInfo).toBeDefined()
+    expect(props.aforoInfo.capacidad_total).toBe(80)
+    expect(props.aforoInfo.modo).toBe('auto')
+    expect(typeof props.aforoInfo.disponible).toBe('number')
+  })
+
+  it('passes selectedMesa prop to toolbar (null when nothing selected)', async () => {
+    const wrapper = await mountPage()
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    expect(toolbar.props('selectedMesa')).toBeNull()
+  })
+
+  it('wires toolbar @add to createMesa', async () => {
+    const wrapper = await mountPage()
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('add')
+    expect(mockCreateMesa).toHaveBeenCalled()
   })
 })

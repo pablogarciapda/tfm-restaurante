@@ -22,6 +22,7 @@ const props = defineProps<{
 
 defineEmits<{
   click: []
+  dragstart: []
   dragend: []
   transformend: []
 }>()
@@ -47,11 +48,14 @@ const fontSizePax = 11
 <template>
   <v-group
     :config="{
+      id: mesa.id,
       x: mesa.posicion_x,
       y: mesa.posicion_y,
       rotation: mesa.rotacion,
+      draggable: true,
     }"
     @click="$emit('click')"
+    @dragstart="$emit('dragstart')"
     @dragend="$emit('dragend')"
     @transformend="$emit('transformend')"
   >

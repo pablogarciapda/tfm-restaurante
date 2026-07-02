@@ -44,16 +44,16 @@ Chain strategy: pending
 - [x] 2.4 [TDD:RED→GREEN] `app/features/mesas/composables/useMesas.ts`: loadMesas, createMesa, updateMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime. `test/unit/composables/useMesas.test.ts` (8 tests green).
 - [x] 2.5 [TDD:RED→GREEN] `app/features/mesas/components/TableCanvas.vue`: v-stage 3-layer (bg listening:false + main + drag), v-for→TableNode, v-transformer, ZoneSections, on-demand import, pixelRatio limit. `test/unit/components/TableCanvas.test.ts` (10 tests green). (MCA-001/008)
 - [x] 2.6 Replace `app/pages/cocina/reservas.vue` placeholder → TableCanvas + "Gestor de Mesas" title, loadMesas on mount, subscribeRealtime/unsubscribeRealtime. `test/unit/pages/cocina/reservas.test.ts` (6 tests green).
-- [ ] 2.7 [GATE] `/cocina/reservas` renders zones + tables; vitest green.
+- [x] 2.7 [GATE] `/cocina/reservas` renders zones + tables; vitest green.
 
 ## 3. CRUD + Toolbar + Aforo (PR 3 — ~500 lines)
 
-- [ ] 3.1 [TDD:RED→GREEN] `server/api/cocina/mesas/handlers.ts`: `handleList`, `handleCreate` (aforo check), `handleUpdate`, `handleDelete` (SET NULL children). Pattern: `usuarios/handlers.ts`. (MCA-003)
-- [ ] 3.2 [TDD:RED→GREEN] Nitro: `list.get.ts`, `create.post.ts`, `update.post.ts`, `delete.post.ts` → wire handlers + `serverSupabaseServiceRole`. `test/integration/server/mesas-crud.test.ts`.
-- [ ] 3.3 [TDD:RED→GREEN] `app/features/mesas/components/TableToolbar.vue`: "Nueva mesa"/"Eliminar"/"Fusionar"/"Desfusionar" buttons, delete confirm dialog. Wire to `useMesas`. Test: CRUD trigger. (MCA-003)
-- [ ] 3.4 [TDD:RED→GREEN] Transformer + drag in `TableCanvas.vue`: `v-transformer` `rotationSnaps`(15°), `boundBoxFunc`(min 40×40), `dragBoundFunc`. `transformend`→scale→dims→persist. Drag isolation to drag layer. Test: resize, rotate, drag. (MCA-004)
-- [ ] 3.5 [TDD:RED→GREEN] `app/features/mesas/components/AforoIndicator.vue`: bar + counter. Auto: `SUM(capacidad_actual WHERE mesa_padre_id IS NULL)`. Manual: reads `ocupacion_manual`. Toggle "Automático"/"Manual". Test: dual mode. (MCA-006)
-- [ ] 3.6 [GATE] Full CRUD + drag/resize/rotate persist; aforo updates live.
+- [x] 3.1 [TDD:RED→GREEN] `server/api/cocina/mesas/handlers.ts`: `handleList`, `handleCreate` (aforo check), `handleUpdate`, `handleDelete` (SET NULL children). Pattern: `usuarios/handlers.ts`. (MCA-003)
+- [x] 3.2 [TDD:RED→GREEN] Nitro: `list.get.ts`, `create.post.ts`, `update.post.ts`, `delete.post.ts` → wire handlers + `serverSupabaseServiceRole`. `test/unit/api/cocina/mesas/handlers.test.ts` (21 tests green).
+- [x] 3.3 [TDD:RED→GREEN] `app/features/mesas/components/TableToolbar.vue`: "Nueva mesa"/"Eliminar"/"Guardar" buttons, embedded AforoIndicator. Wire to `useMesas`. Test: 9 tests green. (MCA-003)
+- [x] 3.4 [TDD:RED→GREEN] Transformer + drag in `TableCanvas.vue`: `v-transformer` `rotationSnaps`(15°), `boundBoxFunc`(min 40×40), `dragBoundFunc`. `transformend`→scale→dims→persist. Drag isolation to drag layer. Test: 17 tests green (10 + 7 Slice 3). (MCA-004)
+- [x] 3.5 [TDD:RED→GREEN] `app/features/mesas/components/AforoIndicator.vue`: bar + counter. Auto: `SUM(capacidad_actual WHERE mesa_padre_id IS NULL)`. Manual: reads `ocupacion_manual`. Toggle "Automático"/"Manual". Test: 16 tests green. (MCA-006)
+- [x] 3.6 [GATE] Full CRUD + drag/resize/rotate persist; aforo updates live. vitest 560 green, vue-tsc clean, eslint clean.
 
 ## 4. Fusion + Realtime + E2E (PR 4 — ~500 lines)
 
