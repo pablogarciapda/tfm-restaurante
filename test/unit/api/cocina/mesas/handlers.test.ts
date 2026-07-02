@@ -47,6 +47,14 @@ let handlersModule: {
     supabase: MockSupabase,
     body: Record<string, unknown>,
   ) => Promise<HandlerResult>
+  handleFuseMesas: (
+    supabase: MockSupabase,
+    body: Record<string, unknown>,
+  ) => Promise<HandlerResult>
+  handleUnfuseMesas: (
+    supabase: MockSupabase,
+    body: Record<string, unknown>,
+  ) => Promise<HandlerResult>
 } | null = null
 
 // ── Helpers ──
@@ -74,6 +82,7 @@ function createMockSupabase(
         ...chain,
         order: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
         single: vi.fn().mockReturnThis(),
         then: (resolve: (v: unknown) => void) =>
           resolve(overrides?.selectResult ?? { data: [], error: null }),
@@ -88,12 +97,14 @@ function createMockSupabase(
       update: vi.fn().mockReturnValue({
         ...chain,
         eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
         then: (resolve: (v: unknown) => void) =>
           resolve(overrides?.updateResult ?? { data: null, error: null }),
       }),
       delete: vi.fn().mockReturnValue({
         ...chain,
         eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
         then: (resolve: (v: unknown) => void) =>
           resolve(overrides?.deleteResult ?? { data: null, error: null }),
       }),
@@ -442,5 +453,218 @@ describe('handleDeleteMesa', () => {
 
     expect(result.status).toBe(500)
     expect(result.body.error).toContain('Error al eliminar mesa')
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// handleFuseMesas
+// ══════════════════════════════════════════════════════════════════════
+
+describe('handleFuseMesas', () => {
+  it('returns 400 when mesaIds is missing or empty', async () => {
+    const handler = await getHandler()
+    const result = await handler.handleFuseMesas(createMockSupabase(), {})
+
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('mesaIds')
+  })
+
+  it('returns 400 when less than 2 mesaIds are provided', async () => {
+    const handler = await getHandler()
+    const result = await handler.handleFuseMesas(createMockSupabase(), {
+      mesaIds: ['m1'],
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('2 mesas')
+  })
+
+  it('fuses two mesas and returns fusion data with calculated capacity', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4 },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4 },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: null },
+    })
+
+    const result = await handler.handleFuseMesas(supabase, {
+      mesaIds: ['m1', 'm2'],
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body.success).toBe(true)
+    expect(result.body.id_fusion).toBeDefined()
+    // floor((4+4) * 0.75) = 6
+    expect(result.body.capacidad_actual).toBe(6)
+  })
+
+  it('returns 400 when mesas are in different zones (cross-zone rejected)', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4 },
+          { id: 'm2', zona: 'Terraza', capacidad_base: 4 },
+        ],
+        error: null,
+      },
+    })
+
+    const result = await handler.handleFuseMesas(supabase, {
+      mesaIds: ['m1', 'm2'],
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('misma zona')
+  })
+
+  it('returns 500 when DB update fails', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4 },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4 },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: { message: 'DB error' } },
+    })
+
+    const result = await handler.handleFuseMesas(supabase, {
+      mesaIds: ['m1', 'm2'],
+    })
+
+    expect(result.status).toBe(500)
+    expect(result.body.error).toContain('Error al fusionar')
+  })
+
+  it('calculates 4+4+2 → 7 correctly via handler', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4 },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4 },
+          { id: 'm3', zona: 'Principal', capacidad_base: 2 },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: null },
+    })
+
+    const result = await handler.handleFuseMesas(supabase, {
+      mesaIds: ['m1', 'm2', 'm3'],
+    })
+
+    expect(result.status).toBe(200)
+    // floor((4+4+2)*0.75)=floor(7.5)=7
+    expect(result.body.capacidad_actual).toBe(7)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// handleUnfuseMesas
+// ══════════════════════════════════════════════════════════════════════
+
+describe('handleUnfuseMesas', () => {
+  it('returns 400 when fusionId is missing', async () => {
+    const handler = await getHandler()
+    const result = await handler.handleUnfuseMesas(createMockSupabase(), {})
+
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('fusionId')
+  })
+
+  it('unfuses with action=force: clears fusion fields and restores capacity', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4, capacidad_actual: 6, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4, capacidad_actual: 6, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: null },
+    })
+
+    const result = await handler.handleUnfuseMesas(supabase, {
+      fusionId: 'fusion-1',
+      action: 'force',
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body.success).toBe(true)
+  })
+
+  it('unfuses with action=cancel: cancels reservations and clears fusion', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: null },
+    })
+
+    const result = await handler.handleUnfuseMesas(supabase, {
+      fusionId: 'fusion-1',
+      action: 'cancel',
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body.success).toBe(true)
+  })
+
+  it('unfuses with action=standby: moves reservations to standby and clears fusion', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+          { id: 'm2', zona: 'Principal', capacidad_base: 4, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: null },
+    })
+
+    const result = await handler.handleUnfuseMesas(supabase, {
+      fusionId: 'fusion-1',
+      action: 'standby',
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body.success).toBe(true)
+  })
+
+  it('returns 500 when first DB update fails', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      selectResult: {
+        data: [
+          { id: 'm1', zona: 'Principal', capacidad_base: 4, id_fusion: 'fusion-1', mesa_padre_id: 'm1' },
+        ],
+        error: null,
+      },
+      updateResult: { data: null, error: { message: 'DB error' } },
+    })
+
+    const result = await handler.handleUnfuseMesas(supabase, {
+      fusionId: 'fusion-1',
+      action: 'force',
+    })
+
+    expect(result.status).toBe(500)
+    expect(result.body.error).toContain('Error al desfusionar')
   })
 })
