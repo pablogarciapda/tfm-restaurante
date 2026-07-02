@@ -118,12 +118,16 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     setActivePinia(createPinia())
   })
 
-  async function mountCanvas(mesas?: Mesa[]) {
+  async function mountCanvas(mesas?: Mesa[], reservas?: Array<{ mesa_id: string | null; estado: string; fecha_hora: string }>) {
     const store = useCanvasStore()
     if (mesas) store.setMesas(mesas)
 
     const mod = await import('../../../app/features/mesas/components/TableCanvas.vue')
-    return mount(mod.default)
+    return mount(mod.default, {
+      props: {
+        reservas: reservas ?? [],
+      },
+    })
   }
 
   describe('stage config', () => {
@@ -287,6 +291,82 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const wrapper = await mountCanvas()
       const transformer = wrapper.find('[data-testid="v-transformer"]')
       expect(transformer.exists()).toBe(true)
+    })
+  })
+
+  // ── MCA-005: mesaEstado wired to reservas data ──
+
+  describe('mesaEstado from reservas data (MCA-005)', () => {
+    const today = new Date().toISOString().split('T')[0]
+
+    function makeReserva(overrides: Partial<{ mesa_id: string; estado: string; fecha_hora: string }> & { mesa_id: string }) {
+      return {
+        mesa_id: overrides.mesa_id,
+        estado: overrides.estado ?? 'pendiente',
+        fecha_hora: overrides.fecha_hora ?? `${today}T20:00:00.000Z`,
+      }
+    }
+
+    it('colors mesa green (#22C55E) when no reservas exist (libre)', async () => {
+      const mesas = [makeMesa({ id: 'free-1', numero_mesa: 10 })]
+      const wrapper = await mountCanvas(mesas)
+      // TableNode renders v-rect with fill from STATUS_COLORS[estado]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#22C55E')
+    })
+
+    it('colors mesa orange (#F59E0B) when reserva pendiente exists for today', async () => {
+      const mesas = [makeMesa({ id: 'reserved-1', numero_mesa: 11 })]
+      const reservas = [makeReserva({ mesa_id: 'reserved-1', estado: 'pendiente' })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#F59E0B')
+    })
+
+    it('colors mesa orange (#F59E0B) when reserva confirmada exists for today', async () => {
+      const mesas = [makeMesa({ id: 'confirmed-1', numero_mesa: 12 })]
+      const reservas = [makeReserva({ mesa_id: 'confirmed-1', estado: 'confirmada' })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#F59E0B')
+    })
+
+    it('colors mesa red (#EF4444) when reserva completada exists for today', async () => {
+      const mesas = [makeMesa({ id: 'occupied-1', numero_mesa: 13 })]
+      const reservas = [makeReserva({ mesa_id: 'occupied-1', estado: 'completada' })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#EF4444')
+    })
+
+    it('colors mesa green (#22C55E) when reserva is for a different mesa', async () => {
+      const mesas = [makeMesa({ id: 'free-2', numero_mesa: 14 })]
+      const reservas = [makeReserva({ mesa_id: 'other-mesa', estado: 'pendiente' })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#22C55E')
+    })
+
+    it('colors mesa green (#22C55E) when reserva is for a different date', async () => {
+      const mesas = [makeMesa({ id: 'free-3', numero_mesa: 15 })]
+      const reservas = [makeReserva({ mesa_id: 'free-3', estado: 'pendiente', fecha_hora: '2020-01-01T20:00:00.000Z' })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#22C55E')
+    })
+
+    it('gracefully degrades to libre when no reservas prop provided', async () => {
+      const mesas = [makeMesa({ id: 'no-res', numero_mesa: 16 })]
+      const wrapper = await mountCanvas(mesas, undefined)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#22C55E')
     })
   })
 })
