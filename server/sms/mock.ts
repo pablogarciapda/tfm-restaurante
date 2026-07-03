@@ -7,7 +7,7 @@
  * One-time use: verifyCode deletes the code on success so it cannot be reused.
  */
 
-import type { SmsProvider, SmsSendResponse, SmsVerifyResponse } from '../../shared/contracts/sms.contract'
+import type { SmsProvider, SmsSendResponse, SmsVerifyResponse } from '#shared/contracts/sms.contract'
 import { storeCode, getCode, deleteCode } from '../utils/sms-store'
 
 const FIXED_CODE = '1234'

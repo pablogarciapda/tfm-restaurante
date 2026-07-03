@@ -17,8 +17,16 @@
             Restaurante La Zíngara
           </h3>
           <address class="not-italic leading-relaxed">
-            Santa María del Páramo<br />
-            León, España
+            <a
+              href="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="transition-colors hover:text-white"
+            >
+              Avda. del Páramo, 11<br />
+              24240 Santa María del Páramo<br />
+              León, España
+            </a>
           </address>
         </div>
 
@@ -28,18 +36,18 @@
           <ul class="space-y-2">
             <li>
               <a
-                href="tel:+34987654321"
+                href="tel:+34987350350"
                 class="transition-colors hover:text-white"
               >
-                +34 987 654 321
+                987 350 350
               </a>
             </li>
             <li>
               <a
-                href="mailto:info@lazingara.es"
+                href="mailto:reservas@lazingara.es"
                 class="transition-colors hover:text-white"
               >
-                info@lazingara.es
+                reservas@lazingara.es
               </a>
             </li>
           </ul>
@@ -51,7 +59,7 @@
           <ul class="flex gap-4">
             <li>
               <a
-                href="https://www.instagram.com"
+                href="https://www.instagram.com/restaurantelazingaraoficial"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="transition-colors hover:text-white"
@@ -62,7 +70,7 @@
             </li>
             <li>
               <a
-                href="https://www.facebook.com"
+                href="https://www.facebook.com/RestauranteLaZingara"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="transition-colors hover:text-white"

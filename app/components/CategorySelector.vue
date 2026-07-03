@@ -40,7 +40,7 @@ function scrollRight() {
 
 <template>
   <nav
-    class="sticky top-0 z-40 bg-cream/95 backdrop-blur-sm shadow-sm"
+    class="sticky top-16 z-40 bg-cream/95 backdrop-blur-sm shadow-sm"
     aria-label="Categorías de la carta"
   >
     <div class="mx-auto flex max-w-7xl items-center px-4">

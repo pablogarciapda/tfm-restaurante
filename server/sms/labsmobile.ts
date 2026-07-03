@@ -13,7 +13,7 @@
  * and passes the relevant values.
  */
 
-import type { SmsProvider, SmsSendResponse, SmsVerifyResponse } from '../../shared/contracts/sms.contract'
+import type { SmsProvider, SmsSendResponse, SmsVerifyResponse } from '#shared/contracts/sms.contract'
 import { storeCode, getCode, deleteCode } from '../utils/sms-store'
 
 export interface LabsMobileConfig {

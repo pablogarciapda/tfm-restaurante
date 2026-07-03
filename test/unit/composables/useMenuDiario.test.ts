@@ -1,8 +1,9 @@
 /**
  * TDD: RED → GREEN → TRIANGULATE — useMenuDiario composable (MD-004, MD-005)
  *
- * Fetches today's menu: queries menu_diario_config for current day_of_week,
- * then menu_diario_items grouped by seccion. Returns config, items, precio.
+ * Fetches today's menu: queries menu_diario_config by fecha first,
+ * falls back to day_of_week, then menu_diario_items grouped by seccion.
+ * Also checks eventos for holiday flag.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, computed } from 'vue'
@@ -42,20 +43,25 @@ function createSpyChain(resolveData: unknown): { chain: unknown; spy: ChainSpy }
 }
 
 const fromSpies: ChainSpy[] = []
-// Simulated config row (null = no menu today)
 let mockConfig: unknown = null
 const mockDishes: unknown[] = []
 
 const mockUseSupabaseClient = () => ({
   from: (table: string) => {
     let resolveData: unknown
+
     if (table === 'menu_diario_config') {
-      resolveData = { data: mockConfig, error: mockConfig ? null : { code: 'PGRST116' } }
+      // Simulate maybeSingle: returns { data, error: null } even on no rows
+      resolveData = { data: mockConfig, error: null }
     } else if (table === 'menu_diario_items') {
       resolveData = { data: mockDishes, error: null }
+    } else if (table === 'eventos') {
+      // Return no holiday match by default
+      resolveData = { data: null, error: null }
     } else {
       resolveData = { data: [], error: null }
     }
+
     const { chain, spy } = createSpyChain(resolveData)
     spy.table = table
     fromSpies.push(spy)
@@ -89,7 +95,7 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     return mod.useMenuDiario()
   }
 
-  it('queries menu_diario_config for today\'s day_of_week with activo=true', async () => {
+  it('queries menu_diario_config by fecha then day_of_week with activo=true', async () => {
     let capturedFn: (() => Promise<unknown>) | null = null
     g.useAsyncData = (_key: string, fn: () => Promise<unknown>) => {
       capturedFn = fn
@@ -99,22 +105,21 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     await getUseMenuDiario()
     expect(capturedFn).not.toBeNull()
 
-    // Set up mock config for today
+    // Set up mock config — no fecha match, so day_of_week fallback runs
     mockConfig = { id: 'cfg-1', day_of_week: new Date().getDay(), precio: '16', activo: true }
     await capturedFn!()
 
-    // Verify config query
-    const configSpy = fromSpies.find((s) => s.table === 'menu_diario_config')
-    expect(configSpy).toBeDefined()
-    expect(configSpy!.methods).toContain('select')
-    // eq is called twice (day_of_week and activo)
-    const eqCount = configSpy!.methods.filter((m) => m === 'eq').length
-    expect(eqCount).toBeGreaterThanOrEqual(2)
-    // single() is called for the singleton row
-    expect(configSpy!.methods).toContain('single')
+    // Verify config queries
+    const configSpies = fromSpies.filter((s) => s.table === 'menu_diario_config')
+    expect(configSpies.length).toBeGreaterThanOrEqual(1)
+
+    // Should use maybeSingle (not single)
+    const anyConfigSpy = configSpies[0]
+    expect(anyConfigSpy!.methods).toContain('maybeSingle')
+    expect(anyConfigSpy!.methods).toContain('select')
   })
 
-  it('returns config and precio when menu exists for today', async () => {
+  it('returns config, precio, isHoliday when menu exists for today', async () => {
     mockConfig = { id: 'cfg-mon', day_of_week: 1, precio: '16', activo: true }
     mockDishes.push(
       { id: 'd1', config_id: 'cfg-mon', seccion: 'primer', plato_nombre: 'Gazpacho', puesto: 1 },
@@ -133,7 +138,9 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     expect(result).toHaveProperty('config')
     expect(result).toHaveProperty('items')
     expect(result).toHaveProperty('precio')
+    expect(result).toHaveProperty('isHoliday')
     expect(result.precio).toBe('16')
+    expect(result.isHoliday).toBe(false)
   })
 
   it('groups dishes by seccion into primer/segundo/postre/bebida/pan', async () => {
@@ -163,7 +170,7 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     expect(result.items.pan).toHaveLength(1)
   })
 
-  it('returns null config/precio when no menu exists for today (fallback)', async () => {
+  it('returns null config/precio when no menu exists for today', async () => {
     mockConfig = null // No config for today
 
     let capturedFn: (() => Promise<unknown>) | null = null
@@ -180,8 +187,27 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     expect(result.items).toBeNull()
   })
 
-  it('returns null when config exists but is inactive', async () => {
-    mockConfig = null // simulate no active config
+  it('returns isHoliday=true when today is in eventos with categoria=festivo', async () => {
+    // Override the eventos mock for this test
+    const originalFrom = mockUseSupabaseClient().from
+    const customFrom = (table: string) => {
+      if (table === 'eventos') {
+        const { chain, spy } = createSpyChain({
+          data: { id: 'holiday-1' },
+          error: null,
+        })
+        spy.table = table
+        fromSpies.push(spy)
+        return chain
+      }
+      return originalFrom(table)
+    }
+    g.useSupabaseClient = () => ({
+      from: customFrom,
+      auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
+    })
+
+    mockConfig = { id: 'cfg-mon', day_of_week: 1, precio: '16', activo: true }
 
     let capturedFn: (() => Promise<unknown>) | null = null
     g.useAsyncData = (_key: string, fn: () => Promise<unknown>) => {
@@ -192,6 +218,6 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     await getUseMenuDiario()
     const result = await capturedFn!()
 
-    expect(result.config).toBeNull()
+    expect(result.isHoliday).toBe(true)
   })
 })

@@ -14,8 +14,8 @@ import StandbyBanner from '../../features/mesas/components/StandbyBanner.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
-import { getAforoDisponible } from '../../../shared/utils/fusion-math'
-import type { AforoInfo } from '../../../shared/contracts/mesas.contract'
+import { getAforoDisponible } from '#shared/utils/fusion-math'
+import type { AforoInfo } from '#shared/contracts/mesas.contract'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],

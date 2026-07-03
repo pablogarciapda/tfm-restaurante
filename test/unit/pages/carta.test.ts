@@ -3,6 +3,7 @@
  *
  * Migrated from mockCarta fixture to usePlatos composable.
  * Groups Supabase platos by categoria, passes to ProductGrid.
+ * Only one category visible at a time via activeCategory toggle.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -42,8 +43,11 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     return mount(page.default, {
       global: {
         components: {
-          CategorySelector: { template: '<div class="category-selector"><slot /></div>', props: ['categories', 'modelValue'] },
-          ProductGrid: { template: '<div class="product-grid"><slot /></div>', props: ['categories'] },
+          CategorySelector: {
+            template: '<div class="category-selector"><button v-for="c in categories" :key="c" data-testid="cat-btn" @click="$emit(\'update:modelValue\', c)">{{ c }}</button></div>',
+            props: ['categories', 'modelValue'],
+          },
+          ProductGrid: { template: '<div class="product-grid">{{ categories.length }} categoría(s)</div>', props: ['categories'] },
           PageHero: { template: '<div class="page-hero">{{ title }} — {{ subtitle }}</div>', props: ['title', 'subtitle'] },
         },
       },
@@ -60,7 +64,7 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     expect(wrapper.text()).toContain('Nuestra Carta')
   })
 
-  it('groups platos by categoria and passes categories to ProductGrid', async () => {
+  it('passes only the active category to ProductGrid', async () => {
     mockPlatosRef.value = [
       { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'Entrantes', puesto: 1, disponible: true },
       { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'Ensaladas', puesto: 2, disponible: true },
@@ -73,9 +77,36 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const grid = wrapper.findComponent({ name: 'ProductGrid' })
     expect(grid.exists()).toBe(true)
 
+    // Only one category should be passed (the active one, first by puesto)
     const categories = grid.props('categories') as Array<{ categoria: string; platos: unknown[] }>
-    expect(categories).toBeTruthy()
-    expect(categories.length).toBeGreaterThanOrEqual(2)
+    expect(categories).toHaveLength(1)
+  })
+
+  it('switches category when clicking a different category button', async () => {
+    mockPlatosRef.value = [
+      { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'Entrantes', puesto: 1, disponible: true },
+      { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'Ensaladas', puesto: 2, disponible: true },
+    ]
+
+    const wrapper = await mountCarta()
+    await flushPromises()
+
+    // Initially should show first category (Entrantes)
+    let grid = wrapper.findComponent({ name: 'ProductGrid' })
+    let cats = grid.props('categories') as Array<{ categoria: string }>
+    expect(cats[0].categoria).toBe('Entrantes')
+
+    // Click second category button
+    const buttons = wrapper.findAll('[data-testid="cat-btn"]')
+    expect(buttons.length).toBeGreaterThanOrEqual(2)
+    await buttons[1].trigger('click')
+    await flushPromises()
+
+    // Now should show only Ensaladas
+    grid = wrapper.findComponent({ name: 'ProductGrid' })
+    cats = grid.props('categories') as Array<{ categoria: string }>
+    expect(cats).toHaveLength(1)
+    expect(cats[0].categoria).toBe('Ensaladas')
   })
 
   it('maps Supabase fields to ProductCard contract (nombre→plato, precio→string)', async () => {
@@ -90,7 +121,6 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const cats = grid.props('categories') as Array<{ categoria: string; platos: Array<{ plato: string; precio: string }> }>
     expect(cats).toBeTruthy()
 
-    // At least one category with dishes
     const arroces = cats.find((c) => c.categoria === 'Arroces')
     expect(arroces).toBeTruthy()
     expect(arroces!.platos).toHaveLength(1)

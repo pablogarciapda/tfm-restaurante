@@ -15,21 +15,33 @@
           <!-- Contact details -->
           <div class="mb-8 space-y-4">
             <div>
-              <span class="text-sm text-gray-500">Teléfono</span>
+              <span class="text-sm text-gray-500">Dirección</span>
               <a
-                href="tel:+34987654321"
+                href="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="block text-lg font-semibold text-terracotta hover:underline"
               >
-                +34 987 654 321
+                Avda. del Páramo, 11<br />
+                <span class="text-base font-normal">24240 Santa María del Páramo, León</span>
+              </a>
+            </div>
+            <div>
+              <span class="text-sm text-gray-500">Teléfono</span>
+              <a
+                href="tel:+34987350350"
+                class="block text-lg font-semibold text-terracotta hover:underline"
+              >
+                987 350 350
               </a>
             </div>
             <div>
               <span class="text-sm text-gray-500">Email</span>
               <a
-                href="mailto:info@lazingara.es"
+                href="mailto:reservas@lazingara.es"
                 class="block text-lg font-semibold text-terracotta hover:underline"
               >
-                info@lazingara.es
+                reservas@lazingara.es
               </a>
             </div>
           </div>
@@ -48,15 +60,11 @@
                 <tbody class="divide-y divide-gray-100">
                   <tr>
                     <td class="px-4 py-2.5 font-medium">Lunes a Jueves</td>
-                    <td class="px-4 py-2.5">13:00–16:00 y 20:00–23:00</td>
+                    <td class="px-4 py-2.5">09:00–00:00</td>
                   </tr>
                   <tr>
-                    <td class="px-4 py-2.5 font-medium">Viernes y Sábado</td>
-                    <td class="px-4 py-2.5">13:00–16:00 y 20:00–23:30</td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-2.5 font-medium">Domingo</td>
-                    <td class="px-4 py-2.5">13:00–16:00</td>
+                    <td class="px-4 py-2.5 font-medium">Viernes a Domingo</td>
+                    <td class="px-4 py-2.5">09:00–02:00</td>
                   </tr>
                 </tbody>
               </table>
@@ -67,7 +75,7 @@
           <section>
             <h2 class="mb-4 text-xl font-bold text-slate">Ubicación</h2>
             <MapEmbed
-              src="https://www.openstreetmap.org/export/embed.html?bbox=-5.8300%2C42.3500%2C-5.8100%2C42.3700&amp;layer=mapnik"
+              src="https://maps.google.com/maps?q=Avda.+del+P%C3%A1ramo%2C+11%2C+24240+Santa+Mar%C3%ADa+del+P%C3%A1ramo%2C+Le%C3%B3n%2C+Espa%C3%B1a&amp;t=m&amp;z=16&amp;output=embed&amp;iwloc=near"
               title="Mapa de ubicación de La Zíngara"
             />
           </section>

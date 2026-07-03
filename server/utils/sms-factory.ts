@@ -10,7 +10,7 @@
  * gracefully fall back to mock without needing mock setup.
  */
 
-import type { SmsProvider } from '../../shared/contracts/sms.contract'
+import type { SmsProvider } from '#shared/contracts/sms.contract'
 import { MockSmsProvider } from '../sms/mock'
 import { LabsMobileProvider, type LabsMobileConfig } from '../sms/labsmobile'
 

@@ -29,8 +29,8 @@ function onImageError() {
 
 <template>
   <article class="overflow-hidden rounded-xl bg-white shadow-md transition-shadow hover:shadow-lg">
-    <!-- Image -->
-    <div class="relative aspect-square overflow-hidden bg-gray-200">
+    <!-- Image: shorter on mobile, square on desktop -->
+    <div class="relative aspect-video overflow-hidden bg-gray-200 sm:aspect-square">
       <img
         v-if="plato.imagen_url"
         :src="plato.imagen_url"
@@ -50,9 +50,9 @@ function onImageError() {
     </div>
 
     <!-- Content -->
-    <div class="p-4">
+    <div class="p-3 sm:p-4">
       <!-- Name -->
-      <h3 class="text-lg font-bold text-slate">
+      <h3 class="text-base font-bold text-slate sm:text-lg">
         {{ plato.plato }}
       </h3>
 

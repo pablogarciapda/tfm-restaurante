@@ -22,8 +22,8 @@ import { useCanvasStore } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
-import type { Mesa, Zona } from '~/shared/contracts/mesas.contract'
-import { getMesaEstado } from '../../../../shared/utils/fusion-math'
+import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
+import { getMesaEstado } from '#shared/utils/fusion-math'
 
 const props = defineProps<{
   reservas?: { mesa_id: string | null; estado: string; fecha_hora: string }[]

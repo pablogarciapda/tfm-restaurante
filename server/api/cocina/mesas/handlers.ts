@@ -10,8 +10,8 @@
  * Pattern: follows `usuarios/handlers.ts` (AD-10).
  */
 
-import type { Mesa } from '../../../../shared/contracts/mesas.contract'
-import { calculateFusedCapacity, canFuse } from '../../../../shared/utils/fusion-math'
+import type { Mesa } from '#shared/contracts/mesas.contract'
+import { calculateFusedCapacity, canFuse } from '#shared/utils/fusion-math'
 
 // ── Types ──
 

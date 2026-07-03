@@ -28,7 +28,7 @@ onMounted(() => {
 function validateForm(): boolean {
   const errors: { email?: string; password?: string } = {}
 
-  if (!email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+  if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
     errors.email = 'El email no es válido'
   }
 
@@ -51,7 +51,7 @@ async function handleLogin() {
 
   try {
     const { error } = await client.auth.signInWithPassword({
-      email: email.value,
+      email: email.value.trim(),
       password: password.value,
     })
 

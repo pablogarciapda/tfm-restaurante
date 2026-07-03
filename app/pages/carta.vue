@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 /**
  * Carta page — Category-based browsing with Supabase data (CN-006)
  *
  * Data sourced from Supabase via usePlatos composable.
  * Platos grouped by categoria, sorted by puesto.
- * Scroll-spy via IntersectionObserver for category navigation.
+ * Only one category visible at a time, selected via CategorySelector.
  */
 
 interface PlatoSupabase {
@@ -80,38 +80,21 @@ const categories = computed<CategoryGroup[]>(() => {
 })
 
 const categoryNames = computed(() => categories.value.map((c) => c.categoria))
-const activeCategory = ref(categoryNames.value[0] || '')
+const activeCategory = ref('')
 
-// Scroll-spy: IntersectionObserver (client-only)
-let observer: IntersectionObserver | null = null
-
-onMounted(() => {
-  if (!import.meta.client) return
-
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          const category = entry.target.getAttribute('data-category')
-          if (category) {
-            activeCategory.value = category
-          }
-        }
-      }
-    },
-    { threshold: 0.3, rootMargin: '-80px 0px 0px 0px' },
-  )
-
-  const sections = document.querySelectorAll('[data-category]')
-  sections.forEach((section) => observer!.observe(section))
-})
-
-onUnmounted(() => {
-  if (observer) {
-    observer.disconnect()
-    observer = null
+// Default to "Nuestras Recomendaciones" when categories load
+watch(categoryNames, (names) => {
+  if (names.length > 0 && !activeCategory.value) {
+    activeCategory.value = names.includes('Nuestras Recomendaciones')
+      ? 'Nuestras Recomendaciones'
+      : names[0] ?? ''
   }
-})
+}, { immediate: true })
+
+// Only show the selected category
+const filteredCategories = computed(() =>
+  categories.value.filter((c) => c.categoria === activeCategory.value),
+)
 </script>
 
 <template>
@@ -143,7 +126,7 @@ onUnmounted(() => {
         v-model="activeCategory"
         :categories="categoryNames"
       />
-      <ProductGrid :categories="categories" />
+      <ProductGrid :categories="filteredCategories" />
     </template>
   </div>
 </template>
