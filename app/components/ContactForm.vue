@@ -61,7 +61,11 @@ async function handleSubmit() {
   try {
     await $fetch('/api/contacto', {
       method: 'POST',
-      body: { nombre: nombre.value, email: email.value, mensaje: mensaje.value },
+      body: {
+        nombre: nombre.value.trim(),
+        email: email.value.trim(),
+        mensaje: mensaje.value.trim(),
+      },
     })
     success.value = true
     nombre.value = ''

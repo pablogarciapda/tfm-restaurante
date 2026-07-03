@@ -33,7 +33,7 @@ defineProps<{
     <!-- Text content -->
     <div
       :class="[
-        'relative mx-auto max-w-7xl px-4 py-20 text-center',
+        'relative mx-auto max-w-7xl px-4 py-12 text-center',
         background ? 'text-white' : 'text-slate',
       ]"
     >
@@ -42,7 +42,7 @@ defineProps<{
       </h1>
       <p
         v-if="subtitle"
-        class="mt-4 max-w-2xl text-lg opacity-90"
+        class="mx-auto mt-2 max-w-2xl text-lg opacity-90"
       >
         {{ subtitle }}
       </p>

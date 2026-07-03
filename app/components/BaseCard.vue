@@ -13,7 +13,7 @@ defineProps<{
 </script>
 
 <template>
-  <article class="overflow-hidden rounded-xl bg-white shadow-md">
+  <article class="flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-md">
     <!-- Optional image at top -->
     <img
       v-if="image"
@@ -24,7 +24,7 @@ defineProps<{
     />
 
     <!-- Slot content -->
-    <div class="p-5">
+    <div class="flex flex-1 flex-col p-5">
       <slot />
     </div>
   </article>

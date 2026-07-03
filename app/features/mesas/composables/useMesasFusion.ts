@@ -13,8 +13,8 @@ import {
   calculateFusedCapacity,
   unfuseTables as pureUnfuseTables,
   getAforoDisponible,
-} from '../../../../shared/utils/fusion-math'
-import type { Mesa } from '../../../../shared/contracts/mesas.contract'
+} from '#shared/utils/fusion-math'
+import type { Mesa } from '#shared/contracts/mesas.contract'
 
 // ── Types ──
 

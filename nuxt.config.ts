@@ -5,8 +5,22 @@ export default defineNuxtConfig({
   ssr: true,
   compatibilityDate: '2026-06-28',
 
+  // App metadata — favicon
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+      ],
+    },
+  },
+
   // ESLint flat config (v1.x) + font loading + Supabase
   modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase', '@pinia/nuxt'],
+
+  // @nuxtjs/supabase — disable auto-redirect (we handle auth manually via middleware on /cocina/** only)
+  supabase: {
+    redirect: false,
+  },
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)
   fonts: {

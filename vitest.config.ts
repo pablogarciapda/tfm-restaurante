@@ -19,6 +19,11 @@ export default defineConfig({
           environment: 'happy-dom',
         },
         plugins: [vue()],
+        resolve: {
+          alias: {
+            '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+          },
+        },
       },
       await defineVitestProject({
         test: {

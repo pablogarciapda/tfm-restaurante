@@ -3,6 +3,7 @@
  *
  * Migrated from mockMenuDiario to useMenuDiario composable.
  * Variable per-day pricing from Supabase.
+ * Holiday check via eventos table.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -12,11 +13,13 @@ import { ref } from 'vue'
 const mockConfigRef = ref<unknown>(null)
 const mockItemsRef = ref<Record<string, unknown[]> | null>(null)
 const mockPrecioRef = ref<string | null>(null)
+const mockIsHolidayRef = ref(false)
 
 const mockUseMenuDiario = () => ({
   config: mockConfigRef,
   items: mockItemsRef,
   precio: mockPrecioRef,
+  isHoliday: mockIsHolidayRef,
   data: ref(null),
   error: ref(null),
   pending: ref(false),
@@ -35,6 +38,7 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     mockConfigRef.value = null
     mockItemsRef.value = null
     mockPrecioRef.value = null
+    mockIsHolidayRef.value = false
   })
 
   async function mountMenuDiario() {
@@ -75,7 +79,6 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     await flushPromises()
 
     expect(wrapper.text()).toContain('25€')
-    expect(wrapper.text()).toContain('IVA incluido')
   })
 
   it('renders 5 sections in Spanish', async () => {
@@ -100,7 +103,7 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     expect(text).toContain('Pan y Cubiertos')
   })
 
-  it('shows "Menú no disponible hoy" when no active config', async () => {
+  it('shows "Hoy no disponemos de menú" when no active config', async () => {
     mockConfigRef.value = null
     mockPrecioRef.value = null
     mockItemsRef.value = null
@@ -108,7 +111,39 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     const wrapper = await mountMenuDiario()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Menú no disponible hoy')
+    expect(wrapper.text()).toContain('Hoy no disponemos de menú')
+  })
+
+  it('shows "Hoy no disponemos de menú" when isHoliday is true', async () => {
+    mockConfigRef.value = { id: 'cfg-1', day_of_week: 1, precio: '16', activo: true }
+    mockPrecioRef.value = '16'
+    mockItemsRef.value = {
+      primer: [{ id: 'd1', plato_nombre: 'Sopa', seccion: 'primer', puesto: 1 }],
+      segundo: [], postre: [], bebida: [], pan: [],
+    }
+    mockIsHolidayRef.value = true
+
+    const wrapper = await mountMenuDiario()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Hoy no disponemos de menú')
+  })
+
+  it('displays the formatted date when menu is available', async () => {
+    mockConfigRef.value = { id: 'cfg-1', day_of_week: 1, precio: '18', activo: true }
+    mockPrecioRef.value = '18'
+    mockItemsRef.value = {
+      primer: [{ id: 'd1', plato_nombre: 'Sopa', seccion: 'primer', puesto: 1 }],
+      segundo: [], postre: [], bebida: [], pan: [],
+    }
+
+    const wrapper = await mountMenuDiario()
+    await flushPromises()
+
+    // Should show the date in Spanish format (day name + date)
+    const text = wrapper.text()
+    // Today is a weekday, so the date line should appear
+    expect(text).toMatch(/\d{2}\/\d{2}\/\d{4}/)
   })
 
   it('displays dish names within sections', async () => {

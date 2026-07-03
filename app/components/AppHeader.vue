@@ -31,9 +31,15 @@ function toggleMenu() {
       role="navigation"
       aria-label="Navegación principal"
     >
-      <!-- Restaurant name / logo -->
-      <NuxtLink to="/" class="text-xl font-bold text-slate">
-        La Zíngara
+      <!-- Restaurant logo -->
+      <NuxtLink to="/" class="flex items-center">
+        <img
+          src="/images/logo.png"
+          alt="La Zíngara"
+          class="h-10 w-auto"
+          width="397"
+          height="174"
+        >
       </NuxtLink>
 
       <!-- Desktop nav links (hidden on mobile) -->
