@@ -1,12 +1,12 @@
 /**
  * POST /api/cocina/usuarios/update — Update user role + permissions (USR-003)
  */
-import { handleUpdateUser, type SupabaseAdminClient } from './handlers'
+import { handleUpdateUser } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleUpdateUser(supabase, body || {})
 
   if (result.status >= 400) {

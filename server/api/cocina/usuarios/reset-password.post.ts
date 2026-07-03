@@ -1,12 +1,12 @@
 /**
  * POST /api/cocina/usuarios/reset-password — Reset password (USR-005)
  */
-import { handleResetPassword, type SupabaseAdminClient } from './handlers'
+import { handleResetPassword } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleResetPassword(supabase, body || {})
 
   if (result.status >= 400) {

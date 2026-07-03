@@ -10,13 +10,12 @@
  * AD-10: service_role key NEVER exposed to client; these only run server-side.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
+
 // ── Types ──
 
-interface AuthUser {
-  id: string
-  email: string
-  created_at: string
-}
+type SupabaseServerClient = SupabaseClient<Database>
 
 interface Profile {
   id: string
@@ -27,53 +26,11 @@ interface Profile {
 
 interface UserListItem {
   id: string
-  email: string
+  email: string | undefined
   role: string
   permissions: Record<string, boolean>
   activo: boolean
   created_at: string
-}
-
-export interface SupabaseAdminClient {
-  auth: {
-    admin: {
-      createUser: (params: {
-        email: string
-        password: string
-        email_confirm: boolean
-      }) => Promise<{
-        data: { user: { id: string; email: string } | null } | null
-        error: { message: string } | null
-      }>
-      generateLink: (params: {
-        type: string
-        email: string
-      }) => Promise<{
-        data: {
-          properties: { action_link?: string }
-        } | null
-        error: { message: string } | null
-      }>
-      listUsers: () => Promise<{
-        data: { users: AuthUser[] } | null
-        error: { message: string } | null
-      }>
-    }
-  }
-  from: (table: string) => {
-    select: (...args: unknown[]) => QueryChain
-    update: (data: Record<string, unknown>) => QueryChain
-    insert: (data: Record<string, unknown> | Record<string, unknown>[]) => QueryChain
-  }
-}
-
-interface QueryChain {
-  eq: (column: string, value: unknown) => QueryChain
-  single: () => Promise<{ data: unknown; error: { message: string } | null }>
-  order: (column: string, opts?: { ascending: boolean }) => QueryChain
-  then: (
-    resolve: (value: { data: unknown; error: { message: string } | null }) => void,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -90,7 +47,7 @@ function isDuplicateError(error: { message: string }): boolean {
 
 // ─── USR-002: Create User ──────────────────────────────────────────
 export async function handleCreateUser(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { email, password, role } = body
@@ -158,7 +115,7 @@ export async function handleCreateUser(
   if (userRole !== 'editor') {
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role: userRole })
+      .update({ role: userRole } as Database['public']['Tables']['profiles']['Update'])
       .eq('id', createdUser.id)
 
     if (profileError) {
@@ -180,7 +137,7 @@ export async function handleCreateUser(
 
 // ─── USR-001, USR-006: List Users ──────────────────────────────────
 export async function handleListUsers(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
 ): Promise<HandlerResult> {
   const { data, error } = await supabase.auth.admin.listUsers()
 
@@ -228,7 +185,7 @@ export async function handleListUsers(
 
 // ─── USR-003: Update User Role + Permissions ───────────────────────
 export async function handleUpdateUser(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { id, role, permissions } = body
@@ -255,7 +212,7 @@ export async function handleUpdateUser(
 
   const { error } = await supabase
     .from('profiles')
-    .update(updateData)
+    .update(updateData as Database['public']['Tables']['profiles']['Update'])
     .eq('id', id)
 
   if (error) {
@@ -273,7 +230,7 @@ export async function handleUpdateUser(
 
 // ─── USR-004: Deactivate User ──────────────────────────────────────
 export async function handleDeactivateUser(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { id } = body
@@ -305,7 +262,7 @@ export async function handleDeactivateUser(
 
 // ─── USR-005: Reset Password ───────────────────────────────────────
 export async function handleResetPassword(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { email } = body

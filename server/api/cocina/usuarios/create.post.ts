@@ -1,12 +1,12 @@
 /**
  * POST /api/cocina/usuarios/create — Create a new user (USR-002)
  */
-import { handleCreateUser, type SupabaseAdminClient } from './handlers'
+import { handleCreateUser } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleCreateUser(supabase, body || {})
 
   if (result.status >= 400) {

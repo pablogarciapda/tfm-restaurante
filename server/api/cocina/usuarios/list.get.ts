@@ -1,11 +1,11 @@
 /**
  * GET /api/cocina/usuarios/list — List Users (USR-001, USR-006)
  */
-import { handleListUsers, type SupabaseAdminClient } from './handlers'
+import { handleListUsers } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleListUsers(supabase)
 
   if (result.status >= 400) {

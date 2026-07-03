@@ -1,12 +1,12 @@
 /**
  * POST /api/cocina/mesas/update — Update a mesa (MCA-003)
  */
-import { handleUpdateMesa, type SupabaseAdminClient } from './handlers'
+import { handleUpdateMesa } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleUpdateMesa(supabase, body || {})
 
   if (result.status >= 400) {

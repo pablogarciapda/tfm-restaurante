@@ -1,11 +1,11 @@
 /**
  * GET /api/cocina/mesas/list — List all mesas
  */
-import { handleListMesas, type SupabaseAdminClient } from './handlers'
+import { handleListMesas } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleListMesas(supabase)
 
   if (result.status >= 400) {
