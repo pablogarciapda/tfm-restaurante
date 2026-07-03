@@ -1,14 +1,12 @@
 /**
- * POST /api/cocina/usuarios/deactivate — Deactivate User (USR-004)
- *
- * Sets profiles.activo = false (soft delete). Auth user NOT deleted.
- * Body: { id }
+ * POST /api/cocina/usuarios/deactivate — Deactivate a user (USR-004)
  */
-import { handleDeactivateUser } from './handlers'
+import { handleDeactivateUser, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleDeactivateUser(supabase, body || {})
 
   if (result.status >= 400) {
@@ -19,5 +17,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  setResponseStatus(event, result.status)
   return result.body
 })

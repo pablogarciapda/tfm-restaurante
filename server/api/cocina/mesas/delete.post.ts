@@ -3,14 +3,13 @@
  *
  * Uses serverSupabaseServiceRole (AD-10).
  * Body: { id }
- * Clears fusion children before deleting parent (AD-12).
- * Returns 200 on success.
  */
-import { handleDeleteMesa } from './handlers'
+import { handleDeleteMesa, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleDeleteMesa(supabase, body || {})
 
   if (result.status >= 400) {

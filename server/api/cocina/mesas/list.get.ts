@@ -1,13 +1,11 @@
 /**
- * GET /api/cocina/mesas/list — List all mesas (MCA-003)
- *
- * Uses serverSupabaseServiceRole (AD-10).
- * Returns array of Mesa objects ordered by numero_mesa.
+ * GET /api/cocina/mesas/list — List all mesas
  */
-import { handleListMesas } from './handlers'
+import { handleListMesas, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleListMesas(supabase)
 
   if (result.status >= 400) {
@@ -18,5 +16,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  setResponseStatus(event, result.status)
   return result.body
 })

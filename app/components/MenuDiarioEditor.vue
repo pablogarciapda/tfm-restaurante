@@ -3,8 +3,9 @@
 -->
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import type { Database } from '~/types/database.types'
 
-const client = useSupabaseClient()
+const client = useSupabaseClient<Database>()
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const SECTIONS = ['primer', 'segundo', 'postre', 'bebida', 'pan'] as const
@@ -66,7 +67,7 @@ async function addDish() {
 
   await client.from('menu_diario_items').insert({
     config_id: cfg.id,
-    seccion: newDish.seccion,
+    seccion: newDish.seccion as typeof SECTIONS[number],
     plato_nombre: newDish.plato_nombre.trim(),
     descripcion: newDish.descripcion.trim() || null,
     puesto: items.value.filter((i) => i.seccion === newDish.seccion).length + 1,

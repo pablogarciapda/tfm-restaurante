@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Rect as VRect, Text as VText } from 'vue-konva'
-import type { Zona } from '~/shared/contracts/mesas.contract'
+import type { Zona } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
   zona: Zona

@@ -13,7 +13,7 @@ const { signOut } = useAuth()
   <div class="flex h-screen overflow-hidden bg-cream">
     <!-- Sidebar (fixed left) -->
     <aside class="hidden w-60 flex-shrink-0 md:block">
-      <AdminSidebar @logout="handleLogout" />
+      <AdminSidebar />
     </aside>
 
     <!-- Content area -->

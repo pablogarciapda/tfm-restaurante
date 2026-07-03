@@ -38,6 +38,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
 
       platos: {
@@ -89,6 +90,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
 
       eventos: {
@@ -131,6 +133,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
 
       menu_diario_config: {
@@ -141,6 +144,7 @@ export type Database = {
           activo: boolean | null
           created_at: string
           updated_at: string
+          fecha: string | null
         }
         Insert: {
           id?: string
@@ -149,6 +153,7 @@ export type Database = {
           activo?: boolean | null
           created_at?: string
           updated_at?: string
+          fecha?: string | null
         }
         Update: {
           id?: string
@@ -157,7 +162,9 @@ export type Database = {
           activo?: boolean | null
           created_at?: string
           updated_at?: string
+          fecha?: string | null
         }
+        Relationships: []
       }
 
       menu_diario_items: {
@@ -185,6 +192,7 @@ export type Database = {
           descripcion?: string | null
           puesto?: number | null
         }
+        Relationships: []
       }
 
       configuracion: {
@@ -215,6 +223,7 @@ export type Database = {
           modo_ocupacion?: 'auto' | 'manual'
           ocupacion_manual?: number
         }
+        Relationships: []
       }
 
       reservas: {
@@ -251,6 +260,7 @@ export type Database = {
           mesa_id?: string | null
           created_at?: string
         }
+        Relationships: []
       }
 
       mesas: {
@@ -302,6 +312,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
 

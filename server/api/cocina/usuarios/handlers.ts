@@ -34,7 +34,7 @@ interface UserListItem {
   created_at: string
 }
 
-interface SupabaseAdminClient {
+export interface SupabaseAdminClient {
   auth: {
     admin: {
       createUser: (params: {

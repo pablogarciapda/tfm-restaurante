@@ -1,15 +1,12 @@
 /**
- * POST /api/cocina/usuarios/reset-password — Reset Password (USR-005)
- *
- * Generates a Supabase recovery link via service role admin API.
- * The link is returned in response for admin to share manually.
- * Body: { email }
+ * POST /api/cocina/usuarios/reset-password — Reset password (USR-005)
  */
-import { handleResetPassword } from './handlers'
+import { handleResetPassword, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleResetPassword(supabase, body || {})
 
   if (result.status >= 400) {
@@ -20,5 +17,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  setResponseStatus(event, result.status)
   return result.body
 })

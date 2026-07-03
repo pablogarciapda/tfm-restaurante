@@ -20,6 +20,7 @@ export default defineNuxtConfig({
   // @nuxtjs/supabase — disable auto-redirect (we handle auth manually via middleware on /cocina/** only)
   supabase: {
     redirect: false,
+    types: '~/types/database.types.ts',
   },
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)

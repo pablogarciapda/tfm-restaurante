@@ -3,13 +3,14 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import type { Database } from '~/types/database.types'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
   layout: 'cocina',
 })
 
-const client = useSupabaseClient()
+const supabase = useSupabaseClient<Database>()
 
 interface Evento {
   id: string
@@ -28,17 +29,17 @@ const showForm = ref(false)
 const editingEvento = ref<Evento | null>(null)
 
 async function loadEventos() {
-  const { data, error } = await client.from('eventos').select('*').order('fecha', { ascending: false })
+  const { data, error } = await supabase.from('eventos').select('*').order('fecha', { ascending: false })
   if (!error && data) eventos.value = data as Evento[]
 }
 
 async function handleCreate(data: Record<string, unknown>) {
-  const { error } = await client.from('eventos').insert(data)
+  const { error } = await supabase.from('eventos').insert(data as Database['public']['Tables']['eventos']['Insert'])
   if (!error) { showForm.value = false; await loadEventos() }
 }
 
 async function handleUpdate(data: Record<string, unknown>) {
-  const { error } = await client.from('eventos').update(data).eq('id', editingEvento.value!.id)
+  const { error } = await supabase.from('eventos').update(data as Database['public']['Tables']['eventos']['Update']).eq('id', editingEvento.value!.id)
   if (!error) { showForm.value = false; editingEvento.value = null; await loadEventos() }
 }
 
@@ -49,12 +50,12 @@ function handleEdit(id: string) {
 
 async function handleDelete(id: string) {
   if (!confirm('¿Eliminar este evento?')) return
-  const { error } = await client.from('eventos').delete().eq('id', id)
+  const { error } = await supabase.from('eventos').delete().eq('id', id)
   if (!error) await loadEventos()
 }
 
 async function handleToggleActivo(id: string, value: boolean) {
-  await client.from('eventos').update({ activo: value }).eq('id', id)
+  await supabase.from('eventos').update({ activo: value } as Database['public']['Tables']['eventos']['Update']).eq('id', id)
   await loadEventos()
 }
 

@@ -9,7 +9,7 @@
  * DO NOT import it — tests mock it on globalThis before module load.
  */
 import { useCanvasStore } from '../stores/canvas-store'
-import type { Mesa } from '~/shared/contracts/mesas.contract'
+import type { Mesa } from '#shared/contracts/mesas.contract'
 
 /** Data required to create a new mesa (minus DB-generated fields) */
 export interface MesaCreateData {
@@ -106,7 +106,7 @@ export function useMesas() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mesas' },
-        (payload) => {
+        (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
           if (payload.eventType === 'INSERT' && payload.new) {
             store.addMesa(payload.new as unknown as Mesa)
           } else if (payload.eventType === 'UPDATE' && payload.new) {

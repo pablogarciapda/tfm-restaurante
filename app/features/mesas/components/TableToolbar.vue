@@ -5,7 +5,7 @@
   Emits: add, delete, save, fuse, unfuse
 -->
 <script setup lang="ts">
-import type { Mesa, AforoInfo } from '~/shared/contracts/mesas.contract'
+import type { Mesa, AforoInfo } from '#shared/contracts/mesas.contract'
 import AforoIndicator from './AforoIndicator.vue'
 
 defineProps<{

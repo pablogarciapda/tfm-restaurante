@@ -6,6 +6,15 @@
  * Only active, future events displayed. Sorted by fecha ASC.
  */
 
+interface EventoItem {
+  id: string
+  titulo: string
+  descripcion: string | null
+  fecha: string
+  categoria: 'festivo' | 'espectaculo'
+  imagen_url?: string | null
+}
+
 const { data: eventos, error, pending } = useEventos()
 </script>
 
@@ -35,9 +44,9 @@ const { data: eventos, error, pending } = useEventos()
         <h2 class="mb-8 text-2xl font-bold text-slate">Próximos eventos</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <EventCard
-            v-for="evento in (eventos as unknown[])"
-            :key="(evento as { id: string }).id"
-            :evento="evento"
+            v-for="evento in (eventos as EventoItem[])"
+            :key="evento.id"
+            :evento="{ ...evento, descripcion: evento.descripcion ?? '', imagen_url: evento.imagen_url ?? undefined }"
           />
         </div>
       </template>
