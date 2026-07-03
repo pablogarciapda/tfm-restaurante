@@ -4,12 +4,12 @@
  * Uses serverSupabaseServiceRole (AD-10).
  * Body: { id }
  */
-import { handleDeleteMesa, type SupabaseAdminClient } from './handlers'
+import { handleDeleteMesa } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleDeleteMesa(supabase, body || {})
 
   if (result.status >= 400) {

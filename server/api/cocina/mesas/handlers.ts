@@ -10,44 +10,14 @@
  * Pattern: follows `usuarios/handlers.ts` (AD-10).
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
 import type { Mesa } from '#shared/contracts/mesas.contract'
 import { calculateFusedCapacity, canFuse } from '#shared/utils/fusion-math'
 
 // ── Types ──
 
-export interface SupabaseAdminClient {
-  from: (table: string) => {
-    select: (...args: unknown[]) => QueryChain
-    insert: (data: Record<string, unknown> | Record<string, unknown>[]) => InsertChain
-    update: (data: Record<string, unknown>) => UpdateChain
-    delete: () => DeleteChain
-  }
-}
-
-interface QueryChain {
-  order: (column: string) => QueryChain
-  eq: (column: string, value: unknown) => QueryChain
-  in: (column: string, values: unknown[]) => QueryChain
-  then: (
-    resolve: (value: { data: unknown; error: { message: string } | null }) => void,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
-}
-
-interface InsertChain {
-  select: () => { single: () => Promise<{ data: unknown; error: { message: string } | null }> }
-}
-
-interface UpdateChain {
-  eq: (column: string, value: unknown) => UpdateChain
-  in: (column: string, values: unknown[]) => UpdateChain
-  then: (
-    resolve: (value: { data: unknown; error: { message: string } | null }) => void,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
-}
-
-interface DeleteChain {
-  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>
-}
+type SupabaseServerClient = SupabaseClient<Database>
 
 type HandlerResult = { status: number; body: Record<string, unknown> }
 
@@ -65,14 +35,9 @@ function isValidZona(zona: unknown): zona is string {
  * List all mesas ordered by numero_mesa.
  */
 export async function handleListMesas(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
 ): Promise<HandlerResult> {
-  const query = supabase.from('mesas').select('*').order('numero_mesa')
-
-  const { data, error } = await new Promise<{
-    data: unknown
-    error: { message: string } | null
-  }>((resolve) => query.then(resolve))
+  const { data, error } = await supabase.from('mesas').select('*').order('numero_mesa')
 
   if (error) {
     return {
@@ -97,7 +62,7 @@ export async function handleListMesas(
  * capacidad_actual = capacidad_base on creation.
  */
 export async function handleCreateMesa(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { numero_mesa, capacidad_base, zona } = body
@@ -130,7 +95,7 @@ export async function handleCreateMesa(
 
   const { data, error } = await supabase
     .from('mesas')
-    .insert(insertData)
+    .insert(insertData as Database['public']['Tables']['mesas']['Insert'])
     .select()
     .single()
 
@@ -155,7 +120,7 @@ export async function handleCreateMesa(
  * capacidad_actual, zona, numero_mesa, capacidad_base.
  */
 export async function handleUpdateMesa(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { id } = body
@@ -187,7 +152,7 @@ export async function handleUpdateMesa(
 
   const { error } = await supabase
     .from('mesas')
-    .update(updateData)
+    .update(updateData as Database['public']['Tables']['mesas']['Update'])
     .eq('id', id)
 
   if (error) {
@@ -214,7 +179,7 @@ export async function handleUpdateMesa(
  * fields explicitly so children don't retain stale id_fusion values.
  */
 export async function handleDeleteMesa(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { id } = body
@@ -269,7 +234,7 @@ export async function handleDeleteMesa(
  * Returns: { success: true, id_fusion, capacidad_actual }
  */
 export async function handleFuseMesas(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { mesaIds } = body
@@ -282,12 +247,10 @@ export async function handleFuseMesas(
   }
 
   // Fetch the mesas to validate
-  const { data: mesasData, error: fetchError } = await new Promise<{
-    data: unknown
-    error: { message: string } | null
-  }>((resolve) =>
-    supabase.from('mesas').select('*').in('id', mesaIds).then(resolve),
-  )
+  const { data: mesasData, error: fetchError } = await supabase
+    .from('mesas')
+    .select('*')
+    .in('id', mesaIds)
 
   if (fetchError) {
     return {
@@ -356,7 +319,7 @@ export async function handleFuseMesas(
  * Returns: { success: true }
  */
 export async function handleUnfuseMesas(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
   const { fusionId, action } = body
@@ -369,16 +332,10 @@ export async function handleUnfuseMesas(
   }
 
   // Fetch all mesas in this fusion group
-  const { data: fusedMesas, error: fetchError } = await new Promise<{
-    data: unknown
-    error: { message: string } | null
-  }>((resolve) =>
-    supabase
-      .from('mesas')
-      .select('*')
-      .eq('id_fusion', fusionId)
-      .then(resolve),
-  )
+  const { data: fusedMesas, error: fetchError } = await supabase
+    .from('mesas')
+    .select('*')
+    .eq('id_fusion', fusionId)
 
   if (fetchError) {
     return {

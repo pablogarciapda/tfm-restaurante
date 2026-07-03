@@ -5,12 +5,12 @@
  * Body: { numero_mesa, capacidad_base, zona, posicion_x?, posicion_y?, ancho?, alto?, rotacion? }
  * Returns 201 on success with created mesa.
  */
-import { handleCreateMesa, type SupabaseAdminClient } from './handlers'
+import { handleCreateMesa } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleCreateMesa(supabase, body || {})
 
   if (result.status >= 400) {

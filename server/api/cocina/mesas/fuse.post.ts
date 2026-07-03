@@ -1,12 +1,12 @@
 /**
  * POST /api/cocina/mesas/fuse — Fuse multiple mesas
  */
-import { handleFuseMesas, type SupabaseAdminClient } from './handlers'
+import { handleFuseMesas } from './handlers'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
+  const supabase = serverSupabaseServiceRole(event)
   const result = await handleFuseMesas(supabase, body || {})
 
   if (result.status >= 400) {
