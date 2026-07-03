@@ -10,10 +10,18 @@ interface ContactInput {
   mensaje: string
 }
 
-function sanitize(input: string): string {
-  // Strip control characters (null, backspace, etc.) except \n \r \t
+function sanitizeSingleLine(input: string): string {
+  // For nombre/email: strip ALL control chars (no newlines/tabs allowed).
+  // Prevents log forging and future SMTP header injection (CRLF in email/name).
   // eslint-disable-next-line no-control-regex
-  return input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  return input.replace(/[\x00-\x1F\x7F]/g, '')
+}
+
+function sanitizeMultiLine(input: string): string {
+  // For mensaje: strip control chars except \n and \t (legitimate multiline),
+  // but strip \r (CRLF injection vector for future SMTP forwarding).
+  // eslint-disable-next-line no-control-regex
+  return input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\r/g, '')
 }
 
 function validate(input: unknown): ContactInput | null {
@@ -45,15 +53,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Sanitize: strip control characters (defense in depth after validation)
+  // Sanitize: strip control characters (defense in depth after validation).
+  // nombre/email are single-line (no newlines — prevents log forging + SMTP header
+  // injection); mensaje keeps \n and \t for legitimate multiline content.
   const clean = {
-    nombre: sanitize(parsed.nombre),
-    email: sanitize(parsed.email),
-    mensaje: sanitize(parsed.mensaje),
+    nombre: sanitizeSingleLine(parsed.nombre),
+    email: sanitizeSingleLine(parsed.email),
+    mensaje: sanitizeMultiLine(parsed.mensaje),
   }
 
-  // Mock: always succeed (replace with email send / DB storage when implemented)
-  console.log('[contacto] Received:', clean)
+  // Mock: always succeed (replace with email send / DB storage when implemented).
+  // Do NOT log `clean` — it contains user PII (nombre, email, mensaje) which must
+  // not reach server logs (GDPR/retention). Log a redacted, non-PII summary only.
+  console.log('[contacto] form submission received', { mensajeLength: clean.mensaje.length })
 
   return { success: true }
 })
