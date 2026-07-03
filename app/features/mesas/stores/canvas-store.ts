@@ -9,7 +9,7 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { Mesa, Zona } from '~/shared/contracts/mesas.contract'
+import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 
 export const useCanvasStore = defineStore('canvas', () => {
   // ── State ──
@@ -54,7 +54,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   function updateMesa(id: string, data: Partial<Mesa>) {
     const index = mesas.value.findIndex((m) => m.id === id)
     if (index === -1) return
-    mesas.value[index] = { ...mesas.value[index], ...data }
+    mesas.value[index] = { ...mesas.value[index]!, ...data }
   }
 
   /** Remove a mesa by id */

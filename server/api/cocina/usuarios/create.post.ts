@@ -1,15 +1,12 @@
 /**
- * POST /api/cocina/usuarios/create — Create User (USR-002)
- *
- * Uses serverSupabaseServiceRole (AD-10) to call Supabase Admin API.
- * Body: { email, password, role? }
- * Returns 201 on success, 400/409/500 on error.
+ * POST /api/cocina/usuarios/create — Create a new user (USR-002)
  */
-import { handleCreateUser } from './handlers'
+import { handleCreateUser, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleCreateUser(supabase, body || {})
 
   if (result.status >= 400) {

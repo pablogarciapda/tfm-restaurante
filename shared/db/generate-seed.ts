@@ -57,9 +57,9 @@ interface CartaPlato {
 
 async function main() {
   // Dynamically import mock data
-  const cartaMod = await import('../../shared/fixtures/carta-mock.ts')
-  const eventosMod = await import('../../shared/fixtures/eventos-mock.ts')
-  const menuMod = await import('../../shared/fixtures/menu-diario-mock.ts')
+  const cartaMod = await import('../../shared/fixtures/carta-mock')
+  const eventosMod = await import('../../shared/fixtures/eventos-mock')
+  const menuMod = await import('../../shared/fixtures/menu-diario-mock')
 
   const { mockCarta } = cartaMod
   const { mockEventos } = eventosMod
@@ -197,7 +197,7 @@ async function main() {
   for (let d = 0; d <= 6; d++) {
     const cfgId = `menu-config-day-${d}`
     configIds[d] = cfgId
-    const { precio, activo } = dayPricing[d]
+    const { precio, activo } = dayPricing[d]!
 
     lines.push(
       `INSERT INTO menu_diario_config (id, day_of_week, precio, activo, created_at, updated_at)`,

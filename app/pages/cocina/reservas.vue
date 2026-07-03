@@ -75,7 +75,7 @@ const canFuse = computed(() => {
   if (selectedIds.value.length < 2) return false
   const mesas = selectedMesas()
   if (mesas.length < 2) return false
-  const firstZone = mesas[0].zona
+  const firstZone = mesas[0]!.zona
   return mesas.every((m) => m.zona === firstZone && m.id_fusion === null)
 })
 

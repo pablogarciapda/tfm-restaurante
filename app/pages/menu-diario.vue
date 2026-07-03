@@ -91,7 +91,7 @@ const formattedDate = computed(() => {
             {{ SECTION_LABELS[key] }}
           </h2>
 
-          <template v-if="items && (items as Record<string, MenuDish[]>)[key]?.length > 0">
+          <template v-if="items && ((items as Record<string, MenuDish[]>)[key]?.length ?? 0) > 0">
             <ul class="space-y-3">
               <li
                 v-for="dish in (items as Record<string, MenuDish[]>)[key]"

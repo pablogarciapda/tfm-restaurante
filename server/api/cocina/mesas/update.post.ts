@@ -1,15 +1,12 @@
 /**
- * POST /api/cocina/mesas/update — Update an existing mesa (MCA-003, MCA-004)
- *
- * Uses serverSupabaseServiceRole (AD-10).
- * Body: { id, posicion_x?, posicion_y?, ancho?, alto?, rotacion?, capacidad_actual?, zona?, numero_mesa?, capacidad_base? }
- * Returns 200 on success.
+ * POST /api/cocina/mesas/update — Update a mesa (MCA-003)
  */
-import { handleUpdateMesa } from './handlers'
+import { handleUpdateMesa, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleUpdateMesa(supabase, body || {})
 
   if (result.status >= 400) {

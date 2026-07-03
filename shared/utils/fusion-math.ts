@@ -50,7 +50,7 @@ export function canFuse(
 ): boolean {
   if (mesas.length === 0) return false
 
-  const firstZone = mesas[0].zona
+  const firstZone = mesas[0]!.zona
   const allSameZone = mesas.every((m) => m.zona === firstZone)
   if (!allSameZone) return false
 
@@ -85,7 +85,7 @@ export function fuseTables(
 ): { id_fusion: string; mesa_padre_id: string; capacidad_actual: number } {
   const selectedMesas = mesas.filter((m) => selectedIds.includes(m.id))
   const id_fusion = crypto.randomUUID()
-  const mesa_padre_id = selectedIds[0]
+  const mesa_padre_id = selectedIds[0]!
   const capacidad_actual = calculateFusedCapacity(selectedMesas)
 
   return { id_fusion, mesa_padre_id, capacidad_actual }
@@ -172,10 +172,10 @@ export function getMesaEstado(
   mesa: Mesa,
   reservas: { mesa_id: string | null; estado: string; fecha_hora: string }[],
 ): MesaEstado {
-  const todayPrefix = new Date().toISOString().split('T')[0]
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   const todayReservas = reservas.filter(
-    (r) => r.mesa_id === mesa.id && r.fecha_hora.startsWith(todayPrefix),
+    (r) => r.mesa_id === mesa.id && r.fecha_hora.startsWith(todayStr),
   )
 
   const hasReservada = todayReservas.some(

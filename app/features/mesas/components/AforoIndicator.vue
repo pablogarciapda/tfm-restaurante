@@ -10,7 +10,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AforoInfo, AforoMode } from '~/shared/contracts/mesas.contract'
+import type { AforoInfo, AforoMode } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
   aforoInfo: AforoInfo

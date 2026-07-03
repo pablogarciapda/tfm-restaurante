@@ -15,7 +15,7 @@ import { calculateFusedCapacity, canFuse } from '#shared/utils/fusion-math'
 
 // ── Types ──
 
-interface SupabaseAdminClient {
+export interface SupabaseAdminClient {
   from: (table: string) => {
     select: (...args: unknown[]) => QueryChain
     insert: (data: Record<string, unknown> | Record<string, unknown>[]) => InsertChain
@@ -26,6 +26,8 @@ interface SupabaseAdminClient {
 
 interface QueryChain {
   order: (column: string) => QueryChain
+  eq: (column: string, value: unknown) => QueryChain
+  in: (column: string, values: unknown[]) => QueryChain
   then: (
     resolve: (value: { data: unknown; error: { message: string } | null }) => void,
   ) => Promise<{ data: unknown; error: { message: string } | null }>
@@ -36,7 +38,11 @@ interface InsertChain {
 }
 
 interface UpdateChain {
-  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>
+  eq: (column: string, value: unknown) => UpdateChain
+  in: (column: string, values: unknown[]) => UpdateChain
+  then: (
+    resolve: (value: { data: unknown; error: { message: string } | null }) => void,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
 interface DeleteChain {

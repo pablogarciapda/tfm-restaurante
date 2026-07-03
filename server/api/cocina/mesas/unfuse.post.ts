@@ -1,15 +1,12 @@
 /**
- * POST /api/cocina/mesas/unfuse — Unfuse a fusion group (MFU-004, MFU-005)
- *
- * Uses serverSupabaseServiceRole (AD-10).
- * Body: { fusionId: string, action: 'force' | 'cancel' | 'standby' }
- * Returns: { success: true }
+ * POST /api/cocina/mesas/unfuse — Unfuse a fusion group
  */
-import { handleUnfuseMesas } from './handlers'
+import { handleUnfuseMesas, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleUnfuseMesas(supabase, body || {})
 
   if (result.status >= 400) {

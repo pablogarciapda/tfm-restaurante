@@ -4,13 +4,14 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import type { Database } from '~/types/database.types'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
   layout: 'cocina',
 })
 
-const client = useSupabaseClient()
+const supabase = useSupabaseClient<Database>()
 
 interface Plato {
   id: string
@@ -34,7 +35,7 @@ const editingPlato = ref<Plato | null>(null)
 
 async function loadPlatos() {
   loading.value = true
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('platos')
     .select('*')
     .order('puesto')
@@ -46,7 +47,7 @@ async function loadPlatos() {
 }
 
 async function handleCreate(data: Record<string, unknown>) {
-  const { error } = await client.from('platos').insert(data)
+  const { error } = await supabase.from('platos').insert(data as Database['public']['Tables']['platos']['Insert'])
   if (!error) {
     showForm.value = false
     await loadPlatos()
@@ -54,9 +55,9 @@ async function handleCreate(data: Record<string, unknown>) {
 }
 
 async function handleUpdate(data: Record<string, unknown>) {
-  const { error } = await client
+  const { error } = await supabase
     .from('platos')
-    .update(data)
+    .update(data as Database['public']['Tables']['platos']['Update'])
     .eq('id', editingPlato.value!.id)
 
   if (!error) {
@@ -77,14 +78,14 @@ function handleEdit(id: string) {
 async function handleDelete(id: string) {
   if (!confirm('¿Eliminar este plato?')) return
 
-  const { error } = await client.from('platos').delete().eq('id', id)
+  const { error } = await supabase.from('platos').delete().eq('id', id)
   if (!error) {
     await loadPlatos()
   }
 }
 
 async function handleToggleDisponible(id: string, value: boolean) {
-  await client.from('platos').update({ disponible: value }).eq('id', id)
+  await supabase.from('platos').update({ disponible: value } as Database['public']['Tables']['platos']['Update']).eq('id', id)
   await loadPlatos()
 }
 

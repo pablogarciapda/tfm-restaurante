@@ -11,8 +11,17 @@ definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
 })
 
+interface User {
+  id: string
+  email: string
+  role: string
+  permissions: Record<string, boolean>
+  activo: boolean
+  created_at: string
+}
+
 // ── State ──
-const users = ref<Array<Record<string, unknown>>>([])
+const users = ref<User[]>([])
 const showForm = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
 const editingUser = ref<{ email: string; role: string; id: string; permissions: Record<string, boolean> } | null>(null)
@@ -22,7 +31,7 @@ const loading = ref(false)
 async function loadUsers() {
   loading.value = true
   try {
-    const data = await $fetch<Array<Record<string, unknown>>>('/api/cocina/usuarios/list')
+    const data = await $fetch<User[]>('/api/cocina/usuarios/list')
     users.value = data || []
   } catch {
     users.value = []

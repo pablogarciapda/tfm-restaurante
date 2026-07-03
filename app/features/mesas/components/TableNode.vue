@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Rect as VRect, Text as VText, Group as VGroup } from 'vue-konva'
-import type { Mesa, MesaEstado } from '~/shared/contracts/mesas.contract'
+import type { Mesa, MesaEstado } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
   mesa: Mesa

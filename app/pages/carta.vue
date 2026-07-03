@@ -27,6 +27,7 @@ interface PlatoSupabase {
 interface PlatoDisplay {
   plato: string
   precio: string
+  stock: string
   descripcion?: string
   imagen_url?: string
   alergenos?: string[]
@@ -54,6 +55,7 @@ const categories = computed<CategoryGroup[]>(() => {
     const display: PlatoDisplay = {
       plato: p.nombre,
       precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
+      stock: p.disponible ? 'Disponible' : 'Agotado',
       descripcion: p.descripcion,
       imagen_url: p.imagen_url,
       alergenos: p.alergenos,

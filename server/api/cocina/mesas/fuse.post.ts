@@ -1,15 +1,12 @@
 /**
- * POST /api/cocina/mesas/fuse — Fuse N≥2 mesas into a shared group (MFU-001, MFU-002)
- *
- * Uses serverSupabaseServiceRole (AD-10).
- * Body: { mesaIds: string[] }
- * Returns: { success: true, id_fusion, capacidad_actual }
+ * POST /api/cocina/mesas/fuse — Fuse multiple mesas
  */
-import { handleFuseMesas } from './handlers'
+import { handleFuseMesas, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleFuseMesas(supabase, body || {})
 
   if (result.status >= 400) {

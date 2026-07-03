@@ -1,13 +1,11 @@
 /**
  * GET /api/cocina/usuarios/list — List Users (USR-001, USR-006)
- *
- * Joins auth.users with profiles for admin user management table.
- * Uses serverSupabaseServiceRole (AD-10).
  */
-import { handleListUsers } from './handlers'
+import { handleListUsers, type SupabaseAdminClient } from './handlers'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event) as unknown as SupabaseAdminClient
   const result = await handleListUsers(supabase)
 
   if (result.status >= 400) {
