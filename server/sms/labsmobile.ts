@@ -73,7 +73,12 @@ export class LabsMobileProvider implements SmsProvider {
         return { success: false, error: 'Invalid LabsMobile credentials' }
       }
 
-      console.error('[LabsMobile] sendVerificationCode failed:', err)
+      // Log only the HTTP status + error message. The raw ofetch error object can
+      // echo request headers (including Authorization: Basic <token>) — never log it.
+      console.error('[LabsMobile] sendVerificationCode failed:', {
+        status: fetchErr.response?.status,
+        message: fetchErr.message,
+      })
       return { success: false, error: 'SMS service unavailable' }
     }
   }
