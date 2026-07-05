@@ -60,7 +60,8 @@ async function handleLogin() {
       return
     }
 
-    await navigateTo('/cocina/dashboard')
+    // Hard redirect: SPA re-init reads the fresh session (fixes timing issue with useSupabaseUser)
+    window.location.href = '/cocina/dashboard'
   } catch {
     errorMessage.value = 'Error de conexión. Inténtelo de nuevo.'
   } finally {

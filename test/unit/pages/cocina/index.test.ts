@@ -147,7 +147,7 @@ describe('Login Page — /cocina', () => {
       })
     })
 
-    it('navigates to /cocina/dashboard after successful login', async () => {
+    it('hard-redirects to /cocina/dashboard after successful login', async () => {
       mockSignIn.mockResolvedValue({
         data: { user: { id: '1' }, session: {} },
         error: null,
@@ -167,7 +167,7 @@ describe('Login Page — /cocina', () => {
       await wrapper.find('form').trigger('submit')
       await flushPromises()
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/cocina/dashboard')
+      expect(window.location.pathname).toBe('/cocina/dashboard')
     })
 
     it('does NOT navigate on login failure', async () => {
