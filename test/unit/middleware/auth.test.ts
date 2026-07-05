@@ -2,8 +2,8 @@
  * TDD: RED → GREEN → TRIANGULATE — Auth Middleware (AUTH-003)
  *
  * Checks useSupabaseUser() is non-null. If null → fallback to getSession()
- * before redirecting. This handles the SPA boot timing where useSupabaseUser()
- * may not have resolved yet.
+ * before redirecting. Stores resolved user in 'cocina-auth-user' useState
+ * for downstream middleware.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -14,6 +14,7 @@ const userRef = ref<{ id: string; email: string } | null>(null)
 const mockNavigateTo = vi.fn((path: string) => path)
 const mockSignOut = vi.fn()
 const mockGetSession = vi.fn()
+const stateMap = new Map<string, ReturnType<typeof ref>>()
 
 // ---------- Inject Nuxt auto-imports ----------
 const g = globalThis as Record<string, unknown>
@@ -27,13 +28,20 @@ g.useSupabaseClient = () => ({
   },
   from: vi.fn(),
 })
-g.useState = (key: string, init?: unknown) => ref(init ?? null)
+g.useState = (key: string, init?: unknown) => {
+  if (!stateMap.has(key)) {
+    const initialValue = typeof init === 'function' ? init() : init ?? null
+    stateMap.set(key, ref(initialValue))
+  }
+  return stateMap.get(key)!
+}
 g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina/dashboard' })
 
 describe('auth middleware (AUTH-003)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    stateMap.clear()
     userRef.value = null
     // Default: no session in storage
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
@@ -50,12 +58,14 @@ describe('auth middleware (AUTH-003)', () => {
     expect(result).toBeDefined()
     expect(mockGetSession).toHaveBeenCalled()
     expect(mockNavigateTo).toHaveBeenCalledWith('/cocina')
+    // Should NOT store auth user
+    expect(stateMap.get('cocina-auth-user')?.value).toBeNull()
   })
 
   // ── FIX: SPA boot with existing session ──
-  it('allows through when useSupabaseUser is null but session exists in storage', async () => {
+  it('stores user in shared state when session exists in storage', async () => {
     mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: '1', email: 'admin@test.com' } } },
+      data: { session: { user: { id: 'user-1', email: 'admin@test.com' } } },
       error: null,
     })
 
@@ -68,11 +78,13 @@ describe('auth middleware (AUTH-003)', () => {
     expect(result).toBeUndefined()
     expect(mockGetSession).toHaveBeenCalled()
     expect(mockNavigateTo).not.toHaveBeenCalled()
+    // User stored in shared state for role middleware
+    expect(stateMap.get('cocina-auth-user')?.value).toEqual({ id: 'user-1' })
   })
 
   // ── RED: Authenticated → proceed ──
-  it('skips getSession and proceeds when useSupabaseUser is set', async () => {
-    userRef.value = { id: '1', email: 'admin@test.com' }
+  it('skips getSession and stores user when useSupabaseUser is set', async () => {
+    userRef.value = { id: 'user-1', email: 'admin@test.com' }
 
     const mod = await import('../../../app/middleware/auth')
     const result = await mod.default(
@@ -83,6 +95,7 @@ describe('auth middleware (AUTH-003)', () => {
     expect(result).toBeUndefined()
     expect(mockGetSession).not.toHaveBeenCalled()
     expect(mockNavigateTo).not.toHaveBeenCalled()
+    expect(stateMap.get('cocina-auth-user')?.value).toEqual({ id: 'user-1' })
   })
 
   // ── TRIANGULATE: different routes all redirect ──
@@ -90,6 +103,7 @@ describe('auth middleware (AUTH-003)', () => {
     const mod = await import('../../../app/middleware/auth')
 
     for (const route of ['/cocina/carta', '/cocina/eventos', '/cocina/reservas']) {
+      stateMap.clear()
       mockNavigateTo.mockClear()
       mockGetSession.mockClear()
       mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
@@ -114,6 +128,7 @@ describe('auth middleware (AUTH-003)', () => {
     const mod = await import('../../../app/middleware/auth')
 
     for (const user of users) {
+      stateMap.clear()
       userRef.value = user
       mockNavigateTo.mockClear()
       mockGetSession.mockClear()
