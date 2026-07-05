@@ -9,15 +9,24 @@ export default defineNuxtRouteMiddleware(async (_to, _from) => {
   const user = useSupabaseUser()
   const client = useSupabaseClient()
 
-  // Safety: auth middleware should have already checked, but guard anyway
-  if (!user.value) {
-    return navigateTo('/cocina')
+  // Resolve the user: prefer reactive useSupabaseUser, fall back to
+  // getSession() for SPA boot timing (auth middleware may have passed
+  // via getSession() before the reactive ref settled).
+  let userId: string
+  if (user.value) {
+    userId = user.value.id
+  } else {
+    const { data: { session } } = await client.auth.getSession()
+    if (!session?.user?.id) {
+      return navigateTo('/cocina')
+    }
+    userId = session.user.id
   }
 
   const { data: profile, error } = await client
     .from('profiles')
     .select('role, permissions')
-    .eq('id', user.value.id)
+    .eq('id', userId)
     .single()
 
   if (error || !profile) {
