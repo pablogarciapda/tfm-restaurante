@@ -12,7 +12,10 @@
  * Stores the resolved user in 'cocina-auth-user' useState so downstream
  * middleware (role, permissions) don't need to call getSession() again.
  */
-export default defineNuxtRouteMiddleware(async (_to, _from) => {
+export default defineNuxtRouteMiddleware(async (to, _from) => {
+  // Force the cocina layout for all /cocina/** routes
+  to.meta = { ...to.meta, layout: 'cocina' }
+
   const user = useSupabaseUser()
   const client = useSupabaseClient()
   const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)

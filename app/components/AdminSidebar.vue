@@ -8,9 +8,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+const emit = defineEmits<{
+  navigate: []
+}>()
+
 const role = useState<string | null>('cocina-role')
 const permissions = useState<Record<string, boolean> | null>('cocina-permissions')
 const { signOut } = useAuth()
+
+function handleNavigate() {
+  emit('navigate')
+}
 
 // ── Nav items with permission keys ──
 interface NavItem {
@@ -61,6 +69,7 @@ async function handleLogout() {
           :to="item.to"
           class="block rounded-md px-3 py-2 text-sm font-medium text-cream/80 transition-colors hover:bg-slate-700 hover:text-cream"
           active-class="bg-terracotta text-white"
+          @click="handleNavigate"
         >
           {{ item.label }}
         </NuxtLink>
