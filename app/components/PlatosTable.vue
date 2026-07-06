@@ -91,10 +91,19 @@ function onDragStart(event: DragEvent, index: number) {
   }
 }
 
-function onDragOver(event: DragEvent, index: number) {
+function onDragEnter(event: DragEvent, index: number) {
+  event.preventDefault() // required in some browsers to allow drop
   if (dragIndex.value === null || dragIndex.value === index) return
   dragOverIndex.value = index
-  event.dataTransfer!.dropEffect = 'move'
+}
+
+function onDragOver(event: DragEvent, index: number) {
+  event.preventDefault() // required to allow drop
+  if (dragIndex.value === null || dragIndex.value === index) return
+  dragOverIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
 }
 
 function onDragLeave() {
@@ -199,6 +208,7 @@ function resetDrag() {
             'border-t-2 border-terracotta': draggable && dragOverIndex === index,
           }"
           @dragstart="onDragStart($event, index)"
+          @dragenter="onDragEnter($event, index)"
           @dragover="onDragOver($event, index)"
           @dragleave="onDragLeave"
           @drop="onDrop($event, index)"
