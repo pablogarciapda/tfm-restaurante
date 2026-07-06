@@ -4,7 +4,7 @@
   Price comes from Configuración (precio_menu_diario / precio_menu_sabado).
 -->
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import type { Database } from '~/types/database.types'
 
 const client = useSupabaseClient<Database>()
@@ -85,6 +85,82 @@ const orderedItems = computed(() => {
 })
 
 const newDish = reactive({ plato_nombre: '', descripcion: '', seccion: 'primer' })
+
+// ── Autocomplete from platos table ──
+
+interface PlatoSuggestion {
+  nombre: string
+  descripcion: string | null
+}
+
+const suggestions = ref<PlatoSuggestion[]>([])
+const showSuggestions = ref(false)
+const selectedSuggestionIndex = ref(-1)
+let autocompleteTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => newDish.plato_nombre,
+  (value) => {
+    // Hide suggestions when empty
+    if (!value.trim()) {
+      suggestions.value = []
+      showSuggestions.value = false
+      return
+    }
+
+    // Debounce search
+    if (autocompleteTimer) clearTimeout(autocompleteTimer)
+    autocompleteTimer = setTimeout(async () => {
+      const { data } = await client
+        .from('platos')
+        .select('nombre, descripcion')
+        .in('tipo_menu', ['menu_diario', 'ambos'])
+        .ilike('nombre', `%${value.trim()}%`)
+        .order('nombre')
+        .limit(8)
+
+      if (data) {
+        suggestions.value = data as PlatoSuggestion[]
+        showSuggestions.value = suggestions.value.length > 0
+        selectedSuggestionIndex.value = -1
+      }
+    }, 250)
+  },
+)
+
+function selectSuggestion(s: PlatoSuggestion) {
+  newDish.plato_nombre = s.nombre
+  if (s.descripcion) newDish.descripcion = s.descripcion
+  showSuggestions.value = false
+  suggestions.value = []
+}
+
+function onSuggestionKeydown(event: KeyboardEvent) {
+  if (!showSuggestions.value) return
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    selectedSuggestionIndex.value = Math.min(
+      selectedSuggestionIndex.value + 1,
+      suggestions.value.length - 1,
+    )
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    selectedSuggestionIndex.value = Math.max(selectedSuggestionIndex.value - 1, 0)
+  } else if (event.key === 'Enter' && selectedSuggestionIndex.value >= 0) {
+    event.preventDefault()
+    selectSuggestion(suggestions.value[selectedSuggestionIndex.value])
+  } else if (event.key === 'Escape') {
+    showSuggestions.value = false
+  }
+}
+
+function onSuggestionBlur() {
+  // Delay so click on suggestion registers before hiding
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 200)
+}
 
 // ── Helpers ──
 
@@ -483,13 +559,33 @@ onMounted(async () => {
     <div v-if="currentConfig" class="rounded-lg border border-dashed border-gray-300 p-4">
       <h4 class="mb-3 font-medium text-slate">Añadir plato</h4>
       <div class="flex flex-wrap gap-3">
-        <input
-          v-model="newDish.plato_nombre"
-          type="text"
-          placeholder="Nombre del plato"
-          class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          @keyup.enter="addDish"
-        />
+        <div class="relative flex-1">
+          <input
+            v-model="newDish.plato_nombre"
+            type="text"
+            placeholder="Nombre del plato (con autocompletado)"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            @keydown="onSuggestionKeydown"
+            @blur="onSuggestionBlur"
+            @keyup.enter="addDish"
+          />
+          <!-- Autocomplete dropdown -->
+          <ul
+            v-if="showSuggestions"
+            class="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+          >
+            <li
+              v-for="(s, i) in suggestions"
+              :key="s.nombre"
+              class="cursor-pointer px-3 py-2 text-sm transition-colors"
+              :class="i === selectedSuggestionIndex ? 'bg-terracotta/10 text-terracotta' : 'hover:bg-gray-50'"
+              @mousedown.prevent="selectSuggestion(s)"
+            >
+              <span class="font-medium">{{ s.nombre }}</span>
+              <span v-if="s.descripcion" class="ml-2 text-xs text-gray-400">{{ s.descripcion }}</span>
+            </li>
+          </ul>
+        </div>
         <select v-model="newDish.seccion" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option v-for="s in SECTIONS" :key="s" :value="s">{{ getSectionTitle(s) }}</option>
         </select>

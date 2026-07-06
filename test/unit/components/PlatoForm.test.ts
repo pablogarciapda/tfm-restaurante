@@ -12,6 +12,12 @@ const g = globalThis as Record<string, unknown>
 g.useSupabaseClient = () => ({
   from: vi.fn(),
   auth: vi.fn(),
+  storage: {
+    from: () => ({
+      upload: vi.fn().mockResolvedValue({ data: { path: 'test.webp' }, error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: 'https://test.com/img.webp' } }),
+    }),
+  },
 })
 
 describe('PlatoForm (CRUD-002)', () => {

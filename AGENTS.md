@@ -49,6 +49,10 @@
 | `precio_menu_sabado` | `numeric` | null | Precio menú sábado |
 | `mostrar_recomendados` | `boolean` | true | Muestra sección recomendados en carta |
 | `titulo_recomendados` | `varchar` | 'Nuestras Recomendaciones' | Título personalizable |
+| `max_ancho_imagen` | `integer` | 1200 | Check 200..4096. Ancho máximo compresión imágenes |
+| `calidad_imagen` | `integer` | 80 | Check 10..100. Calidad WebP |
+| `max_peso_imagen` | `integer` | 5 | Check 1..20. Peso máximo en MB |
+| `auto_comprimir_imagen` | `boolean` | true | Comprimir automáticamente al subir |
 
 ### `platos`
 | Columna | Tipo | Notas |
@@ -75,15 +79,24 @@
 | `puesto` | `integer` | Orden de aparición en carta |
 | `created_at` | `timestamptz` | |
 
-### `menu_diario_config`
+### `categorias_eventos`
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `uuid` | PK |
-| `day_of_week` | `integer` | 0-6, unique |
-| `precio` | `text` | |
-| `activo` | `boolean` | Default false |
-| `fecha` | `date` | Nullable |
-| `created_at` / `updated_at` | `timestamptz` | |
+| `nombre` | `text` | Unique |
+| `puesto` | `integer` | Orden de aparición |
+| `created_at` | `timestamptz` | |
+
+### `menu_diario_config`
+| Columna | Tipo | Default | Notas |
+|---------|------|---------|-------|
+| `id` | `uuid` | gen_random_uuid() | PK |
+| `day_of_week` | `integer` | | 0-6, unique |
+| `precio` | `text` | | Precio desde `configuracion` |
+| `activo` | `boolean` | false | |
+| `fecha` | `date` | null | Nullable |
+| `secciones_config` | `jsonb` | '{}' | Activación por sección + títulos personalizados |
+| `created_at` / `updated_at` | `timestamptz` | | |
 
 ### `menu_diario_items`
 | Columna | Tipo | Notas |
@@ -127,7 +140,7 @@
 | `titulo` | `text` | |
 | `descripcion` | `text` | Nullable |
 | `fecha` | `timestamptz` | |
-| `categoria` | `text` | 'festivo' \| 'espectaculo' |
+| `categoria_id` | `uuid` | FK → categorias_eventos, nullable |
 | `imagen_url` | `text` | Nullable |
 | `capacidad` | `integer` | Nullable |
 | `estado` | `text` | Default 'programado' |
@@ -164,7 +177,7 @@
 - `/cocina/dashboard` -> Métricas y aforo actual
 - `/cocina/carta` -> CRUD platos con sticky layout, filtro por categorías reales (tabla `categorias`), columna recomendado
 - `/cocina/menu-diario` -> Editor menú diario (crear/editar config por día, precio desde `configuracion`, fecha read-only)
-- `/cocina/eventos` -> CRUD eventos
+- `/cocina/eventos` -> CRUD eventos (categorías dinámicas desde DB)
 - `/cocina/reservas` -> Mapa interactivo Konva + fusiones + sync Realtime
 - `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, categorías CRUD) con toast de confirmación
 - `/cocina/usuarios` -> Gestión de usuarios y permisos
@@ -189,8 +202,9 @@
   - **Modo Fusión:** unión lógica con `id_fusion`, recalculo de capacidad, ID de mesa unida.
   - Resta automática del aforo total del restaurante.
   - Sincronización Realtime vía WebSockets.
-- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con orden (`puesto`), modo ocupación, precios menú diario y sábado.
-- **Carta Admin:** Layout sticky (toolbar fuera de scroll), columnas "Disponible" y "Precio" con `whitespace-nowrap`, columna "Recomendado" con header "Recom" y celda solo ★.
+- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, CRUD categorías de eventos.
+- **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆).
+- **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 
 ## 7. Roadmap / MVP — Estado Actual
 
@@ -205,12 +219,17 @@
 - Autenticación Supabase con rutas protegidas
 - CRUD completo de platos con sticky layout, orden por puesto, filtro por categorías reales
 - Editor menú diario con precio desde Configuración, fecha read-only, crear/editar por día
-- CRUD eventos con imágenes y categorías
+- **CRUD eventos con categorías dinámicas:** tabla `categorias_eventos` con relaciones FK, formulario carga categorías desde DB, gestión de categorías desde Configuración
 - Gestión de usuarios y permisos (roles, permisos granulares)
-- **Configuración del sistema:** precios menú, capacidad, modo ocupación, categorías CRUD inline con auto-uppercase y orden, toggle recomendados + título personalizable, notificaciones toast con auto-dismiss
+- **Configuración del sistema:** precios menú, capacidad, modo ocupación, categorías CRUD inline con auto-uppercase y orden, toggle recomendados + título personalizable, categorías de eventos CRUD, notificaciones toast con auto-dismiss
+- **Drag & drop en carta admin:** reorden de platos por categoría vía HTML5 DnD
+- **Drag & drop en menú diario:** reorden independiente por sección (primer/segundo/postre/bebida/pan)
+- **Menú diario secciones:** configuración por sección (checkbox activo + título editable) vía JSONB
+- **Estrella recomendado clicable:** ★/☆ toggle directo sin abrir formulario
+- **Precio 0 → "Consultar":** en carta pública cuando el precio es 0
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
-- 653 tests unitarios pasando
+- 652 tests unitarios pasando
 
 ## 8. Reglas para agentes IA
 
@@ -314,3 +333,7 @@ tfm-restaurant/
 | **Sticky layout admin** | Toolbar scrolleaba con los productos | Toolbar fuera del scroll container, solo productos scrolleables |
 | **Toast feedback** | Sin feedback visual al guardar configuración | Sistema de toast verde/rojo con auto-dismiss 3s |
 | **Date menú diario** | Fecha modificable en editor | Fecha read-only, se gestiona vía day_of_week + activo |
+| **Drag & drop nativo** | Reorden de categorías y platos en admin | HTML5 Drag & Drop nativo en vez de librerías externas (sortablejs/vuedraggable) |
+| **Categorías eventos** | Categorías hardcodeadas 'festivo'/'espectaculo' | Tabla `categorias_eventos` con FK, CRUD desde Configuración |
+| **Estrella recomendado** | Sin toggle visual directo en tabla admin | Estrella clicable ★/☆ sin abrir formulario de edición |
+| **Precio 0** | Mostraba 0,00€ o vacío en carta pública | Muestra "Consultar" cuando precio es 0 o null |
