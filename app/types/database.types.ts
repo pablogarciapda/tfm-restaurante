@@ -1,6 +1,6 @@
 // Supabase database types — auto-generated from the live DB schema.
 // Project: sqtzcjcyciatagakmmcf (La Zíngara)
-// Generated: 2026-07-03 via supabase-zingara_generate_typescript_types (MCP)
+// Generated: 2026-07-06 via supabase-zingara_generate_typescript_types (MCP)
 //
 // REGENERATION CONVENTION (IMPORTANT):
 //   1. Regenerate structural types via the MCP tool supabase-zingara_generate_typescript_types
@@ -10,12 +10,11 @@
 //      are narrowed here to literal unions for compile-time type-safety. If a CHECK
 //      constraint changes, update the union here too.
 //        profiles.role             -> 'admin' | 'editor'
-//        eventos.categoria          -> 'festivo' | 'espectaculo'
 //        configuracion.modo_ocupacion -> 'auto' | 'manual'
 //        mesas.zona                -> 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
 //        reservas.estado           -> 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
 //        menu_diario_items.seccion  -> 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
-//   Do NOT hand-edit any other part of this file. Only the 7 overlay rules above (6 + categorias text) are a manual overlay.
+//   Do NOT hand-edit any other part of this file. Only the 6 overlay rules above are a manual overlay.
 
 export type Json =
   | string
@@ -54,6 +53,27 @@ export type Database = {
         }
         Relationships: []
       }
+      categorias_eventos: {
+        Row: {
+          created_at: string | null
+          id: string
+          nombre: string
+          puesto: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nombre: string
+          puesto?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nombre?: string
+          puesto?: number
+        }
+        Relationships: []
+      }
       configuracion: {
         Row: {
           capacidad_total_local: number | null
@@ -64,6 +84,8 @@ export type Database = {
           ocupacion_manual: number
           precio_menu_diario: number | null
           precio_menu_sabado: number | null
+          mostrar_recomendados: boolean | null
+          titulo_recomendados: string | null
           updated_at: string
         }
         Insert: {
@@ -75,6 +97,8 @@ export type Database = {
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
+          mostrar_recomendados?: boolean | null
+          titulo_recomendados?: string | null
           updated_at?: string
         }
         Update: {
@@ -86,6 +110,8 @@ export type Database = {
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
+          mostrar_recomendados?: boolean | null
+          titulo_recomendados?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -94,7 +120,7 @@ export type Database = {
         Row: {
           activo: boolean | null
           capacidad: number | null
-          categoria: 'festivo' | 'espectaculo'
+          categoria_id: string | null
           created_at: string
           descripcion: string | null
           estado: string | null
@@ -107,7 +133,7 @@ export type Database = {
         Insert: {
           activo?: boolean | null
           capacidad?: number | null
-          categoria: 'festivo' | 'espectaculo'
+          categoria_id?: string | null
           created_at?: string
           descripcion?: string | null
           estado?: string | null
@@ -120,7 +146,7 @@ export type Database = {
         Update: {
           activo?: boolean | null
           capacidad?: number | null
-          categoria?: 'festivo' | 'espectaculo'
+          categoria_id?: string | null
           created_at?: string
           descripcion?: string | null
           estado?: string | null
@@ -130,7 +156,15 @@ export type Database = {
           titulo?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "eventos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_eventos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       menu_diario_config: {
         Row: {

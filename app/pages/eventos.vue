@@ -6,16 +6,62 @@
  * Only active, future events displayed. Sorted by fecha ASC.
  */
 
+import { ref, watch } from 'vue'
+
 interface EventoItem {
   id: string
   titulo: string
   descripcion: string | null
   fecha: string
-  categoria: 'festivo' | 'espectaculo'
+  categoria: string
   imagen_url?: string | null
 }
 
+const supabase = useSupabaseClient()
+
 const { data: eventos, error, pending } = useEventos()
+
+// Build events with resolved category names
+const eventosConCategoria = ref<EventoItem[]>([])
+
+watch(eventos, async (newEventos) => {
+  if (!newEventos || (newEventos as unknown[]).length === 0) return
+
+  const raw = newEventos as unknown as Array<{
+    id: string
+    titulo: string
+    descripcion: string | null
+    fecha: string
+    categoria_id: string | null
+    imagen_url?: string | null
+  }>
+
+  const ids = [...new Set(raw.map((e) => e.categoria_id).filter(Boolean))] as string[]
+
+  const catMap: Record<string, string> = {}
+
+  if (ids.length > 0) {
+    const { data: cats } = await supabase
+      .from('categorias_eventos')
+      .select('id, nombre')
+      .in('id', ids)
+
+    if (cats) {
+      for (const c of cats) {
+        catMap[c.id] = c.nombre
+      }
+    }
+  }
+
+  eventosConCategoria.value = raw.map((e) => ({
+    id: e.id,
+    titulo: e.titulo,
+    descripcion: e.descripcion,
+    fecha: e.fecha,
+    categoria: e.categoria_id ? (catMap[e.categoria_id] ?? e.categoria_id) : 'General',
+    imagen_url: e.imagen_url,
+  }))
+}, { immediate: true })
 </script>
 
 <template>
@@ -44,7 +90,7 @@ const { data: eventos, error, pending } = useEventos()
         <h2 class="mb-8 text-2xl font-bold text-slate">Próximos eventos</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <EventCard
-            v-for="evento in (eventos as EventoItem[])"
+            v-for="evento in eventosConCategoria"
             :key="evento.id"
             :evento="{ ...evento, descripcion: evento.descripcion ?? '', imagen_url: evento.imagen_url ?? undefined }"
           />

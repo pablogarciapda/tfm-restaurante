@@ -65,7 +65,7 @@ async function handleSubmit(formData: ConfigData) {
   }
 }
 
-// ── Category management ──
+// ── Category management (platos) ──
 
 interface CategoryRow {
   id?: string
@@ -110,7 +110,6 @@ async function saveCategories() {
     const toDelete = categorias.value.filter((c) => c._deleted && c.id)
     const toUpsert = categorias.value.filter((c) => !c._deleted)
 
-    // Validate
     for (const cat of toUpsert) {
       if (!cat.nombre.trim()) {
         categoryError.value = 'Todas las categorías deben tener nombre'
@@ -119,12 +118,10 @@ async function saveCategories() {
       }
     }
 
-    // Delete marked categories
     for (const cat of toDelete) {
       await client.from('categorias').delete().eq('id', cat.id!)
     }
 
-    // Upsert: INSERT new (no id), UPDATE existing (has id)
     for (const cat of toUpsert) {
       const payload = { nombre: cat.nombre.trim().toUpperCase(), puesto: cat.puesto }
       if (cat.id) {
@@ -135,16 +132,93 @@ async function saveCategories() {
     }
 
     await loadCategories()
-  } catch (err) {
+  } catch {
     categoryError.value = 'Error al guardar categorías'
   } finally {
     categorySaving.value = false
   }
 }
 
+// ── Event category management ──
+
+interface EventCategoryRow {
+  id?: string
+  nombre: string
+  puesto: number
+  _deleted?: boolean
+}
+
+const eventCategorias = ref<EventCategoryRow[]>([])
+const eventCatError = ref('')
+const eventCatSaving = ref(false)
+
+async function loadEventCategorias() {
+  const { data } = await client.from('categorias_eventos').select('*').order('puesto')
+  if (data) {
+    eventCategorias.value = data.map((c) => ({ ...c, _deleted: false }))
+  }
+}
+
+function addEventCategory() {
+  eventCategorias.value.push({ nombre: '', puesto: (eventCategorias.value.length + 1) * 10 })
+}
+
+function removeEventCategory(index: number) {
+  const cat = eventCategorias.value[index]
+  if (!cat || cat._deleted) return
+
+  if (confirm('¿Eliminar esta categoría? Los eventos asignados se quedarán sin categoría.')) {
+    if (cat.id) {
+      cat._deleted = true
+    } else {
+      eventCategorias.value.splice(index, 1)
+    }
+  }
+}
+
+async function saveEventCategories() {
+  eventCatSaving.value = true
+  eventCatError.value = ''
+
+  try {
+    const toDelete = eventCategorias.value.filter((c) => c._deleted && c.id)
+    const toUpsert = eventCategorias.value.filter((c) => !c._deleted)
+
+    for (const cat of toUpsert) {
+      if (!cat.nombre.trim()) {
+        eventCatError.value = 'Todas las categorías deben tener nombre'
+        eventCatSaving.value = false
+        return
+      }
+    }
+
+    for (const cat of toDelete) {
+      // Set eventos to null categoria_id before deleting
+      await client.from('eventos').update({ categoria_id: null }).eq('categoria_id', cat.id!)
+      await client.from('categorias_eventos').delete().eq('id', cat.id!)
+    }
+
+    for (const cat of toUpsert) {
+      const payload = { nombre: cat.nombre.trim(), puesto: cat.puesto }
+      if (cat.id) {
+        await client.from('categorias_eventos').update(payload).eq('id', cat.id)
+      } else {
+        await client.from('categorias_eventos').insert(payload)
+      }
+    }
+
+    await loadEventCategorias()
+  } catch {
+    eventCatError.value = 'Error al guardar categorías de eventos'
+  } finally {
+    eventCatSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadConfig()
   loadCategories()
+  loadEventCategorias()
 })
 </script>
 
@@ -212,6 +286,67 @@ onMounted(() => {
           @click="saveCategories"
         >
           {{ categorySaving ? 'Guardando...' : 'Guardar categorías' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Category Management Card -->
+    <div class="rounded-lg bg-white p-6 shadow">
+      <h2 class="mb-4 text-xl font-bold text-slate">Categorías de Eventos</h2>
+
+      <p class="mb-4 text-xs text-gray-400">El número es el orden de aparición (menor = primero).</p>
+
+      <div class="space-y-3">
+        <div
+          v-for="(cat, index) in eventCategorias"
+          :key="index"
+          class="flex items-center gap-3"
+        >
+          <template v-if="!cat._deleted">
+            <input
+              :value="cat.nombre"
+              @input="cat.nombre = ($event.target as HTMLInputElement).value"
+              type="text"
+              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Nombre de categoría"
+            />
+            <input
+              v-model.number="cat.puesto"
+              type="number"
+              step="10"
+              min="0"
+              class="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Orden"
+            />
+            <button
+              type="button"
+              class="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
+              @click="removeEventCategory(index)"
+            >
+              Eliminar
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <p v-if="eventCatError" class="mt-2 text-sm text-red-600">{{ eventCatError }}</p>
+
+      <button
+        type="button"
+        class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta"
+        @click="addEventCategory"
+      >
+        + Añadir categoría
+      </button>
+
+      <div class="mt-6">
+        <button
+          type="button"
+          class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
+          :disabled="eventCatSaving"
+          @click="saveEventCategories"
+        >
+          {{ eventCatSaving ? 'Guardando...' : 'Guardar categorías de eventos' }}
         </button>
       </div>
     </div>

@@ -5,11 +5,16 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
 
+interface CategoriaEvento {
+  id: string
+  nombre: string
+}
+
 interface EventoFormData {
   titulo: string
   descripcion: string
   fecha: string
-  categoria: string
+  categoria_id: string
   imagen_url: string
   capacidad: number | null
   estado: string
@@ -18,6 +23,7 @@ interface EventoFormData {
 
 const props = defineProps<{
   initialEvento?: Record<string, unknown> | null
+  categorias: CategoriaEvento[]
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +37,7 @@ const form = reactive<EventoFormData>({
   titulo: (props.initialEvento?.titulo as string) ?? '',
   descripcion: (props.initialEvento?.descripcion as string) ?? '',
   fecha: toDatetimeLocal(props.initialEvento?.fecha as string),
-  categoria: (props.initialEvento?.categoria as string) ?? 'espectaculo',
+  categoria_id: (props.initialEvento?.categoria_id as string) ?? (props.categorias[0]?.id ?? '').toString(),
   imagen_url: (props.initialEvento?.imagen_url as string) ?? '',
   capacidad: (props.initialEvento?.capacidad as number) ?? null,
   estado: (props.initialEvento?.estado as string) ?? 'programado',
@@ -72,10 +78,7 @@ function handleSubmit() {
   })
 }
 
-const CATEGORIAS = [
-  { value: 'festivo', label: 'Festivo' },
-  { value: 'espectaculo', label: 'Espectáculo' },
-]
+
 </script>
 
 <template>
@@ -129,11 +132,11 @@ const CATEGORIAS = [
       <label class="mb-1 block text-sm font-medium text-slate" for="evento-categoria">Categoría</label>
       <select
         id="evento-categoria"
-        v-model="form.categoria"
+        v-model="form.categoria_id"
         data-testid="evento-categoria"
         class="w-full rounded-lg border border-gray-300 px-3 py-2"
       >
-        <option v-for="cat in CATEGORIAS" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
+        <option v-for="cat in categorias" :key="cat.id" :value="cat.id">{{ cat.nombre }}</option>
       </select>
     </div>
 
