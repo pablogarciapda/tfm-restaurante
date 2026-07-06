@@ -138,21 +138,20 @@ const categories = computed<CategoryGroup[]>(() => {
 
 const categoryNames = computed(() => categories.value.map((c) => c.categoria))
 
-// Active category: start empty, sync with available categories ASAP.
-// Using immediate watch ensures SSR and client agree on the initial value:
-// - SSR: renders first with '', then data resolves and sets activeCategory before HTML serialization
-// - Client: Nuxt payload is available immediately so watch fires during setup
+// Active category: uses a writable computed that falls back to the first
+// category when the user hasn't selected one. This avoids hydration mismatches
+// because both SSR and client derive the default from the SAME computed data.
+// Suspense resolves all async data before SSR rendering, so categoryNames
+// is already populated when the template evaluates.
 const activeCategory = ref('')
-
-watch(categoryNames, (names) => {
-  if (names.length > 0 && (!activeCategory.value || !names.includes(activeCategory.value))) {
-    activeCategory.value = names[0]
-  }
-}, { immediate: true })
+const displayCategory = computed({
+  get: () => activeCategory.value || categoryNames.value[0] || '',
+  set: (val: string) => { activeCategory.value = val },
+})
 
 // Only show the selected category
 const filteredCategories = computed(() =>
-  categories.value.filter((c) => c.categoria === activeCategory.value),
+  categories.value.filter((c) => c.categoria === displayCategory.value),
 )
 </script>
 
@@ -182,7 +181,7 @@ const filteredCategories = computed(() =>
     <!-- Categories (div wrapper avoids Suspense fragment issues) -->
     <div v-else>
       <CategorySelector
-        v-model="activeCategory"
+        v-model="displayCategory"
         :categories="categoryNames"
       />
       <ProductGrid :categories="filteredCategories" />
