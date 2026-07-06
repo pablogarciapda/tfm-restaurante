@@ -18,11 +18,15 @@ interface ConfigData {
   capacidad_total_local: number
   precio_menu_diario?: number | null
   precio_menu_sabado?: number | null
+  mostrar_recomendados: boolean
+  titulo_recomendados: string
 }
 
 const config = ref<ConfigData>({
   cliente_elige_mesa: false,
   capacidad_total_local: 80,
+  mostrar_recomendados: true,
+  titulo_recomendados: 'Nuestras Recomendaciones',
 })
 
 const saving = ref(false)

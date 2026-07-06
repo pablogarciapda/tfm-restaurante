@@ -14,6 +14,8 @@ interface ConfigData {
   precio_menu_sabado: number | null
   modo_ocupacion: OcupacionModo
   ocupacion_manual: number
+  mostrar_recomendados: boolean
+  titulo_recomendados: string
 }
 
 const props = defineProps<{
@@ -22,6 +24,8 @@ const props = defineProps<{
     capacidad_total_local?: number
     precio_menu_diario?: number | null
     precio_menu_sabado?: number | null
+    mostrar_recomendados?: boolean
+    titulo_recomendados?: string
   }
   saving?: boolean
 }>()
@@ -37,6 +41,8 @@ const form = reactive<ConfigData>({
   precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
   modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
+  mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
+  titulo_recomendados: props.currentConfig.titulo_recomendados ?? 'Nuestras Recomendaciones',
 })
 
 // Sync form when config loads asynchronously from DB
@@ -49,6 +55,8 @@ watch(
     if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
     if (cfg.modo_ocupacion !== undefined) form.modo_ocupacion = cfg.modo_ocupacion
     if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
+    if (cfg.mostrar_recomendados !== undefined) form.mostrar_recomendados = cfg.mostrar_recomendados
+    if (cfg.titulo_recomendados !== undefined) form.titulo_recomendados = cfg.titulo_recomendados
   },
   { deep: true },
 )
@@ -168,6 +176,36 @@ function handleSubmit() {
           <span class="text-sm text-slate">Manual</span>
         </label>
       </div>
+    </div>
+
+    <!-- mostrar_recomendados -->
+    <div class="flex items-center gap-3">
+      <input
+        id="cfg-mostrar-rec"
+        v-model="form.mostrar_recomendados"
+        type="checkbox"
+        class="h-4 w-4 rounded"
+      />
+      <label class="text-sm font-medium text-slate" for="cfg-mostrar-rec">
+        Mostrar "{{ form.titulo_recomendados || 'Nuestras Recomendaciones' }}{{ form.mostrar_recomendados ? '' : ' (oculto)' }}" en la carta
+      </label>
+    </div>
+
+    <!-- titulo_recomendados -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-titulo-rec">
+        Título de la sección de recomendados
+      </label>
+      <input
+        id="cfg-titulo-rec"
+        v-model="form.titulo_recomendados"
+        type="text"
+        class="w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        placeholder="Nuestras Recomendaciones"
+      />
+      <p class="mt-1 text-xs text-gray-400">
+        Se mostrará como categoría especial con los platos marcados como recomendado.
+      </p>
     </div>
 
     <!-- ocupacion_manual -->

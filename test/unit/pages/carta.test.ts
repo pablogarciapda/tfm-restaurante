@@ -28,7 +28,8 @@ g.useSupabaseClient = () => ({
   auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
 })
 g.useSupabaseUser = () => ref({ id: '1', email: 'test@test.com' })
-g.useAsyncData = vi.fn()
+const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'Nuestras Recomendaciones' })
+g.useAsyncData = vi.fn().mockReturnValue({ data: mockConfigRef })
 
 describe('Carta page — migrated to usePlatos (CN-006)', () => {
   beforeEach(() => {

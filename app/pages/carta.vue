@@ -7,6 +7,10 @@ import { computed, ref, watch } from 'vue'
  * Data sourced from Supabase via usePlatos composable.
  * Platos grouped by categoria, sorted by puesto.
  * Only one category visible at a time, selected via CategorySelector.
+ *
+ * A synthetic "Recomendados" section is built from platos with
+ * recomendado=true. Its title and visibility are configurable
+ * from the admin Configuracion page.
  */
 
 interface PlatoSupabase {
@@ -42,7 +46,25 @@ interface CategoryGroup {
   platos: PlatoDisplay[]
 }
 
+interface RecomendadosConfig {
+  mostrar_recomendados: boolean
+  titulo_recomendados: string
+}
+
+const client = useSupabaseClient()
 const { data: platos, error, pending } = usePlatos()
+
+// Load config for the synthetic recomendados section
+const { data: sysConfig } = useAsyncData('carta-config', async () => {
+  const { data } = await client
+    .from('configuracion')
+    .select('mostrar_recomendados, titulo_recomendados')
+    .single()
+  return (data ?? { mostrar_recomendados: true, titulo_recomendados: 'Nuestras Recomendaciones' }) as RecomendadosConfig
+})
+
+const recTitle = computed(() => sysConfig.value?.titulo_recomendados ?? 'Nuestras Recomendaciones')
+const showRec = computed(() => sysConfig.value?.mostrar_recomendados ?? true)
 
 // Map Supabase rows → display format grouped by categoria
 const categories = computed<CategoryGroup[]>(() => {
@@ -50,14 +72,12 @@ const categories = computed<CategoryGroup[]>(() => {
   if (!raw || raw.length === 0) return []
 
   const groups = new Map<string, { platos: PlatoDisplay[]; minPuesto: number }>()
+  const useRec = showRec.value
+  const recName = recTitle.value
 
   for (const p of raw) {
     // Skip non-disponible platos
     if (!p.disponible) continue
-
-    // Skip platos with categoria='NUESTRAS RECOMENDACIONES' — they're handled
-    // by the synthetic "Nuestras Recomendaciones" group below via recomendado flag
-    if (p.categoria === 'NUESTRAS RECOMENDACIONES') continue
 
     const display: PlatoDisplay = {
       plato: p.nombre,
@@ -79,12 +99,12 @@ const categories = computed<CategoryGroup[]>(() => {
       group.minPuesto = p.puesto ?? 99
     }
 
-    // Also add to "NUESTRAS RECOMENDACIONES" if marked as recomendado
-    if (p.recomendado) {
-      if (!groups.has('NUESTRAS RECOMENDACIONES')) {
-        groups.set('NUESTRAS RECOMENDACIONES', { platos: [], minPuesto: -1 })
+    // Also add to the synthetic recomendados section if marked as recomendado
+    if (useRec && p.recomendado) {
+      if (!groups.has(recName)) {
+        groups.set(recName, { platos: [], minPuesto: -1 })
       }
-      groups.get('NUESTRAS RECOMENDACIONES')!.platos.push(display)
+      groups.get(recName)!.platos.push(display)
     }
   }
 
@@ -102,9 +122,8 @@ const categoryNames = computed(() => categories.value.map((c) => c.categoria))
 // Initialize directly from SSR data to keep SSR=client consistent (no hydration mismatch)
 function getDefaultCategory(names: string[]): string {
   if (names.length === 0) return ''
-  return names.includes('NUESTRAS RECOMENDACIONES')
-    ? 'NUESTRAS RECOMENDACIONES'
-    : names[0] ?? ''
+  // Default to the first category — no hardcoded special names
+  return names[0] ?? ''
 }
 const activeCategory = ref(getDefaultCategory(categoryNames.value))
 
