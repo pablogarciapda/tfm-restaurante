@@ -7,6 +7,7 @@ import { computed } from 'vue'
  * Data sourced from menu_diario_config + menu_diario_items via useMenuDiario().
  * Variable per-day pricing from DB. Inactive days show fallback.
  * Holiday check via eventos table (categoria='festivo').
+ * Section visibility and titles configurable from admin panel.
  */
 
 interface MenuDish {
@@ -15,6 +16,11 @@ interface MenuDish {
   descripcion?: string
   seccion: string
   puesto: number
+}
+
+interface SeccionConfig {
+  activo: boolean
+  titulo: string
 }
 
 const { config, items, precio, isHoliday } = useMenuDiario()
@@ -29,16 +35,35 @@ const isSunday = dayOfWeek === 0
 // Combined: no menu on Sunday or holidays (regardless of DB config)
 const noMenuToday = computed(() => isSunday || isHoliday.value || !isAvailable.value)
 
-// Map section keys to display labels (Spanish)
-const SECTION_LABELS: Record<string, string> = {
-  primer: 'Primer Plato',
-  segundo: 'Segundo Plato',
-  postre: 'Postre',
-  bebida: 'Bebida',
-  pan: 'Pan y Cubiertos',
+// Default section labels (fallback when secciones_config is not set)
+const DEFAULT_SECCIONES: Record<string, SeccionConfig> = {
+  primer: { activo: true, titulo: 'Primer Plato' },
+  segundo: { activo: true, titulo: 'Segundo Plato' },
+  postre: { activo: true, titulo: 'Postre' },
+  bebida: { activo: true, titulo: 'Bebida' },
+  pan: { activo: true, titulo: 'Pan y Cubiertos' },
 }
 
-const sectionKeys = ['primer', 'segundo', 'postre', 'bebida', 'pan'] as const
+// Section config from DB, merged with defaults
+const seccionesConfig = computed<Record<string, SeccionConfig>>(() => {
+  const raw = (config.value as Record<string, unknown> | null)?.secciones_config as Record<string, SeccionConfig> | null
+  const merged: Record<string, SeccionConfig> = {}
+  for (const [key, def] of Object.entries(DEFAULT_SECCIONES)) {
+    merged[key] = raw?.[key] ?? def
+  }
+  return merged
+})
+
+// Only show sections that are active
+const sectionKeys = computed(() =>
+  (['primer', 'segundo', 'postre', 'bebida', 'pan'] as const).filter(
+    (key) => seccionesConfig.value[key]?.activo !== false,
+  ),
+)
+
+function getSectionTitle(section: string): string {
+  return seccionesConfig.value[section]?.titulo ?? section
+}
 
 // Spanish date formatting
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -81,14 +106,14 @@ const formattedDate = computed(() => {
           </span>
         </div>
 
-        <!-- 5 sections -->
+        <!-- Sections (only active ones) -->
         <div
           v-for="key in sectionKeys"
           :key="key"
           class="mb-8"
         >
           <h2 class="mb-4 text-xl font-bold text-terracotta">
-            {{ SECTION_LABELS[key] }}
+            {{ getSectionTitle(key) }}
           </h2>
 
           <template v-if="items && ((items as Record<string, MenuDish[]>)[key]?.length ?? 0) > 0">
