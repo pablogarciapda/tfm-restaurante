@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { toProxyUrl } from '~/utils/image-url'
 
 /**
  * ProductCard — Single dish card for the carta (CN-004, CN-007)
@@ -33,7 +34,7 @@ function onImageError() {
     <div class="relative aspect-video overflow-hidden bg-gray-200 sm:aspect-square">
       <img
         v-if="plato.imagen_url"
-        :src="plato.imagen_url"
+        :src="toProxyUrl(plato.imagen_url)"
         :alt="`Foto de ${plato.plato}`"
         loading="lazy"
         class="h-full w-full object-cover transition-opacity"

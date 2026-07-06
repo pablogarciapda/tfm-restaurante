@@ -179,8 +179,8 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
         return null
       }
 
-      const { data: urlData } = supabase.storage.from(resolvedBucket.value).getPublicUrl(data.path)
-      return urlData.publicUrl
+      // Return proxy URL instead of raw Supabase URL (security: hides project ID)
+      return `/api/images/${resolvedBucket.value}/public/${uniqueName}`
     } catch (e) {
       uploadError.value = e instanceof Error ? e.message : 'Error al subir la imagen'
       return null
@@ -245,8 +245,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
         return null
       }
 
-      const { data: urlData } = supabase.storage.from(resolvedBucket.value).getPublicUrl(data.path)
-      return urlData.publicUrl
+      return `/api/images/${resolvedBucket.value}/public/${uniqueName}`
     } catch (e) {
       uploadError.value = e instanceof Error ? e.message : 'Error al procesar la imagen'
       return null

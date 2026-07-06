@@ -10,28 +10,6 @@
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
-// Magic bytes signatures for image formats we allow
-const IMAGE_MAGIC_BYTES: Array<{ label: string; bytes: number[]; offset: number }> = [
-  { label: 'JPEG', bytes: [0xFF, 0xD8, 0xFF], offset: 0 },
-  { label: 'PNG', bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], offset: 0 },
-  { label: 'GIF', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 }, // GIF87a or GIF89a
-  { label: 'BMP', bytes: [0x42, 0x4D], offset: 0 },
-  { label: 'WebP', bytes: [0x49, 0x46], offset: 8 }, // RIFF....WEBP → 'IF' at offset 8
-]
-
-function hasValidMagicBytes(buffer: ArrayBuffer): { valid: boolean; format: string | null } {
-  const view = new Uint8Array(buffer)
-  if (view.length < 12) return { valid: false, format: null }
-
-  for (const sig of IMAGE_MAGIC_BYTES) {
-    if (view.length < sig.offset + sig.bytes.length) continue
-    const match = sig.bytes.every((b, i) => view[sig.offset + i] === b)
-    if (match) return { valid: true, format: sig.label }
-  }
-
-  return { valid: false, format: null }
-}
-
 export default defineEventHandler(async (event) => {
   const { url } = getQuery(event)
 

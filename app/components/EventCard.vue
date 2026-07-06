@@ -7,6 +7,8 @@
  * soldOut badge (red), past-event badge (gray, disabled CTA).
  */
 
+import { toProxyUrl } from '~/utils/image-url'
+
 const props = defineProps<{
   evento: {
     id: string
@@ -47,7 +49,7 @@ function isPast(fecha: string): boolean {
     <div class="relative h-64 overflow-hidden bg-gray-200 sm:h-72">
       <img
         v-if="evento.imagen_url"
-        :src="evento.imagen_url"
+        :src="toProxyUrl(evento.imagen_url)"
         :alt="evento.titulo"
         loading="lazy"
         class="h-full w-full object-cover"
