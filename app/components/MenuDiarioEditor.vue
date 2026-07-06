@@ -11,9 +11,20 @@ const client = useSupabaseClient<Database>()
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const SECTIONS = ['primer', 'segundo', 'postre', 'bebida', 'pan'] as const
-const SECTION_LABELS: Record<string, string> = {
-  primer: 'Primer Plato', segundo: 'Segundo Plato', postre: 'Postre',
-  bebida: 'Bebida', pan: 'Pan y Cubiertos',
+
+interface SeccionConfig {
+  activo: boolean
+  titulo: string
+}
+
+type SeccionesConfigMap = Record<string, SeccionConfig>
+
+const DEFAULT_SECCIONES_CONFIG: SeccionesConfigMap = {
+  primer: { activo: true, titulo: 'Primer Plato' },
+  segundo: { activo: true, titulo: 'Segundo Plato' },
+  postre: { activo: true, titulo: 'Postre' },
+  bebida: { activo: true, titulo: 'Bebida' },
+  pan: { activo: true, titulo: 'Pan y Cubiertos' },
 }
 
 interface Config {
@@ -22,6 +33,7 @@ interface Config {
   precio: string
   activo: boolean
   fecha: string | null
+  secciones_config?: SeccionesConfigMap | null
 }
 
 interface MenuItem {
@@ -42,7 +54,35 @@ const selectedDay = ref(0)
 const configs = ref<Config[]>([])
 const items = ref<MenuItem[]>([])
 const configPrice = ref<ConfigPrice | null>(null)
+const editingTitle = ref<string | null>(null) // section key being title-edited
 
+// ── Drag state (per-section reorder) ──
+const draggedItemId = ref<string | null>(null)
+const dragOverItemId = ref<string | null>(null)
+const dragEnterCount = ref<Record<string, number>>({}) // counter per dish ID to avoid child-element flicker
+const localSectionOrder = ref<Record<string, string[]>>({})
+
+// Ordered items per section, respecting local drag reorder
+const orderedItems = computed(() => {
+  const map = new Map<string, MenuItem[]>()
+  for (const section of SECTIONS) {
+    let sectionItems = items.value
+      .filter((i) => i.seccion === section)
+      .sort((a, b) => a.puesto - b.puesto)
+
+    // Apply local reorder if any
+    const customOrder = localSectionOrder.value[section]
+    if (customOrder && customOrder.length > 0) {
+      const itemMap = new Map(sectionItems.map((i) => [i.id, i]))
+      sectionItems = customOrder
+        .map((id) => itemMap.get(id))
+        .filter(Boolean) as MenuItem[]
+    }
+
+    map.set(section, sectionItems)
+  }
+  return map
+})
 
 const newDish = reactive({ plato_nombre: '', descripcion: '', seccion: 'primer' })
 
@@ -104,12 +144,54 @@ async function createConfig(dayOfWeek: number) {
     precio: defaultPrecio || '0',
     activo: true,
     fecha: getDateForDay(dayOfWeek),
+    secciones_config: DEFAULT_SECCIONES_CONFIG,
   }).select('*').single()
 
   if (data) {
     await loadConfigs()
     selectDay(dayOfWeek)
   }
+}
+
+// ── Section config helpers ──
+
+function getSeccionConfig(section: string): SeccionConfig {
+  if (!currentConfig.value?.secciones_config) {
+    return DEFAULT_SECCIONES_CONFIG[section] ?? { activo: true, titulo: section }
+  }
+  return (currentConfig.value.secciones_config as SeccionesConfigMap)[section]
+    ?? DEFAULT_SECCIONES_CONFIG[section]
+    ?? { activo: true, titulo: section }
+}
+
+function getSectionTitle(section: string): string {
+  return getSeccionConfig(section).titulo
+}
+
+function getSectionActivo(section: string): boolean {
+  return getSeccionConfig(section).activo
+}
+
+async function setSectionTitle(section: string, titulo: string) {
+  if (!currentConfig.value) return
+  const current = getSeccionConfig(section)
+  const newConfig: SeccionesConfigMap = {
+    ...(currentConfig.value.secciones_config as SeccionesConfigMap ?? {}),
+    [section]: { ...current, titulo },
+  }
+  await client.from('menu_diario_config').update({ secciones_config: newConfig }).eq('id', currentConfig.value.id)
+  await loadConfigs()
+}
+
+async function toggleSectionActivo(section: string, activo: boolean) {
+  if (!currentConfig.value) return
+  const current = getSeccionConfig(section)
+  const newConfig: SeccionesConfigMap = {
+    ...(currentConfig.value.secciones_config as SeccionesConfigMap ?? {}),
+    [section]: { ...current, activo },
+  }
+  await client.from('menu_diario_config').update({ secciones_config: newConfig }).eq('id', currentConfig.value.id)
+  await loadConfigs()
 }
 
 async function addDish() {
@@ -137,6 +219,104 @@ async function removeDish(id: string) {
 
 function getItemsForSection(section: string): MenuItem[] {
   return items.value.filter((i) => i.seccion === section)
+}
+
+// ── Drag & Drop handlers ──
+
+function onDishDragStart(event: DragEvent, dish: MenuItem) {
+  draggedItemId.value = dish.id
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', dish.id)
+  }
+}
+
+function onDishDragEnter(event: DragEvent, dish: MenuItem) {
+  event.preventDefault()
+  if (draggedItemId.value === null || draggedItemId.value === dish.id) return
+  // Increment counter to handle child-element flicker
+  dragEnterCount.value = { ...dragEnterCount.value, [dish.id]: (dragEnterCount.value[dish.id] ?? 0) + 1 }
+  dragOverItemId.value = dish.id
+}
+
+function onDishDragOver(event: DragEvent, dish: MenuItem) {
+  event.preventDefault()
+  if (draggedItemId.value === null || draggedItemId.value === dish.id) return
+  dragOverItemId.value = dish.id
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+function onDishDragLeave(event: DragEvent, dish: MenuItem) {
+  event.preventDefault()
+  const count = dragEnterCount.value[dish.id] ?? 0
+  if (count <= 1) {
+    const updated = { ...dragEnterCount.value }
+    delete updated[dish.id]
+    dragEnterCount.value = updated
+    dragOverItemId.value = null
+  } else {
+    dragEnterCount.value = { ...dragEnterCount.value, [dish.id]: count - 1 }
+  }
+}
+
+function onDishDrop(event: DragEvent, targetDish: MenuItem, section: string) {
+  event.preventDefault()
+  const draggedId = draggedItemId.value
+  if (!draggedId || draggedId === targetDish.id) {
+    resetDishDrag()
+    return
+  }
+
+  // Reorder within section
+  const currentItems = orderedItems.value.get(section) ?? []
+  const ids = currentItems.map((i) => i.id)
+  const fromIdx = ids.indexOf(draggedId)
+  const toIdx = ids.indexOf(targetDish.id)
+
+  if (fromIdx === -1 || toIdx === -1) {
+    resetDishDrag()
+    return
+  }
+
+  const newIds = [...ids]
+  newIds.splice(fromIdx, 1)
+  newIds.splice(toIdx, 0, draggedId)
+  localSectionOrder.value = { ...localSectionOrder.value, [section]: newIds }
+
+  // Save to DB
+  handleSectionReorder(section, newIds)
+  resetDishDrag()
+}
+
+function onDishDragEnd() {
+  resetDishDrag()
+}
+
+function resetDishDrag() {
+  draggedItemId.value = null
+  dragOverItemId.value = null
+  dragEnterCount.value = {}
+}
+
+async function handleSectionReorder(section: string, platoIds: string[]) {
+  const updates = platoIds.map((id, index) =>
+    client
+      .from('menu_diario_items')
+      .update({ puesto: index + 1 })
+      .eq('id', id),
+  )
+  await Promise.all(updates)
+
+  // Reload from DB to sync
+  const cfg = configs.value.find((c) => c.day_of_week === selectedDay.value)
+  if (cfg) await loadItems(cfg.id)
+
+  // Clear local order (DB now has the correct order)
+  const updated = { ...localSectionOrder.value }
+  delete updated[section]
+  localSectionOrder.value = updated
 }
 
 const currentConfig = computed(() =>
@@ -219,25 +399,83 @@ onMounted(async () => {
     <!-- 5-section dish manager -->
     <div class="space-y-4">
       <div v-for="section in SECTIONS" :key="section" class="rounded-lg bg-white p-4 shadow">
-        <h3 class="mb-3 text-lg font-bold text-terracotta">{{ SECTION_LABELS[section] }}</h3>
+        <!-- Section header: checkbox + title (inline editable) -->
+        <div class="mb-3 flex items-center gap-3">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              :checked="getSectionActivo(section)"
+              class="h-4 w-4 rounded border-gray-300 text-terracotta focus:ring-terracotta"
+              @change="toggleSectionActivo(section, ($event.target as HTMLInputElement).checked)"
+            />
+          </label>
 
-        <!-- Existing dishes -->
-        <ul v-if="getItemsForSection(section).length > 0" class="mb-3 space-y-2">
-          <li
-            v-for="dish in getItemsForSection(section)"
-            :key="dish.id"
-            class="flex items-center justify-between rounded bg-cream px-3 py-2"
-          >
-            <span class="font-medium text-slate">{{ dish.plato_nombre }}</span>
-            <button
-              class="text-xs text-red-600 hover:text-red-800"
-              @click="removeDish(dish.id)"
+          <!-- Title display + edit toggle -->
+          <template v-if="editingTitle === section">
+            <input
+              ref="titleInput"
+              :value="getSectionTitle(section)"
+              class="flex-1 rounded border border-terracotta bg-white px-2 py-1 text-lg font-bold text-terracotta outline-none"
+              @blur="editingTitle = null; setSectionTitle(section, ($event.target as HTMLInputElement).value)"
+              @keyup.enter="editingTitle = null; setSectionTitle(section, ($event.target as HTMLInputElement).value)"
+              @keyup.escape="editingTitle = null"
+            />
+          </template>
+          <template v-else>
+            <span
+              class="flex-1 text-lg font-bold text-terracotta cursor-pointer hover:border-b hover:border-terracotta/30"
+              @dblclick="editingTitle = section"
+              :title="'Doble clic para editar'"
             >
-              Quitar
+              {{ getSectionTitle(section) }}
+            </span>
+            <button
+              class="text-xs text-gray-400 hover:text-terracotta transition-colors"
+              title="Editar título"
+              @click="editingTitle = section"
+            >
+              ✏️
             </button>
-          </li>
-        </ul>
-        <p v-else class="text-sm text-gray-400">Sin platos asignados</p>
+          </template>
+
+          <span class="text-xs text-gray-400 font-mono" title="Identificador interno">{{ section }}</span>
+        </div>
+
+        <!-- Existing dishes (draggable reorder) — only if section is active -->
+        <template v-if="getSectionActivo(section)">
+          <ul v-if="(orderedItems.get(section)?.length ?? 0) > 0" class="mb-3 space-y-2">
+            <li
+              v-for="dish in orderedItems.get(section)"
+              :key="dish.id"
+              :draggable="true"
+              class="flex items-center justify-between rounded px-3 py-2 transition-colors"
+              :class="{
+                'bg-cream': draggedItemId !== dish.id,
+                'bg-amber-50 opacity-50': draggedItemId === dish.id,
+                'border-t-2 border-terracotta': dragOverItemId === dish.id,
+              }"
+              @dragstart="onDishDragStart($event, dish)"
+              @dragenter="onDishDragEnter($event, dish)"
+              @dragover="onDishDragOver($event, dish)"
+              @dragleave="onDishDragLeave($event, dish)"
+              @drop="onDishDrop($event, dish, section)"
+              @dragend="onDishDragEnd"
+            >
+              <div class="flex items-center gap-2">
+                <span class="cursor-grab active:cursor-grabbing text-gray-400 select-none">⠿</span>
+                <span class="font-medium text-slate">{{ dish.plato_nombre }}</span>
+              </div>
+              <button
+                class="text-xs text-red-600 hover:text-red-800"
+                @click="removeDish(dish.id)"
+              >
+                Quitar
+              </button>
+            </li>
+          </ul>
+          <p v-else class="text-sm text-gray-400">Sin platos asignados</p>
+        </template>
+        <p v-else class="text-sm text-gray-400 italic">Sección desactivada — no se muestra en la web</p>
       </div>
     </div>
 
@@ -253,7 +491,7 @@ onMounted(async () => {
           @keyup.enter="addDish"
         />
         <select v-model="newDish.seccion" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-          <option v-for="s in SECTIONS" :key="s" :value="s">{{ SECTION_LABELS[s] }}</option>
+          <option v-for="s in SECTIONS" :key="s" :value="s">{{ getSectionTitle(s) }}</option>
         </select>
         <button
           class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"

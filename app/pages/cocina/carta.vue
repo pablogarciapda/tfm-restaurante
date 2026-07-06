@@ -33,10 +33,14 @@ const categoriasData = ref<{ id: string; nombre: string; puesto: number }[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const editingPlato = ref<Plato | null>(null)
+const savingOrder = ref(false)
 
 // ── Filters ──
 const searchTerm = ref('')
 const categoriaFilter = ref('')
+
+// Drag mode: enabled only when filtering by a single category (no search active)
+const isDraggable = computed(() => !!categoriaFilter.value && !searchTerm.value.trim() && !showForm.value)
 
 // Filter categories from the official categorias table, not platos
 const categorias = computed(() =>
@@ -134,6 +138,24 @@ function handleCancel() {
   editingPlato.value = null
 }
 
+async function handleReorder(platoIds: string[]) {
+  savingOrder.value = true
+  // Assign sequential puesto values based on visual order
+  const updates = platoIds.map((id, index) =>
+    supabase
+      .from('platos')
+      .update({ puesto: index + 1 })
+      .eq('id', id),
+  )
+
+  // Fire all updates in parallel
+  await Promise.all(updates)
+
+  // Reload to sync local state with DB
+  await loadPlatos()
+  savingOrder.value = false
+}
+
 onMounted(() => {
   loadPlatos()
   loadCategories()
@@ -193,13 +215,30 @@ watch(showForm, (isOpen) => {
       />
     </div>
 
-    <!-- Table with sticky column headers + scrollable body -->
-    <div v-else class="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 pb-6">
+    <!-- Table block with optional drag hint + sticky column headers -->
+    <div v-else class="flex flex-col flex-1 overflow-y-auto min-h-0 -mx-6 px-6 pb-6">
+      <!-- Drag-mode hint (only when filtering by category) -->
+      <div
+        v-if="isDraggable"
+        class="pt-3 pb-2 flex-shrink-0"
+      >
+        <div class="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          <span>↕</span>
+          <span>
+            Arrastra los platos para reordenarlos en
+            <strong class="font-semibold">{{ categoriaFilter }}</strong>
+          </span>
+          <span v-if="savingOrder" class="ml-auto text-amber-600">Guardando…</span>
+          <span v-else class="ml-auto text-amber-500 text-xs">Los cambios se guardan al soltar</span>
+        </div>
+      </div>
       <PlatosTable
         :platos="filteredPlatos"
+        :draggable="isDraggable"
         @edit="handleEdit"
         @delete="handleDelete"
         @toggle-disponible="handleToggleDisponible"
+        @reorder="handleReorder"
       />
     </div>
   </div>
