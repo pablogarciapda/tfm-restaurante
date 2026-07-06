@@ -9,6 +9,8 @@ export interface ImageUploadOptions {
   maxSizeMB?: number
   /** Whether to auto-compress via Canvas re-encode. Default: true */
   autoCompress?: boolean
+  /** Supabase Storage bucket name. Default: 'plato-images' */
+  bucket?: string
 }
 
 /**
@@ -29,7 +31,6 @@ export interface ImageUploadOptions {
  */
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif']
-const BUCKET = 'plato-images'
 
 export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | undefined>) {
   const supabase = useSupabaseClient()
@@ -44,6 +45,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
       quality: raw?.quality ?? 0.8,
       maxSizeMB: raw?.maxSizeMB ?? 5,
       autoCompress: raw?.autoCompress ?? true,
+      bucket: raw?.bucket ?? 'plato-images',
     }
   })
 
@@ -52,6 +54,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
   const quality = computed(() => resolvedOpts.value.quality!)
   const maxSizeBytes = computed(() => (resolvedOpts.value.maxSizeMB!) * 1024 * 1024)
   const autoCompress = computed(() => resolvedOpts.value.autoCompress!)
+  const resolvedBucket = computed(() => resolvedOpts.value.bucket!)
 
   /**
    * Validate file is a supported image
@@ -165,7 +168,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
       const uniqueName = fileName ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
       const { data, error } = await supabase.storage
-        .from(BUCKET)
+        .from(resolvedBucket.value)
         .upload(`public/${uniqueName}`, processedBlob, {
           contentType,
           upsert: true,
@@ -176,7 +179,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
         return null
       }
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path)
+      const { data: urlData } = supabase.storage.from(resolvedBucket.value).getPublicUrl(data.path)
       return urlData.publicUrl
     } catch (e) {
       uploadError.value = e instanceof Error ? e.message : 'Error al subir la imagen'
@@ -231,7 +234,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
       const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
       const { data, error } = await supabase.storage
-        .from(BUCKET)
+        .from(resolvedBucket.value)
         .upload(`public/${uniqueName}`, processedBlob, {
           contentType,
           upsert: true,
@@ -242,7 +245,7 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
         return null
       }
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path)
+      const { data: urlData } = supabase.storage.from(resolvedBucket.value).getPublicUrl(data.path)
       return urlData.publicUrl
     } catch (e) {
       uploadError.value = e instanceof Error ? e.message : 'Error al procesar la imagen'
