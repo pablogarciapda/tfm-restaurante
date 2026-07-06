@@ -10,7 +10,7 @@ const IMAGE_MAGIC_BYTES: Array<{ label: string; bytes: number[]; offset: number 
   { label: 'PNG', bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], offset: 0 },
   { label: 'GIF', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 }, // GIF87a or GIF89a
   { label: 'BMP', bytes: [0x42, 0x4D], offset: 0 },
-  { label: 'WebP', bytes: [0x49, 0x46], offset: 8 }, // RIFF....WEBP → 'IF' at offset 8
+  { label: 'WebP', bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 }, // RIFF....WEBP → 'WEBP' at offset 8
 ]
 
 /**
