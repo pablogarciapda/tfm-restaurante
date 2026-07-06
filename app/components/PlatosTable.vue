@@ -27,6 +27,7 @@ const emit = defineEmits<{
   edit: [id: string]
   delete: [id: string]
   'toggle-disponible': [id: string, value: boolean]
+  'toggle-recomendado': [id: string, value: boolean]
   reorder: [platoIds: string[]]
 }>()
 
@@ -236,8 +237,15 @@ function resetDrag() {
               {{ plato.disponible ? 'Disponible' : 'No disponible' }}
             </button>
           </td>
-          <td class="px-2 py-3 text-center text-base">
-            <span v-if="plato.recomendado" class="text-yellow-500">★</span>
+          <td class="px-2 py-3 text-center">
+            <button
+              class="transition-colors hover:scale-110 active:scale-95"
+              :class="plato.recomendado ? 'text-yellow-500 text-xl' : 'text-gray-300 hover:text-yellow-300 text-base'"
+              :title="plato.recomendado ? 'Quitar recomendado' : 'Marcar como recomendado'"
+              @click="emit('toggle-recomendado', plato.id, !plato.recomendado)"
+            >
+              {{ plato.recomendado ? '★' : '☆' }}
+            </button>
           </td>
           <td class="px-4 py-3 text-right">
             <button
