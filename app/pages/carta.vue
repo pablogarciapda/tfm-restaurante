@@ -84,7 +84,7 @@ const categories = computed<CategoryGroup[]>(() => {
       if (!groups.has('NUESTRAS RECOMENDACIONES')) {
         groups.set('NUESTRAS RECOMENDACIONES', { platos: [], minPuesto: -1 })
       }
-      groups.get('Nuestras Recomendaciones')!.platos.push(display)
+      groups.get('NUESTRAS RECOMENDACIONES')!.platos.push(display)
     }
   }
 
