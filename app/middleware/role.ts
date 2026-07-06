@@ -4,20 +4,35 @@
  * Loads the user's profile from Supabase, stores role + permissions
  * in useState for consumption by the permissions middleware and sidebar.
  * Missing profile → force logout + redirect to /cocina.
+ *
+ * Reads the user ID from 'cocina-auth-user' useState (set by auth middleware)
+ * so we don't need a second getSession() call. Falls back to
+ * useSupabaseUser() for non-SPA-boot navigation where the reactive ref
+ * is already populated.
  */
 export default defineNuxtRouteMiddleware(async (_to, _from) => {
   const user = useSupabaseUser()
   const client = useSupabaseClient()
+  const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
 
-  // Safety: auth middleware should have already checked, but guard anyway
-  if (!user.value) {
-    return navigateTo('/cocina')
+  // Priority: shared state from auth middleware > reactive ref > getSession()
+  let userId: string
+  if (authUser.value?.id) {
+    userId = authUser.value.id
+  } else if (user.value?.id) {
+    userId = user.value.id
+  } else {
+    const { data: { session } } = await client.auth.getSession()
+    if (!session?.user?.id) {
+      return navigateTo('/cocina')
+    }
+    userId = session.user.id
   }
 
   const { data: profile, error } = await client
     .from('profiles')
     .select('role, permissions')
-    .eq('id', user.value.id)
+    .eq('id', userId)
     .single()
 
   if (error || !profile) {

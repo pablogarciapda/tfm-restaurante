@@ -7,13 +7,28 @@
 <script setup lang="ts">
 const user = useSupabaseUser()
 const { signOut } = useAuth()
+const showMobileMenu = ref(false)
+
+function closeMobileMenu() {
+  showMobileMenu.value = false
+}
 </script>
 
 <template>
   <div class="flex h-screen overflow-hidden bg-cream">
-    <!-- Sidebar (fixed left) -->
-    <aside class="hidden w-60 flex-shrink-0 md:block">
-      <AdminSidebar />
+    <!-- Overlay (mobile) -->
+    <div
+      v-if="showMobileMenu"
+      class="fixed inset-0 z-10 bg-black/30 md:hidden"
+      @click="closeMobileMenu"
+    />
+
+    <!-- Sidebar -->
+    <aside
+      class="w-60 flex-shrink-0 max-md:fixed max-md:left-0 max-md:top-0 max-md:z-20 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200"
+      :class="{ 'max-md:translate-x-0': showMobileMenu }"
+    >
+      <AdminSidebar @navigate="closeMobileMenu" />
     </aside>
 
     <!-- Content area -->
@@ -23,10 +38,11 @@ const { signOut } = useAuth()
         class="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm"
       >
         <div class="flex items-center gap-3">
-          <!-- Mobile hamburger (placeholder — toggles mobile sidebar) -->
+          <!-- Mobile hamburger -->
           <button
             class="rounded-md p-1 text-slate hover:bg-cream md:hidden"
             aria-label="Abrir menú"
+            @click="showMobileMenu = !showMobileMenu"
           >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
