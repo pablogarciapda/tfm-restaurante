@@ -55,6 +55,10 @@ const categories = computed<CategoryGroup[]>(() => {
     // Skip non-disponible platos
     if (!p.disponible) continue
 
+    // Skip platos with categoria='NUESTRAS RECOMENDACIONES' — they're handled
+    // by the synthetic "Nuestras Recomendaciones" group below via recomendado flag
+    if (p.categoria === 'NUESTRAS RECOMENDACIONES') continue
+
     const display: PlatoDisplay = {
       plato: p.nombre,
       precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
@@ -75,10 +79,10 @@ const categories = computed<CategoryGroup[]>(() => {
       group.minPuesto = p.puesto ?? 99
     }
 
-    // Also add to "Nuestras Recomendaciones" if marked as recomendado
+    // Also add to "NUESTRAS RECOMENDACIONES" if marked as recomendado
     if (p.recomendado) {
-      if (!groups.has('Nuestras Recomendaciones')) {
-        groups.set('Nuestras Recomendaciones', { platos: [], minPuesto: -1 })
+      if (!groups.has('NUESTRAS RECOMENDACIONES')) {
+        groups.set('NUESTRAS RECOMENDACIONES', { platos: [], minPuesto: -1 })
       }
       groups.get('Nuestras Recomendaciones')!.platos.push(display)
     }
@@ -94,16 +98,22 @@ const categories = computed<CategoryGroup[]>(() => {
 })
 
 const categoryNames = computed(() => categories.value.map((c) => c.categoria))
-const activeCategory = ref('')
 
-// Default to "Nuestras Recomendaciones" when categories load
+// Initialize directly from SSR data to keep SSR=client consistent (no hydration mismatch)
+function getDefaultCategory(names: string[]): string {
+  if (names.length === 0) return ''
+  return names.includes('NUESTRAS RECOMENDACIONES')
+    ? 'NUESTRAS RECOMENDACIONES'
+    : names[0] ?? ''
+}
+const activeCategory = ref(getDefaultCategory(categoryNames.value))
+
+// Update if categories change (e.g. after re-fetch)
 watch(categoryNames, (names) => {
-  if (names.length > 0 && !activeCategory.value) {
-    activeCategory.value = names.includes('Nuestras Recomendaciones')
-      ? 'Nuestras Recomendaciones'
-      : names[0] ?? ''
+  if (names.length > 0 && !names.includes(activeCategory.value)) {
+    activeCategory.value = getDefaultCategory(names)
   }
-}, { immediate: true })
+})
 
 // Only show the selected category
 const filteredCategories = computed(() =>
@@ -134,13 +144,13 @@ const filteredCategories = computed(() =>
       <p class="text-lg">Carta no disponible</p>
     </div>
 
-    <!-- Categories -->
-    <template v-else>
+    <!-- Categories (div wrapper avoids Suspense fragment issues) -->
+    <div v-else>
       <CategorySelector
         v-model="activeCategory"
         :categories="categoryNames"
       />
       <ProductGrid :categories="filteredCategories" />
-    </template>
+    </div>
   </div>
 </template>

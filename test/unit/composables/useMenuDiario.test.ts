@@ -46,11 +46,15 @@ const fromSpies: ChainSpy[] = []
 let mockConfig: unknown = null
 const mockDishes: unknown[] = []
 
+const mockConfiguracion = { precio_menu_diario: 14, precio_menu_sabado: 18 }
+
 const mockUseSupabaseClient = () => ({
   from: (table: string) => {
     let resolveData: unknown
 
-    if (table === 'menu_diario_config') {
+    if (table === 'configuracion') {
+      resolveData = { data: mockConfiguracion, error: null }
+    } else if (table === 'menu_diario_config') {
       // Simulate maybeSingle: returns { data, error: null } even on no rows
       resolveData = { data: mockConfig, error: null }
     } else if (table === 'menu_diario_items') {
@@ -139,12 +143,13 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     expect(result).toHaveProperty('items')
     expect(result).toHaveProperty('precio')
     expect(result).toHaveProperty('isHoliday')
-    expect(result.precio).toBe('16')
+    // Price now comes from configuracion table (precio_menu_diario=14), not menu_diario_config
+    expect(result.precio).toBe('14')
     expect(result.isHoliday).toBe(false)
   })
 
   it('groups dishes by seccion into primer/segundo/postre/bebida/pan', async () => {
-    mockConfig = { id: 'cfg-mon', day_of_week: 1, precio: '16', activo: true }
+    mockConfig = { id: 'cfg-mon', day_of_week: 1, precio: '16', activo: true, fecha: null }
     mockDishes.push(
       { id: 'd1', config_id: 'cfg-mon', seccion: 'primer', plato_nombre: 'Sopa', puesto: 1 },
       { id: 'd2', config_id: 'cfg-mon', seccion: 'primer', plato_nombre: 'Ensalada', puesto: 2 },
@@ -170,7 +175,7 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     expect(result.items.pan).toHaveLength(1)
   })
 
-  it('returns null config/precio when no menu exists for today', async () => {
+  it('returns null config + items but fallback precio from configuracion when no menu exists for today', async () => {
     mockConfig = null // No config for today
 
     let capturedFn: (() => Promise<unknown>) | null = null
@@ -183,7 +188,8 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
     const result = await capturedFn!()
 
     expect(result.config).toBeNull()
-    expect(result.precio).toBeNull()
+    // Price comes from configuracion fallback (precio_menu_diario=14)
+    expect(result.precio).toBe('14')
     expect(result.items).toBeNull()
   })
 

@@ -17,7 +17,19 @@ export function useMenuDiario() {
   const { data, error, pending } = useAsyncData(
     `menu-diario-${todayStr}`,
     async () => {
-      // 1) Try exact date match first
+      // 1) Load price from configuracion (always — never from menu_diario_config)
+      const { data: sysConfig, error: sysError } = await client
+        .from('configuracion')
+        .select('precio_menu_diario, precio_menu_sabado')
+        .single()
+
+      if (sysError && sysError.code !== 'PGRST116') throw sysError
+
+      const menuPrice = dayOfWeek === 6
+        ? sysConfig?.precio_menu_sabado
+        : sysConfig?.precio_menu_diario
+
+      // 2) Try exact date match first
       const { data: exactConfig, error: exactError } = await client
         .from('menu_diario_config')
         .select('*')
@@ -30,7 +42,7 @@ export function useMenuDiario() {
       let config = exactConfig
       let matchType: 'date' | 'day' | null = exactConfig ? 'date' : null
 
-      // 2) Fallback: day_of_week match
+      // 3) Fallback: day_of_week match (for dishes only, price is from configuracion)
       if (!config) {
         const { data: dayConfig, error: dayError } = await client
           .from('menu_diario_config')
@@ -45,27 +57,16 @@ export function useMenuDiario() {
         matchType = dayConfig ? 'day' : null
       }
 
-      // 3) Fallback: use default pricing from configuracion table
+      // 4) No config at all → show price-only fallback
       if (!config) {
-        const { data: sysConfig, error: sysError } = await client
-          .from('configuracion')
-          .select('precio_menu_diario, precio_menu_sabado')
-          .single()
-
-        if (sysError && sysError.code !== 'PGRST116') throw sysError
-
-        const fallbackPrecio = dayOfWeek === 6
-          ? sysConfig?.precio_menu_sabado
-          : sysConfig?.precio_menu_diario
-
         return {
           config: null, items: null,
-          precio: fallbackPrecio != null ? String(fallbackPrecio) : null,
+          precio: menuPrice != null ? String(menuPrice) : null,
           matchType: null, isHoliday: false,
         }
       }
 
-      // 3) Fetch dishes for this config
+      // 5) Fetch dishes for this config
       const { data: itemsData, error: itemsError } = await client
         .from('menu_diario_items')
         .select('*')
@@ -74,7 +75,7 @@ export function useMenuDiario() {
 
       if (itemsError) throw itemsError
 
-      // 4) Check if today is a holiday
+      // 6) Check if today is a holiday
       const { data: holidayData, error: holidayError } = await client
         .from('eventos')
         .select('id')
@@ -115,7 +116,7 @@ export function useMenuDiario() {
       return {
         config,
         items: grouped,
-        precio: (config as { precio: string }).precio,
+        precio: menuPrice != null ? String(menuPrice) : null,
         matchType,
         isHoliday: holidayData !== null,
       }

@@ -3,7 +3,7 @@
   Toggle cliente_elige_mesa + number input capacidad_total_local.
 -->
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 
 type OcupacionModo = 'auto' | 'manual'
 
@@ -23,6 +23,7 @@ const props = defineProps<{
     precio_menu_diario?: number | null
     precio_menu_sabado?: number | null
   }
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,6 +38,22 @@ const form = reactive<ConfigData>({
   modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
 })
+
+// Sync form when config loads asynchronously from DB
+watch(
+  () => props.currentConfig,
+  (cfg) => {
+    if (cfg.cliente_elige_mesa !== undefined) form.cliente_elige_mesa = cfg.cliente_elige_mesa
+    if (cfg.capacidad_total_local !== undefined) form.capacidad_total_local = cfg.capacidad_total_local
+    if (cfg.precio_menu_diario !== undefined) form.precio_menu_diario = cfg.precio_menu_diario
+    if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
+    if (cfg.modo_ocupacion !== undefined) form.modo_ocupacion = cfg.modo_ocupacion
+    if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
+  },
+  { deep: true },
+)
+
+
 
 const errors = ref<Record<string, string>>({})
 
@@ -171,9 +188,10 @@ function handleSubmit() {
     <div class="pt-4">
       <button
         type="submit"
-        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+        :disabled="saving"
+        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
       >
-        Guardar configuración
+        {{ saving ? 'Guardando...' : 'Guardar configuración' }}
       </button>
     </div>
   </form>

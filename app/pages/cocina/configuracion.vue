@@ -25,6 +25,18 @@ const config = ref<ConfigData>({
   capacidad_total_local: 80,
 })
 
+const saving = ref(false)
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string, type: 'success' | 'error') {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { message, type }
+  toastTimer = setTimeout(() => {
+    toast.value = null
+  }, 3000)
+}
+
 async function loadConfig() {
   const { data } = await client.from('configuracion').select('*').limit(1).single()
   if (data) {
@@ -33,12 +45,20 @@ async function loadConfig() {
 }
 
 async function handleSubmit(formData: ConfigData) {
-  if (config.value.id) {
-    await client.from('configuracion').update(formData).eq('id', config.value.id)
-  } else {
-    await client.from('configuracion').insert(formData)
+  saving.value = true
+  try {
+    if (config.value.id) {
+      await client.from('configuracion').update(formData).eq('id', config.value.id)
+    } else {
+      await client.from('configuracion').insert(formData)
+    }
+    await loadConfig()
+    showToast('Configuración guardada correctamente', 'success')
+  } catch {
+    showToast('Error al guardar la configuración', 'error')
+  } finally {
+    saving.value = false
   }
-  await loadConfig()
 }
 
 // ── Category management ──
@@ -57,7 +77,7 @@ const categorySaving = ref(false)
 async function loadCategories() {
   const { data } = await client.from('categorias').select('*').order('puesto')
   if (data) {
-    categorias.value = data.map((c) => ({ ...c, _deleted: false }))
+    categorias.value = data.map((c) => ({ ...c, nombre: c.nombre.toUpperCase(), _deleted: false }))
   }
 }
 
@@ -102,7 +122,7 @@ async function saveCategories() {
 
     // Upsert: INSERT new (no id), UPDATE existing (has id)
     for (const cat of toUpsert) {
-      const payload = { nombre: cat.nombre.trim(), puesto: cat.puesto }
+      const payload = { nombre: cat.nombre.trim().toUpperCase(), puesto: cat.puesto }
       if (cat.id) {
         await client.from('categorias').update(payload).eq('id', cat.id)
       } else {
@@ -126,11 +146,13 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <ConfiguracionForm :current-config="config" @submit="handleSubmit" />
+    <ConfiguracionForm :current-config="config" :saving="saving" @submit="handleSubmit" />
 
     <!-- Category Management Card -->
     <div class="rounded-lg bg-white p-6 shadow">
       <h2 class="mb-4 text-xl font-bold text-slate">Gestión de Categorías</h2>
+
+      <p class="mb-4 text-xs text-gray-400">El número es el orden de aparición (menor = primero). Los nombres se guardan automáticamente en MAYÚSCULAS.</p>
 
       <!-- Category rows -->
       <div class="space-y-3">
@@ -141,9 +163,10 @@ onMounted(() => {
         >
           <template v-if="!cat._deleted">
             <input
-              v-model="cat.nombre"
+              :value="cat.nombre"
+              @input="cat.nombre = ($event.target as HTMLInputElement).value.toUpperCase()"
               type="text"
-              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase"
               placeholder="Nombre de categoría"
             />
             <input
@@ -189,4 +212,15 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- Toast notification -->
+  <Teleport to="body">
+    <div
+      v-if="toast"
+      class="fixed right-4 top-4 z-50 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all"
+      :class="toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'"
+    >
+      {{ toast.message }}
+    </div>
+  </Teleport>
 </template>

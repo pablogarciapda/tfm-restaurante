@@ -38,10 +38,10 @@ const editingPlato = ref<Plato | null>(null)
 const searchTerm = ref('')
 const categoriaFilter = ref('')
 
-const categorias = computed(() => {
-  const cats = new Set(platos.value.map((p) => p.categoria).filter(Boolean))
-  return [...cats].sort()
-})
+// Filter categories from the official categorias table, not platos
+const categorias = computed(() =>
+  categoriasData.value.map((c) => c.nombre)
+)
 
 const filteredPlatos = computed(() => {
   let result = platos.value
@@ -145,9 +145,9 @@ watch(showForm, (isOpen) => {
 </script>
 
 <template>
-  <div>
-    <!-- Sticky toolbar: title + search + nuevo -->
-    <div class="sticky top-0 z-10 -mx-6 -mt-6 bg-cream px-6 pt-6 pb-3">
+  <div class="flex flex-col h-full">
+    <!-- Fixed toolbar: title + search + nuevo (outside scroll) -->
+    <div class="flex-shrink-0 -mx-6 -mt-6 bg-cream px-6 pt-6 pb-3 shadow-sm">
       <div class="mb-3 flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate">Gestión de Carta</h1>
         <button
@@ -183,8 +183,8 @@ watch(showForm, (isOpen) => {
       </div>
     </div>
 
-    <!-- Form -->
-    <div v-if="showForm" class="mb-6">
+    <!-- Scrollable area: form or table -->
+    <div v-if="showForm" class="-mx-6 px-6 pt-6 overflow-y-auto">
       <PlatoForm
         :initial-plato="editingPlato ?? undefined"
         :categories="categoriasData"
@@ -193,13 +193,14 @@ watch(showForm, (isOpen) => {
       />
     </div>
 
-    <!-- Table -->
-    <PlatosTable
-      v-else
-      :platos="filteredPlatos"
-      @edit="handleEdit"
-      @delete="handleDelete"
-      @toggle-disponible="handleToggleDisponible"
-    />
+    <!-- Table with sticky column headers + scrollable body -->
+    <div v-else class="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 pb-6">
+      <PlatosTable
+        :platos="filteredPlatos"
+        @edit="handleEdit"
+        @delete="handleDelete"
+        @toggle-disponible="handleToggleDisponible"
+      />
+    </div>
   </div>
 </template>

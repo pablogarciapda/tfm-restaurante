@@ -65,7 +65,7 @@ function formatPrecio(precio: number): string {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-lg bg-white shadow">
+  <div class="rounded-lg bg-white shadow">
     <!-- Empty state -->
     <div
       v-if="sortedPlatos.length === 0"
@@ -91,7 +91,7 @@ function formatPrecio(precio: number): string {
             Categoría <span class="text-xs text-gray-400">{{ sortIndicator('categoria') }}</span>
           </th>
           <th
-            class="sticky top-0 z-10 cursor-pointer select-none bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            class="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
             @click="toggleSort('precio')"
           >
             Precio <span class="text-xs text-gray-400">{{ sortIndicator('precio') }}</span>
@@ -103,12 +103,12 @@ function formatPrecio(precio: number): string {
             Tipo <span class="text-xs text-gray-400">{{ sortIndicator('tipo_menu') }}</span>
           </th>
           <th
-            class="sticky top-0 z-10 cursor-pointer select-none bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            class="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
             @click="toggleSort('disponible')"
           >
             Disponible <span class="text-xs text-gray-400">{{ sortIndicator('disponible') }}</span>
           </th>
-          <th class="sticky top-0 z-10 bg-cream px-4 py-3 font-medium text-slate">Recomendado</th>
+          <th class="sticky top-0 z-10 bg-cream px-2 py-3 text-center font-medium text-slate">Recom</th>
           <th class="sticky top-0 z-10 bg-cream px-4 py-3 text-right font-medium text-slate">Acciones</th>
         </tr>
       </thead>
@@ -136,14 +136,8 @@ function formatPrecio(precio: number): string {
               {{ plato.disponible ? 'Disponible' : 'No disponible' }}
             </button>
           </td>
-          <td class="px-4 py-3">
-            <span
-              v-if="plato.recomendado"
-              class="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700"
-            >
-              ★ Recomendado
-            </span>
-            <span v-else class="text-xs text-gray-400">—</span>
+          <td class="px-2 py-3 text-center text-base">
+            <span v-if="plato.recomendado" class="text-yellow-500">★</span>
           </td>
           <td class="px-4 py-3 text-right">
             <button
