@@ -45,8 +45,24 @@ export function useMenuDiario() {
         matchType = dayConfig ? 'day' : null
       }
 
+      // 3) Fallback: use default pricing from configuracion table
       if (!config) {
-        return { config: null, items: null, precio: null, matchType: null, isHoliday: false }
+        const { data: sysConfig, error: sysError } = await client
+          .from('configuracion')
+          .select('precio_menu_diario, precio_menu_sabado')
+          .single()
+
+        if (sysError && sysError.code !== 'PGRST116') throw sysError
+
+        const fallbackPrecio = dayOfWeek === 6
+          ? sysConfig?.precio_menu_sabado
+          : sysConfig?.precio_menu_diario
+
+        return {
+          config: null, items: null,
+          precio: fallbackPrecio != null ? String(fallbackPrecio) : null,
+          matchType: null, isHoliday: false,
+        }
       }
 
       // 3) Fetch dishes for this config

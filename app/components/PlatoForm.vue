@@ -19,8 +19,15 @@ interface PlatoFormData {
   recomendado: boolean
 }
 
+interface Category {
+  id: string
+  nombre: string
+  puesto: number
+}
+
 const props = defineProps<{
   initialPlato?: Record<string, unknown> | null
+  categories?: Category[]
 }>()
 
 const emit = defineEmits<{
@@ -29,6 +36,10 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.initialPlato)
+
+const sortedCategories = computed(() =>
+  [...(props.categories ?? [])].sort((a, b) => a.puesto - b.puesto)
+)
 
 const form = reactive<PlatoFormData>({
   nombre: (props.initialPlato?.nombre as string) ?? '',
@@ -134,14 +145,21 @@ const TIPO_MENU_OPTIONS = ['carta', 'menu_diario', 'ambos']
     <!-- Categoria -->
     <div>
       <label class="mb-1 block text-sm font-medium text-slate" for="plato-categoria">Categoría *</label>
-      <input
+      <select
         id="plato-categoria"
         v-model="form.categoria"
         data-testid="plato-categoria"
-        type="text"
         class="w-full rounded-lg border border-gray-300 px-3 py-2"
-        placeholder="Ej: Entrantes"
-      />
+      >
+        <option value="">Seleccionar categoría</option>
+        <option
+          v-for="cat in sortedCategories"
+          :key="cat.id"
+          :value="cat.nombre"
+        >
+          {{ cat.nombre }}
+        </option>
+      </select>
     </div>
 
     <!-- Tipo de menu -->

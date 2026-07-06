@@ -15,7 +15,7 @@
 //        mesas.zona                -> 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
 //        reservas.estado           -> 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
 //        menu_diario_items.seccion  -> 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
-//   Do NOT hand-edit any other part of this file. Only the 6 columns above are a manual overlay.
+//   Do NOT hand-edit any other part of this file. Only the 7 overlay rules above (6 + categorias text) are a manual overlay.
 
 export type Json =
   | string
@@ -33,6 +33,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      categorias: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          puesto: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          puesto?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          puesto?: number
+        }
+        Relationships: []
+      }
       configuracion: {
         Row: {
           capacidad_total_local: number | null
@@ -41,6 +62,8 @@ export type Database = {
           id: string
           modo_ocupacion: 'auto' | 'manual'
           ocupacion_manual: number
+          precio_menu_diario: number | null
+          precio_menu_sabado: number | null
           updated_at: string
         }
         Insert: {
@@ -50,6 +73,8 @@ export type Database = {
           id?: string
           modo_ocupacion?: 'auto' | 'manual'
           ocupacion_manual?: number
+          precio_menu_diario?: number | null
+          precio_menu_sabado?: number | null
           updated_at?: string
         }
         Update: {
@@ -59,6 +84,8 @@ export type Database = {
           id?: string
           modo_ocupacion?: 'auto' | 'manual'
           ocupacion_manual?: number
+          precio_menu_diario?: number | null
+          precio_menu_sabado?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -357,6 +384,7 @@ export type Database = {
     }
     Functions: {
       can_write: { Args: { resource: string }; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

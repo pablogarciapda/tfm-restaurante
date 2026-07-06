@@ -10,6 +10,8 @@ type OcupacionModo = 'auto' | 'manual'
 interface ConfigData {
   cliente_elige_mesa: boolean
   capacidad_total_local: number
+  precio_menu_diario: number | null
+  precio_menu_sabado: number | null
   modo_ocupacion: OcupacionModo
   ocupacion_manual: number
 }
@@ -18,6 +20,8 @@ const props = defineProps<{
   currentConfig: Partial<ConfigData> & {
     cliente_elige_mesa?: boolean
     capacidad_total_local?: number
+    precio_menu_diario?: number | null
+    precio_menu_sabado?: number | null
   }
 }>()
 
@@ -28,6 +32,8 @@ const emit = defineEmits<{
 const form = reactive<ConfigData>({
   cliente_elige_mesa: props.currentConfig.cliente_elige_mesa ?? false,
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
+  precio_menu_diario: props.currentConfig.precio_menu_diario ?? null,
+  precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
   modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
 })
@@ -88,6 +94,38 @@ function handleSubmit() {
       <p v-if="errors.capacidad_total_local" class="mt-1 text-sm text-red-600">
         {{ errors.capacidad_total_local }}
       </p>
+    </div>
+
+    <!-- precio_menu_diario -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-diario">
+        Precio Menú Diario (€)
+      </label>
+      <input
+        id="cfg-precio-diario"
+        v-model.number="form.precio_menu_diario"
+        data-testid="cfg-precio-diario"
+        type="number"
+        step="0.01"
+        min="0"
+        class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+      />
+    </div>
+
+    <!-- precio_menu_sabado -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-sabado">
+        Precio Menú Sábado (€)
+      </label>
+      <input
+        id="cfg-precio-sabado"
+        v-model.number="form.precio_menu_sabado"
+        data-testid="cfg-precio-sabado"
+        type="number"
+        step="0.01"
+        min="0"
+        class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+      />
     </div>
 
     <!-- modo_ocupacion -->

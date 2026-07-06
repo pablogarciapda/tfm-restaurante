@@ -52,16 +52,20 @@ const categories = computed<CategoryGroup[]>(() => {
   const groups = new Map<string, { platos: PlatoDisplay[]; minPuesto: number }>()
 
   for (const p of raw) {
+    // Skip non-disponible platos
+    if (!p.disponible) continue
+
     const display: PlatoDisplay = {
       plato: p.nombre,
       precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
-      stock: p.disponible ? 'Disponible' : 'Agotado',
+      stock: 'Disponible',
       descripcion: p.descripcion,
       imagen_url: p.imagen_url,
       alergenos: p.alergenos,
       calorias: p.calorias,
     }
 
+    // Add to its category group
     if (!groups.has(p.categoria)) {
       groups.set(p.categoria, { platos: [], minPuesto: p.puesto ?? 99 })
     }
@@ -69,6 +73,14 @@ const categories = computed<CategoryGroup[]>(() => {
     group.platos.push(display)
     if ((p.puesto ?? 99) < group.minPuesto) {
       group.minPuesto = p.puesto ?? 99
+    }
+
+    // Also add to "Nuestras Recomendaciones" if marked as recomendado
+    if (p.recomendado) {
+      if (!groups.has('Nuestras Recomendaciones')) {
+        groups.set('Nuestras Recomendaciones', { platos: [], minPuesto: -1 })
+      }
+      groups.get('Nuestras Recomendaciones')!.platos.push(display)
     }
   }
 
