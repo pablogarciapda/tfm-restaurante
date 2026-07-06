@@ -4,7 +4,7 @@
   Image: file upload (with mobile camera) + URL paste → auto-download to Supabase Storage.
 -->
 <script setup lang="ts">
-import { reactive, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { reactive, ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { ImageUploadOptions } from '~/composables/useImageUpload'
 import { useImageUpload } from '~/composables/useImageUpload'
 import { toProxyUrl } from '~/utils/image-url'
@@ -84,169 +84,12 @@ const imageUploadError = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const urlInput = ref<HTMLInputElement | null>(null)
 
-// Crop tool state
-const CROP_ASPECT = 16 / 9 // Matches the EventCard image container aspect ratio
-const cropContainer = ref<HTMLDivElement | null>(null)
-const isDragging = ref(false)
-const imgLoaded = ref(false)
-const imgDisplay = ref({ w: 0, h: 0 })
-const imgNatural = ref({ w: 0, h: 0 })
-const imgEl = ref<HTMLImageElement | null>(null)
-let resizeObserver: ResizeObserver | null = null
-
-function captureImgDisplay() {
-  if (!imgEl.value) return false
-  const rect = imgEl.value.getBoundingClientRect()
-  if (rect.width > 0 && rect.height > 0) {
-    imgDisplay.value = { w: rect.width, h: rect.height }
-    return true
-  }
-  return false
-}
-
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v))
-}
-
 onMounted(() => {
   // Initial image preview (edit mode) — convert old Supabase URLs to proxy
   if (form.imagen_url) {
     imagePreview.value = toProxyUrl(form.imagen_url) || form.imagen_url
   }
 })
-
-onUnmounted(() => {
-  resizeObserver?.disconnect()
-  resizeObserver = null
-})
-
-function onImgLoad(e: Event) {
-  const img = e.target as HTMLImageElement
-  imgEl.value = img
-  imgNatural.value = { w: img.naturalWidth, h: img.naturalHeight }
-
-  // Wait for layout to settle before capturing display dimensions
-  nextTick(() => {
-    captureImgDisplay()
-    imgLoaded.value = true
-  })
-
-  // Track layout changes (e.g. image loads via proxy, container resizes)
-  resizeObserver?.disconnect()
-  resizeObserver = new ResizeObserver(() => {
-    if (imgLoaded.value) captureImgDisplay()
-  })
-  resizeObserver.observe(img)
-}
-
-// Crop window position in display-px (centered on focal point, clamped to image bounds)
-const cropDisplayRect = computed(() => {
-  const { w, h } = imgDisplay.value
-  if (!w || !h) return { x: 0, y: 0, w: 0, h: 0 }
-
-  // Crop window fits inside the displayed image at CROP_ASPECT ratio
-  let cw = w
-  let ch = w / CROP_ASPECT
-
-  if (ch > h) {
-    ch = h
-    cw = h * CROP_ASPECT
-  }
-
-  // Center on focal point (as percentage of image)
-  const fx = form.crop_focus_x / 100
-  const fy = form.crop_focus_y / 100
-
-  let x = fx * w - cw / 2
-  let y = fy * h - ch / 2
-
-  // Clamp so crop window stays within image bounds
-  x = clamp(x, 0, w - cw)
-  y = clamp(y, 0, h - ch)
-
-  return { x, y, w: cw, h: ch }
-})
-
-const cropOverlayStyle = computed(() => {
-  const r = cropDisplayRect.value
-  return {
-    left: `${r.x}px`,
-    top: `${r.y}px`,
-    width: `${r.w}px`,
-    height: `${r.h}px`,
-  }
-})
-
-let dragStart = { x: 0, y: 0, fx: 50, fy: 50 }
-
-// Unified drag: mousedown ANYWHERE on the image container → set focal point + enable drag
-function startDrag(e: MouseEvent) {
-  if (!imgDisplay.value.w || !imgDisplay.value.h || !cropContainer.value) return
-  e.preventDefault()
-  isDragging.value = true
-
-  const img = cropContainer.value.querySelector('img')
-  if (!img) return
-  const rect = img.getBoundingClientRect()
-  // Set focal point to where the user clicked
-  const clickFx = ((e.clientX - rect.left) / rect.width) * 100
-  const clickFy = ((e.clientY - rect.top) / rect.height) * 100
-  form.crop_focus_x = clamp(0, 100, clickFx)
-  form.crop_focus_y = clamp(0, 100, clickFy)
-  dragStart = { x: e.clientX, y: e.clientY, fx: form.crop_focus_x, fy: form.crop_focus_y }
-
-  function onMove(ev: MouseEvent) {
-    const dx = ev.clientX - dragStart.x
-    const dy = ev.clientY - dragStart.y
-    const { w, h } = imgDisplay.value
-    form.crop_focus_x = clamp(0, 100, dragStart.fx + (dx / w) * 100)
-    form.crop_focus_y = clamp(0, 100, dragStart.fy + (dy / h) * 100)
-  }
-
-  function onUp() {
-    isDragging.value = false
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp)
-  }
-
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onUp)
-}
-
-// Touch support for mobile admin
-function startTouchDrag(e: TouchEvent) {
-  if (!e.touches[0] || !imgDisplay.value.w || !imgDisplay.value.h || !cropContainer.value) return
-  e.preventDefault()
-  isDragging.value = true
-
-  const img = cropContainer.value.querySelector('img')
-  if (!img) return
-  const rect = img.getBoundingClientRect()
-  // Same as mouse: set focal point to touch position
-  const touchFx = ((e.touches[0].clientX - rect.left) / rect.width) * 100
-  const touchFy = ((e.touches[0].clientY - rect.top) / rect.height) * 100
-  form.crop_focus_x = clamp(0, 100, touchFx)
-  form.crop_focus_y = clamp(0, 100, touchFy)
-  dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, fx: form.crop_focus_x, fy: form.crop_focus_y }
-
-  function onTouchMove(ev: TouchEvent) {
-    if (!ev.touches[0]) return
-    const dx = ev.touches[0].clientX - dragStart.x
-    const dy = ev.touches[0].clientY - dragStart.y
-    const { w, h } = imgDisplay.value
-    form.crop_focus_x = clamp(0, 100, dragStart.fx + (dx / w) * 100)
-    form.crop_focus_y = clamp(0, 100, dragStart.fy + (dy / h) * 100)
-  }
-
-  function onTouchEnd() {
-    isDragging.value = false
-    document.removeEventListener('touchmove', onTouchMove)
-    document.removeEventListener('touchend', onTouchEnd)
-  }
-
-  document.addEventListener('touchmove', onTouchMove, { passive: false })
-  document.addEventListener('touchend', onTouchEnd)
-}
 
 // Auto-upload external URL when pasted
 let urlDebounce: ReturnType<typeof setTimeout> | null = null
@@ -386,37 +229,15 @@ function handleSubmit() {
     <div>
       <label class="mb-1 block text-sm font-medium text-slate">Imagen</label>
 
-      <!-- Preview with crop tool: full image + draggable rectangle -->
+      <!-- Preview with simple image display -->
       <div v-if="imagePreview" class="mb-2">
-        <div
-          ref="cropContainer"
-          class="relative inline-block overflow-hidden rounded-lg select-none"
-          :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
-          @mousedown="startDrag"
-          @touchstart="startTouchDrag"
-        >
+        <div class="relative rounded-lg overflow-hidden">
           <img
             :src="imagePreview"
             alt="Preview"
-            class="pointer-events-none block max-h-[400px] w-full rounded-lg bg-gray-100"
+            class="block max-h-[400px] w-full rounded-lg bg-gray-100"
             style="object-fit: contain;"
-            draggable="false"
-            @load="onImgLoad"
-            @dragstart.prevent
           />
-
-          <!-- Crop window: represents the visible area on public EventCard (visual only, events handled by container) -->
-          <div
-            v-if="imgLoaded"
-            class="pointer-events-none absolute rounded border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
-            :style="cropOverlayStyle"
-          >
-            <!-- Corner handles (visual cue) -->
-            <div class="absolute -left-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-terracotta" />
-            <div class="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-terracotta" />
-            <div class="absolute -bottom-1 -left-1 h-3 w-3 rounded-full border-2 border-white bg-terracotta" />
-            <div class="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-terracotta" />
-          </div>
 
           <!-- Upload progress overlay -->
           <div v-if="uploading" class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40">
@@ -424,9 +245,8 @@ function handleSubmit() {
           </div>
         </div>
 
-        <!-- Helper text + clear button -->
-        <div class="mt-1 flex items-center justify-between text-xs text-gray-500">
-          <span>Arrastra sobre la imagen para mover el área visible</span>
+        <!-- Clear button -->
+        <div class="mt-1 flex justify-end text-xs">
           <button
             type="button"
             class="font-medium text-red-600 hover:underline"
