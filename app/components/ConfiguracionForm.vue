@@ -42,7 +42,7 @@ const form = reactive<ConfigData>({
   modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
   mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
-  titulo_recomendados: props.currentConfig.titulo_recomendados ?? 'Nuestras Recomendaciones',
+  titulo_recomendados: props.currentConfig.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES',
 })
 
 // Sync form when config loads asynchronously from DB
@@ -187,7 +187,7 @@ function handleSubmit() {
         class="h-4 w-4 rounded"
       />
       <label class="text-sm font-medium text-slate" for="cfg-mostrar-rec">
-        Mostrar "{{ form.titulo_recomendados || 'Nuestras Recomendaciones' }}{{ form.mostrar_recomendados ? '' : ' (oculto)' }}" en la carta
+        Mostrar "{{ form.titulo_recomendados || 'NUESTRAS RECOMENDACIONES' }}{{ form.mostrar_recomendados ? '' : ' (oculto)' }}" en la carta
       </label>
     </div>
 

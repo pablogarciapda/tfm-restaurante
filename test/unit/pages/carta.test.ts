@@ -28,8 +28,16 @@ g.useSupabaseClient = () => ({
   auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
 })
 g.useSupabaseUser = () => ref({ id: '1', email: 'test@test.com' })
-const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'Nuestras Recomendaciones' })
-g.useAsyncData = vi.fn().mockReturnValue({ data: mockConfigRef })
+const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' })
+const mockCategoriasRef = ref([
+  { nombre: 'CARNES', puesto: 10 },
+  { nombre: 'PESCADOS', puesto: 20 },
+  { nombre: 'ENTRANTES', puesto: 30 },
+])
+g.useAsyncData = vi.fn((key: string) => {
+  if (key === 'carta-categorias') return { data: mockCategoriasRef }
+  return { data: mockConfigRef }
+})
 
 describe('Carta page — migrated to usePlatos (CN-006)', () => {
   beforeEach(() => {

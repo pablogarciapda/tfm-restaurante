@@ -60,10 +60,26 @@ const { data: sysConfig } = useAsyncData('carta-config', async () => {
     .from('configuracion')
     .select('mostrar_recomendados, titulo_recomendados')
     .single()
-  return (data ?? { mostrar_recomendados: true, titulo_recomendados: 'Nuestras Recomendaciones' }) as RecomendadosConfig
+  return (data ?? { mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' }) as RecomendadosConfig
 })
 
-const recTitle = computed(() => sysConfig.value?.titulo_recomendados ?? 'Nuestras Recomendaciones')
+// Load categorias for display order (puesto from DB, not from platos)
+const { data: categoriasRows } = useAsyncData('carta-categorias', async () => {
+  const { data } = await client.from('categorias').select('nombre, puesto').order('puesto')
+  return data ?? []
+})
+
+const categoriaPuesto = computed(() => {
+  const map: Record<string, number> = {}
+  if (categoriasRows.value) {
+    for (const c of categoriasRows.value) {
+      map[c.nombre] = c.puesto
+    }
+  }
+  return map
+})
+
+const recTitle = computed(() => sysConfig.value?.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES')
 const showRec = computed(() => sysConfig.value?.mostrar_recomendados ?? true)
 
 // Map Supabase rows → display format grouped by categoria
@@ -108,10 +124,13 @@ const categories = computed<CategoryGroup[]>(() => {
     }
   }
 
+  const catOrderMap = categoriaPuesto.value
+
   return Array.from(groups.entries()).map(([cat, g]) => ({
     id: cat.toLowerCase().replace(/\s+/g, '-'),
     categoria: cat,
-    puesto: g.minPuesto,
+    // Synthetic group (puesto -1) always first; real categories use DB puesto
+    puesto: cat === recName ? -1 : (catOrderMap[cat] ?? 999),
     open: true,
     platos: g.platos,
   })).sort((a, b) => a.puesto - b.puesto)
@@ -119,20 +138,17 @@ const categories = computed<CategoryGroup[]>(() => {
 
 const categoryNames = computed(() => categories.value.map((c) => c.categoria))
 
-// Initialize directly from SSR data to keep SSR=client consistent (no hydration mismatch)
-function getDefaultCategory(names: string[]): string {
-  if (names.length === 0) return ''
-  // Default to the first category — no hardcoded special names
-  return names[0] ?? ''
-}
-const activeCategory = ref(getDefaultCategory(categoryNames.value))
+// Active category: start empty, sync with available categories ASAP.
+// Using immediate watch ensures SSR and client agree on the initial value:
+// - SSR: renders first with '', then data resolves and sets activeCategory before HTML serialization
+// - Client: Nuxt payload is available immediately so watch fires during setup
+const activeCategory = ref('')
 
-// Update if categories change (e.g. after re-fetch)
 watch(categoryNames, (names) => {
-  if (names.length > 0 && !names.includes(activeCategory.value)) {
-    activeCategory.value = getDefaultCategory(names)
+  if (names.length > 0 && (!activeCategory.value || !names.includes(activeCategory.value))) {
+    activeCategory.value = names[0]
   }
-})
+}, { immediate: true })
 
 // Only show the selected category
 const filteredCategories = computed(() =>
