@@ -58,7 +58,7 @@ La tabla muestra todos los platos con:
 | Categoría | Filtrar por categoría real (Carnes, Pescados, etc.) |
 | Precio | Ordenar de menor a mayor |
 | Disponible | Marcar/desmarcar si se sirve hoy |
-| Recomendado | Marcar con ★ para destacarlo en la web |
+| Recomendado | Pulsa ★ para marcar como recomendado, ☆ para quitarlo |
 | Acciones | Editar o eliminar el plato |
 
 ### Añadir un plato
@@ -160,12 +160,14 @@ Gestiona los eventos especiales del restaurante (espectáculos, festivos, etc.).
    - **Título** del evento
    - **Descripción** (opcional)
    - **Fecha y hora**
-   - **Categoría** — "Espectáculo" o "Festivo"
+   - **Categoría** — selecciona de la lista (Festivo, Espectáculo, o las que hayas creado)
    - **Capacidad** (número de personas, opcional)
    - **Imagen** (opcional)
 3. Pulsa **Guardar**.
 
 El evento aparecerá automáticamente en la sección pública de la web.
+
+> 📝 Las categorías de eventos se gestionan desde _Configuración → Categorías de Eventos_. Puedes crear las que necesites (catas, cenas temáticas, etc.).
 
 ### Desactivar un evento
 
@@ -207,8 +209,16 @@ Los eventos se pueden **desactivar** sin borrarlos. Cambia su estado a "inactivo
 Aquí puedes gestionar las categorías que aparecen en la carta:
 
 - **Añadir categoría** — escribe el nombre (se guarda automáticamente en mayúsculas)
-- **Orden** — las categorías aparecen en la web según el orden que marques aquí
+- **Reordenar** — arrastra el handle **⠿** arriba o abajo para cambiar el orden
 - **Eliminar** — solo se puede eliminar si no tiene platos asociados
+
+### Categorías de eventos
+
+Gestiona las categorías que se usan en los eventos (Festivo, Espectáculo, y las que crees):
+
+- **Añadir categoría** — escribe el nombre
+- **Reordenar** — arrastra el handle **⠿** para cambiar el orden
+- **Eliminar** — al eliminar, los eventos de esa categoría se quedan sin categoría asignada
 
 > 💡 Al guardar cualquier cambio verás un mensaje verde de confirmación. Si algo falla, verás un mensaje rojo.
 
@@ -257,6 +267,10 @@ Aquí puedes gestionar las categorías que aparecen en la carta:
 | ¿Cómo reordeno los platos en la carta? | Filtra por categoría y arrastra los platos con el handle ⠿ |
 | ¿Puedo ocultar una sección del menú diario? | Sí, desmarca el checkbox de esa sección en el editor de menú |
 | ¿Puedo cambiar el nombre de "Postre" a "Dulces"? | Sí, doble clic en el título de la sección y escríbelo |
+| ¿Cómo marco un plato como recomendado sin abrir el formulario? | Pulsa la estrella ★/☆ directamente en la tabla de platos |
+| ¿Por qué un plato muestra "Consultar" en la web? | Porque su precio está a 0. Así lo ves en la carta pública |
+| ¿Las categorías de eventos son solo "Festivo" y "Espectáculo"? | No, puedes crear las que quieras desde Configuración |
+| ¿Cómo reordeno las categorías en Configuración? | Arrástralas con el handle ⠿ y pulsa Guardar |
 
 ---
 
@@ -266,4 +280,4 @@ Aquí puedes gestionar las categorías que aparecen en la carta:
 
 ---
 
-> **Documento v1.1** — Última actualización: Julio 2026. Añadido: drag & drop reorden, configuración de secciones del menú diario.
+> **Documento v1.2** — Última actualización: Julio 2026. Añadido: estrella recomendado clicable, precio 0 = "Consultar", categorías dinámicas de eventos, drag & drop en configuración.
