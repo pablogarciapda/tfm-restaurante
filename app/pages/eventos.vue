@@ -15,6 +15,8 @@ interface EventoItem {
   fecha: string
   categoria: string
   imagen_url?: string | null
+  crop_focus_x: number
+  crop_focus_y: number
 }
 
 const supabase = useSupabaseClient()
@@ -34,6 +36,8 @@ watch(eventos, async (newEventos) => {
     fecha: string
     categoria_id: string | null
     imagen_url?: string | null
+    crop_focus_x: number
+    crop_focus_y: number
   }>
 
   const ids = [...new Set(raw.map((e) => e.categoria_id).filter(Boolean))] as string[]
@@ -60,6 +64,8 @@ watch(eventos, async (newEventos) => {
     fecha: e.fecha,
     categoria: e.categoria_id ? (catMap[e.categoria_id] ?? e.categoria_id) : 'General',
     imagen_url: e.imagen_url,
+    crop_focus_x: e.crop_focus_x,
+    crop_focus_y: e.crop_focus_y,
   }))
 }, { immediate: true })
 </script>
