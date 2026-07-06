@@ -4,7 +4,7 @@
   Image: file upload (with mobile camera) + URL paste → auto-download to Supabase Storage.
 -->
 <script setup lang="ts">
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { ImageUploadOptions } from '~/composables/useImageUpload'
 import { useImageUpload } from '~/composables/useImageUpload'
 import { toProxyUrl } from '~/utils/image-url'
@@ -82,6 +82,7 @@ const { uploading, uploadFromFile, uploadFromUrl } = useImageUpload(imageUploadO
 const imagePreview = ref<string | null>(null)
 const imageUploadError = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const urlInput = ref<HTMLInputElement | null>(null)
 
 // Crop tool state
 const CROP_ASPECT = 16 / 9 // Matches the EventCard image container aspect ratio
@@ -90,6 +91,18 @@ const isDragging = ref(false)
 const imgLoaded = ref(false)
 const imgDisplay = ref({ w: 0, h: 0 })
 const imgNatural = ref({ w: 0, h: 0 })
+const imgEl = ref<HTMLImageElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+
+function captureImgDisplay() {
+  if (!imgEl.value) return false
+  const rect = imgEl.value.getBoundingClientRect()
+  if (rect.width > 0 && rect.height > 0) {
+    imgDisplay.value = { w: rect.width, h: rect.height }
+    return true
+  }
+  return false
+}
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v))
@@ -102,12 +115,28 @@ onMounted(() => {
   }
 })
 
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
+  imgEl.value = img
   imgNatural.value = { w: img.naturalWidth, h: img.naturalHeight }
-  const rect = img.getBoundingClientRect()
-  imgDisplay.value = { w: rect.width, h: rect.height }
-  imgLoaded.value = true
+
+  // Wait for layout to settle before capturing display dimensions
+  nextTick(() => {
+    captureImgDisplay()
+    imgLoaded.value = true
+  })
+
+  // Track layout changes (e.g. image loads via proxy, container resizes)
+  resizeObserver?.disconnect()
+  resizeObserver = new ResizeObserver(() => {
+    if (imgLoaded.value) captureImgDisplay()
+  })
+  resizeObserver.observe(img)
 }
 
 // Crop window position in display-px (centered on focal point, clamped to image bounds)
@@ -276,6 +305,12 @@ async function handleFilePick(event: Event) {
   input.value = ''
 }
 
+function clearUrl() {
+  form.imagen_url = ''
+  imagePreview.value = null
+  nextTick(() => urlInput.value?.focus())
+}
+
 function handleSubmit() {
   if (!validate()) return
 
@@ -426,6 +461,7 @@ function handleSubmit() {
       <div class="mt-2">
         <div class="relative">
           <input
+            ref="urlInput"
             v-model="form.imagen_url"
             type="text"
             class="w-full rounded-lg border px-3 py-2 pr-8 text-sm"
@@ -436,7 +472,7 @@ function handleSubmit() {
             v-if="form.imagen_url"
             type="button"
             class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-            @click="form.imagen_url = ''; imagePreview = null"
+            @click="clearUrl"
             aria-label="Limpiar URL"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
