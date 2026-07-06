@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Home from '../../app/pages/index.vue'
 import PageHero from '../../app/components/PageHero.vue'
@@ -10,6 +10,26 @@ const NuxtLinkStub = {
   props: ['to'],
   template: '<a :href="to"><slot /></a>',
 }
+
+vi.stubGlobal('useSupabaseClient', () => ({
+  from: () => ({
+    select: () => ({
+      eq: () => ({
+        gte: () => ({
+          order: () => ({
+            limit: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}))
+
+vi.stubGlobal('useAsyncData', () => ({
+  data: { value: null },
+  error: null,
+  pending: { value: false },
+}))
 
 describe('Unit Smoke — Home Page', () => {
   it('mounts and contains expected Spanish text', () => {

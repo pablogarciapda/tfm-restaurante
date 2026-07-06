@@ -4,7 +4,37 @@
  *
  * Navigation: 5 BaseCards linking to /carta, /menu-diario, /reservas, /eventos, /contacto
  * via NuxtLink. Each card has a title, short description, and "Ver más" BaseButton.
+ *
+ * Eventos card: shows image from the closest upcoming event in DB.
  */
+
+import { computed } from 'vue'
+import { toProxyUrl } from '~/utils/image-url'
+
+const supabase = useSupabaseClient()
+
+const { data: proximoEvento } = useAsyncData('home-proximo-evento', async () => {
+  const { data } = await supabase
+    .from('eventos')
+    .select('titulo, imagen_url')
+    .eq('activo', true)
+    .gte('fecha', new Date().toISOString())
+    .order('fecha', { ascending: true })
+    .limit(1)
+
+  return data?.[0] ?? null
+})
+
+const eventoImage = computed(() => {
+  if (proximoEvento.value?.imagen_url) {
+    return toProxyUrl(proximoEvento.value.imagen_url)
+  }
+  return null
+})
+
+const eventoAlt = computed(() => {
+  return proximoEvento.value?.titulo ?? 'Espectáculo de flamenco'
+})
 </script>
 
 <template>
@@ -72,8 +102,8 @@
         <!-- Eventos -->
         <NuxtLink to="/eventos" class="group h-full">
           <BaseCard
-            image="https://images.unsplash.com/photo-1516306580123-e6e52b5b5b2c?w=800"
-            image-alt="Espectáculo de flamenco"
+            :image="eventoImage ?? 'https://images.unsplash.com/photo-1516306580123-e6e52b5b5b2c?w=800'"
+            :image-alt="eventoAlt"
           >
             <h2 class="text-xl font-bold text-slate">Eventos</h2>
             <p class="mt-2 text-sm text-gray-600">
