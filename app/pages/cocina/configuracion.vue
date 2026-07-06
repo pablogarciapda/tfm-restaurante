@@ -26,7 +26,7 @@ const config = ref<ConfigData>({
   cliente_elige_mesa: false,
   capacidad_total_local: 80,
   mostrar_recomendados: true,
-  titulo_recomendados: 'Nuestras Recomendaciones',
+  titulo_recomendados: 'NUESTRAS RECOMENDACIONES',
 })
 
 const saving = ref(false)
