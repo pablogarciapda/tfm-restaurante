@@ -149,19 +149,20 @@ const cropOverlayStyle = computed(() => {
 
 let dragStart = { x: 0, y: 0, fx: 50, fy: 50 }
 
-// Click anywhere on the image → center crop window there
-function onImageClick(e: MouseEvent) {
-  if (!imgDisplay.value.w || !imgDisplay.value.h) return
-  const img = e.currentTarget as HTMLImageElement
-  const rect = img.getBoundingClientRect()
-  form.crop_focus_x = clamp(0, 100, ((e.clientX - rect.left) / rect.width) * 100)
-  form.crop_focus_y = clamp(0, 100, ((e.clientY - rect.top) / rect.height) * 100)
-}
-
+// Unified drag: mousedown ANYWHERE on the image container → set focal point + enable drag
 function startDrag(e: MouseEvent) {
+  if (!imgDisplay.value.w || !imgDisplay.value.h || !cropContainer.value) return
   e.preventDefault()
-  if (!imgDisplay.value.w || !imgDisplay.value.h) return
   isDragging.value = true
+
+  const img = cropContainer.value.querySelector('img')
+  if (!img) return
+  const rect = img.getBoundingClientRect()
+  // Set focal point to where the user clicked
+  const clickFx = ((e.clientX - rect.left) / rect.width) * 100
+  const clickFy = ((e.clientY - rect.top) / rect.height) * 100
+  form.crop_focus_x = clamp(0, 100, clickFx)
+  form.crop_focus_y = clamp(0, 100, clickFy)
   dragStart = { x: e.clientX, y: e.clientY, fx: form.crop_focus_x, fy: form.crop_focus_y }
 
   function onMove(ev: MouseEvent) {
@@ -184,9 +185,18 @@ function startDrag(e: MouseEvent) {
 
 // Touch support for mobile admin
 function startTouchDrag(e: TouchEvent) {
-  if (!e.touches[0]) return
-  if (!imgDisplay.value.w || !imgDisplay.value.h) return
+  if (!e.touches[0] || !imgDisplay.value.w || !imgDisplay.value.h || !cropContainer.value) return
+  e.preventDefault()
   isDragging.value = true
+
+  const img = cropContainer.value.querySelector('img')
+  if (!img) return
+  const rect = img.getBoundingClientRect()
+  // Same as mouse: set focal point to touch position
+  const touchFx = ((e.touches[0].clientX - rect.left) / rect.width) * 100
+  const touchFy = ((e.touches[0].clientY - rect.top) / rect.height) * 100
+  form.crop_focus_x = clamp(0, 100, touchFx)
+  form.crop_focus_y = clamp(0, 100, touchFy)
   dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, fx: form.crop_focus_x, fy: form.crop_focus_y }
 
   function onTouchMove(ev: TouchEvent) {
@@ -344,28 +354,26 @@ function handleSubmit() {
       <div v-if="imagePreview" class="mb-2">
         <div
           ref="cropContainer"
-          class="relative inline-block overflow-hidden rounded-lg"
+          class="relative inline-block overflow-hidden rounded-lg select-none"
           :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
+          @mousedown="startDrag"
+          @touchstart="startTouchDrag"
         >
           <img
             :src="imagePreview"
             alt="Preview"
-            class="block max-h-[400px] w-full rounded-lg bg-gray-100"
-            :class="{ 'cursor-crosshair': !isDragging }"
+            class="pointer-events-none block max-h-[400px] w-full rounded-lg bg-gray-100"
             style="object-fit: contain;"
             draggable="false"
             @load="onImgLoad"
             @dragstart.prevent
-            @click="onImageClick"
           />
 
-          <!-- Crop window: represents the visible area on public EventCard -->
+          <!-- Crop window: represents the visible area on public EventCard (visual only, events handled by container) -->
           <div
             v-if="imgLoaded"
-            class="absolute rounded border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+            class="pointer-events-none absolute rounded border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
             :style="cropOverlayStyle"
-            @mousedown.prevent="startDrag"
-            @touchstart.prevent="startTouchDrag"
           >
             <!-- Corner handles (visual cue) -->
             <div class="absolute -left-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-terracotta" />
@@ -382,7 +390,7 @@ function handleSubmit() {
 
         <!-- Helper text + clear button -->
         <div class="mt-1 flex items-center justify-between text-xs text-gray-500">
-          <span>Haz clic en cualquier punto de la imagen o arrastra el recuadro para ajustar el área visible</span>
+          <span>Arrastra sobre la imagen para mover el área visible</span>
           <button
             type="button"
             class="font-medium text-red-600 hover:underline"
@@ -413,15 +421,28 @@ function handleSubmit() {
         </label>
       </div>
 
-      <!-- URL input -->
+      <!-- URL input with clear button -->
       <div class="mt-2">
-        <input
-          v-model="form.imagen_url"
-          type="text"
-          class="w-full rounded-lg border px-3 py-2 text-sm"
-          :class="imageUploadError ? 'border-red-500' : 'border-gray-300'"
-          placeholder="https://... (pegar URL para auto-descargar)"
-        />
+        <div class="relative">
+          <input
+            v-model="form.imagen_url"
+            type="text"
+            class="w-full rounded-lg border px-3 py-2 pr-8 text-sm"
+            :class="imageUploadError ? 'border-red-500' : 'border-gray-300'"
+            placeholder="https://... (pegar URL para auto-descargar)"
+          />
+          <button
+            v-if="form.imagen_url"
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+            @click="form.imagen_url = ''; imagePreview = null"
+            aria-label="Limpiar URL"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         <p v-if="imageUploadError" class="mt-1 text-sm text-red-600">{{ imageUploadError }}</p>
         <p v-else-if="uploading" class="mt-1 text-sm text-slate-500">Descargando imagen desde URL...</p>
       </div>
