@@ -7,6 +7,7 @@
 import { reactive, ref, computed, watch, onMounted } from 'vue'
 import type { ImageUploadOptions } from '~/composables/useImageUpload'
 import { useImageUpload } from '~/composables/useImageUpload'
+import { toProxyUrl } from '~/utils/image-url'
 
 interface CategoriaEvento {
   id: string
@@ -95,9 +96,9 @@ function clamp(v: number, min: number, max: number) {
 }
 
 onMounted(() => {
-  // Initial image preview (edit mode)
+  // Initial image preview (edit mode) — convert old Supabase URLs to proxy
   if (form.imagen_url) {
-    imagePreview.value = form.imagen_url
+    imagePreview.value = toProxyUrl(form.imagen_url) || form.imagen_url
   }
 })
 
@@ -228,8 +229,8 @@ watch(
       imagePreview.value = null
       return
     }
-    // Skip if it's already a Supabase URL (was uploaded by us)
-    if (newVal.startsWith(import.meta.env.VITE_SUPABASE_URL + '/storage/v1/object/public/evento-images/')) {
+    // Skip if it's already a proxy URL or Supabase URL (was uploaded by us)
+    if (newVal.startsWith('/api/images/evento-images/') || newVal.startsWith(import.meta.env.VITE_SUPABASE_URL + '/storage/v1/object/public/evento-images/')) {
       return
     }
     // Skip if it's a data URL (just uploaded via file picker)

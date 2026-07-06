@@ -9,6 +9,7 @@ import type { ImageUploadOptions } from '~/composables/useImageUpload'
 
 // Explicit import for test compatibility (unit tests don't auto-import composables)
 import { useImageUpload } from '~/composables/useImageUpload'
+import { toProxyUrl } from '~/utils/image-url'
 
 interface PlatoFormData {
   nombre: string
@@ -62,7 +63,7 @@ const form = reactive<PlatoFormData>({
 
 const errors = ref<Record<string, string>>({})
 const imagePreview = ref<string | null>(
-  (props.initialPlato?.imagen_url as string) ?? null,
+  toProxyUrl(props.initialPlato?.imagen_url as string | null | undefined) ?? null,
 )
 
 // Load image optimization config from DB (reactive ref — useImageUpload picks up changes)
