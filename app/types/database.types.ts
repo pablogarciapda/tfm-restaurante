@@ -11,6 +11,7 @@
 //      constraint changes, update the union here too.
 //        profiles.role             -> 'admin' | 'editor'
 //        configuracion.modo_ocupacion -> 'auto' | 'manual'
+//        configuracion.max_ancho_imagen, max_peso_imagen, calidad_imagen, auto_comprimir_imagen -> added via migration 2026-07-06
 //        mesas.zona                -> 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
 //        reservas.estado           -> 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
 //        menu_diario_items.seccion  -> 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
@@ -76,10 +77,14 @@ export type Database = {
       }
       configuracion: {
         Row: {
+          auto_comprimir_imagen: boolean
+          calidad_imagen: number
           capacidad_total_local: number | null
           cliente_elige_mesa: boolean | null
           created_at: string
           id: string
+          max_ancho_imagen: number
+          max_peso_imagen: number
           modo_ocupacion: 'auto' | 'manual'
           ocupacion_manual: number
           precio_menu_diario: number | null
@@ -89,10 +94,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_comprimir_imagen?: boolean
+          calidad_imagen?: number
           capacidad_total_local?: number | null
           cliente_elige_mesa?: boolean | null
           created_at?: string
           id?: string
+          max_ancho_imagen?: number
+          max_peso_imagen?: number
           modo_ocupacion?: 'auto' | 'manual'
           ocupacion_manual?: number
           precio_menu_diario?: number | null
@@ -102,10 +111,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_comprimir_imagen?: boolean
+          calidad_imagen?: number
           capacidad_total_local?: number | null
           cliente_elige_mesa?: boolean | null
           created_at?: string
           id?: string
+          max_ancho_imagen?: number
+          max_peso_imagen?: number
           modo_ocupacion?: 'auto' | 'manual'
           ocupacion_manual?: number
           precio_menu_diario?: number | null

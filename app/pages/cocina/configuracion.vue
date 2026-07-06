@@ -20,6 +20,13 @@ interface ConfigData {
   precio_menu_sabado?: number | null
   mostrar_recomendados: boolean
   titulo_recomendados: string
+  modo_ocupacion: string
+  ocupacion_manual: number
+  // Image optimization
+  max_ancho_imagen: number
+  calidad_imagen: number
+  max_peso_imagen: number
+  auto_comprimir_imagen: boolean
 }
 
 const config = ref<ConfigData>({
@@ -27,6 +34,12 @@ const config = ref<ConfigData>({
   capacidad_total_local: 80,
   mostrar_recomendados: true,
   titulo_recomendados: 'NUESTRAS RECOMENDACIONES',
+  modo_ocupacion: 'auto',
+  ocupacion_manual: 0,
+  max_ancho_imagen: 1200,
+  calidad_imagen: 80,
+  max_peso_imagen: 5,
+  auto_comprimir_imagen: true,
 })
 
 const saving = ref(false)

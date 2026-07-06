@@ -16,6 +16,11 @@ interface ConfigData {
   ocupacion_manual: number
   mostrar_recomendados: boolean
   titulo_recomendados: string
+  // Image optimization
+  max_ancho_imagen: number
+  calidad_imagen: number
+  max_peso_imagen: number
+  auto_comprimir_imagen: boolean
 }
 
 const props = defineProps<{
@@ -26,6 +31,10 @@ const props = defineProps<{
     precio_menu_sabado?: number | null
     mostrar_recomendados?: boolean
     titulo_recomendados?: string
+    max_ancho_imagen?: number
+    calidad_imagen?: number
+    max_peso_imagen?: number
+    auto_comprimir_imagen?: boolean
   }
   saving?: boolean
 }>()
@@ -43,6 +52,11 @@ const form = reactive<ConfigData>({
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
   mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
   titulo_recomendados: props.currentConfig.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES',
+  // Image optimization defaults
+  max_ancho_imagen: props.currentConfig.max_ancho_imagen ?? 1200,
+  calidad_imagen: props.currentConfig.calidad_imagen ?? 80,
+  max_peso_imagen: props.currentConfig.max_peso_imagen ?? 5,
+  auto_comprimir_imagen: props.currentConfig.auto_comprimir_imagen ?? true,
 })
 
 // Sync form when config loads asynchronously from DB
@@ -57,6 +71,10 @@ watch(
     if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
     if (cfg.mostrar_recomendados !== undefined) form.mostrar_recomendados = cfg.mostrar_recomendados
     if (cfg.titulo_recomendados !== undefined) form.titulo_recomendados = cfg.titulo_recomendados
+    if (cfg.max_ancho_imagen !== undefined) form.max_ancho_imagen = cfg.max_ancho_imagen
+    if (cfg.calidad_imagen !== undefined) form.calidad_imagen = cfg.calidad_imagen
+    if (cfg.max_peso_imagen !== undefined) form.max_peso_imagen = cfg.max_peso_imagen
+    if (cfg.auto_comprimir_imagen !== undefined) form.auto_comprimir_imagen = cfg.auto_comprimir_imagen
   },
   { deep: true },
 )
@@ -72,6 +90,15 @@ function validate(): boolean {
   }
   if (form.capacidad_total_local > 999) {
     e.capacidad_total_local = 'La capacidad máxima es 999'
+  }
+  if (form.max_ancho_imagen < 200 || form.max_ancho_imagen > 4096) {
+    e.max_ancho_imagen = 'El ancho máximo debe estar entre 200 y 4096px'
+  }
+  if (form.calidad_imagen < 10 || form.calidad_imagen > 100) {
+    e.calidad_imagen = 'La calidad debe estar entre 10 y 100'
+  }
+  if (form.max_peso_imagen < 1 || form.max_peso_imagen > 20) {
+    e.max_peso_imagen = 'El peso máximo debe estar entre 1 y 20MB'
   }
   errors.value = e
   return Object.keys(e).length === 0
@@ -221,6 +248,97 @@ function handleSubmit() {
         min="0"
         class="w-32 rounded-lg border border-gray-300 px-3 py-2"
       />
+    </div>
+
+    <hr class="border-gray-200" />
+
+    <!-- === Image optimization section === -->
+    <h3 class="text-lg font-bold text-slate">Optimización de imágenes</h3>
+    <p class="text-xs text-gray-400">
+      Las imágenes de platos se redimensionan y comprimen automáticamente al subirse.
+      Ajusta estos valores según necesites.
+    </p>
+
+    <!-- auto_comprimir_imagen -->
+    <div class="flex items-center gap-3">
+      <input
+        id="cfg-auto-comprimir"
+        v-model="form.auto_comprimir_imagen"
+        type="checkbox"
+        class="h-4 w-4 rounded"
+      />
+      <label class="text-sm font-medium text-slate" for="cfg-auto-comprimir">
+        Comprimir imágenes automáticamente al subir
+      </label>
+    </div>
+
+    <!-- max_ancho_imagen -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-max-ancho">
+        Ancho máximo (px)
+      </label>
+      <input
+        id="cfg-max-ancho"
+        v-model.number="form.max_ancho_imagen"
+        data-testid="cfg-max-ancho"
+        type="number"
+        min="200"
+        max="4096"
+        class="w-32 rounded-lg border px-3 py-2"
+        :class="errors.max_ancho_imagen ? 'border-red-500' : 'border-gray-300'"
+      />
+      <p class="mt-1 text-xs text-gray-400">
+        Las imágenes más anchas se redimensionan manteniendo aspecto. Recomendado: 1200px.
+      </p>
+      <p v-if="errors.max_ancho_imagen" class="mt-1 text-sm text-red-600">
+        {{ errors.max_ancho_imagen }}
+      </p>
+    </div>
+
+    <!-- calidad_imagen -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-calidad">
+        Calidad de compresión (1–100)
+      </label>
+      <input
+        id="cfg-calidad"
+        v-model.number="form.calidad_imagen"
+        data-testid="cfg-calidad"
+        type="number"
+        min="10"
+        max="100"
+        class="w-32 rounded-lg border px-3 py-2"
+        :class="errors.calidad_imagen ? 'border-red-500' : 'border-gray-300'"
+      />
+      <p class="mt-1 text-xs text-gray-400">
+        80 = buena calidad con peso reducido. 100 = máxima calidad, mayor peso.
+      </p>
+      <p v-if="errors.calidad_imagen" class="mt-1 text-sm text-red-600">
+        {{ errors.calidad_imagen }}
+      </p>
+    </div>
+
+    <!-- max_peso_imagen -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-max-peso">
+        Peso máximo por imagen (MB)
+      </label>
+      <input
+        id="cfg-max-peso"
+        v-model.number="form.max_peso_imagen"
+        data-testid="cfg-max-peso"
+        type="number"
+        min="1"
+        max="20"
+        class="w-32 rounded-lg border px-3 py-2"
+        :class="errors.max_peso_imagen ? 'border-red-500' : 'border-gray-300'"
+      />
+      <p class="mt-1 text-xs text-gray-400">
+        Se rechazan imágenes que superen este tamaño. Recomendado: 5MB.
+      </p>
+      <p v-if="errors.max_peso_imagen" class="mt-1 text-sm text-red-600">
+        {{ errors.max_peso_imagen }}
+      </p>
     </div>
 
     <div class="pt-4">
