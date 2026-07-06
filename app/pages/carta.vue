@@ -97,7 +97,7 @@ const categories = computed<CategoryGroup[]>(() => {
 
     const display: PlatoDisplay = {
       plato: p.nombre,
-      precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
+      precio: (p.precio != null && p.precio > 0) ? `${p.precio.toFixed(2).replace('.', ',')}€` : 'Consultar',
       stock: 'Disponible',
       descripcion: p.descripcion,
       imagen_url: p.imagen_url,
