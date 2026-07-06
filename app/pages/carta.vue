@@ -7,6 +7,10 @@ import { computed, ref, watch } from 'vue'
  * Data sourced from Supabase via usePlatos composable.
  * Platos grouped by categoria, sorted by puesto.
  * Only one category visible at a time, selected via CategorySelector.
+ *
+ * A synthetic "Recomendados" section is built from platos with
+ * recomendado=true. Its title and visibility are configurable
+ * from the admin Configuracion page.
  */
 
 interface PlatoSupabase {
@@ -42,7 +46,41 @@ interface CategoryGroup {
   platos: PlatoDisplay[]
 }
 
+interface RecomendadosConfig {
+  mostrar_recomendados: boolean
+  titulo_recomendados: string
+}
+
+const client = useSupabaseClient()
 const { data: platos, error, pending } = usePlatos()
+
+// Load config for the synthetic recomendados section
+const { data: sysConfig } = useAsyncData('carta-config', async () => {
+  const { data } = await client
+    .from('configuracion')
+    .select('mostrar_recomendados, titulo_recomendados')
+    .single()
+  return (data ?? { mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' }) as RecomendadosConfig
+})
+
+// Load categorias for display order (puesto from DB, not from platos)
+const { data: categoriasRows } = useAsyncData('carta-categorias', async () => {
+  const { data } = await client.from('categorias').select('nombre, puesto').order('puesto')
+  return data ?? []
+})
+
+const categoriaPuesto = computed(() => {
+  const map: Record<string, number> = {}
+  if (categoriasRows.value) {
+    for (const c of categoriasRows.value) {
+      map[c.nombre] = c.puesto
+    }
+  }
+  return map
+})
+
+const recTitle = computed(() => sysConfig.value?.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES')
+const showRec = computed(() => sysConfig.value?.mostrar_recomendados ?? true)
 
 // Map Supabase rows → display format grouped by categoria
 const categories = computed<CategoryGroup[]>(() => {
@@ -50,18 +88,24 @@ const categories = computed<CategoryGroup[]>(() => {
   if (!raw || raw.length === 0) return []
 
   const groups = new Map<string, { platos: PlatoDisplay[]; minPuesto: number }>()
+  const useRec = showRec.value
+  const recName = recTitle.value
 
   for (const p of raw) {
+    // Skip non-disponible platos
+    if (!p.disponible) continue
+
     const display: PlatoDisplay = {
       plato: p.nombre,
       precio: p.precio ? `${p.precio.toFixed(2).replace('.', ',')}€` : '',
-      stock: p.disponible ? 'Disponible' : 'Agotado',
+      stock: 'Disponible',
       descripcion: p.descripcion,
       imagen_url: p.imagen_url,
       alergenos: p.alergenos,
       calorias: p.calorias,
     }
 
+    // Add to its category group
     if (!groups.has(p.categoria)) {
       groups.set(p.categoria, { platos: [], minPuesto: p.puesto ?? 99 })
     }
@@ -70,32 +114,44 @@ const categories = computed<CategoryGroup[]>(() => {
     if ((p.puesto ?? 99) < group.minPuesto) {
       group.minPuesto = p.puesto ?? 99
     }
+
+    // Also add to the synthetic recomendados section if marked as recomendado
+    if (useRec && p.recomendado) {
+      if (!groups.has(recName)) {
+        groups.set(recName, { platos: [], minPuesto: -1 })
+      }
+      groups.get(recName)!.platos.push(display)
+    }
   }
+
+  const catOrderMap = categoriaPuesto.value
 
   return Array.from(groups.entries()).map(([cat, g]) => ({
     id: cat.toLowerCase().replace(/\s+/g, '-'),
     categoria: cat,
-    puesto: g.minPuesto,
+    // Synthetic group (puesto -1) always first; real categories use DB puesto
+    puesto: cat === recName ? -1 : (catOrderMap[cat] ?? 999),
     open: true,
     platos: g.platos,
   })).sort((a, b) => a.puesto - b.puesto)
 })
 
 const categoryNames = computed(() => categories.value.map((c) => c.categoria))
-const activeCategory = ref('')
 
-// Default to "Nuestras Recomendaciones" when categories load
-watch(categoryNames, (names) => {
-  if (names.length > 0 && !activeCategory.value) {
-    activeCategory.value = names.includes('Nuestras Recomendaciones')
-      ? 'Nuestras Recomendaciones'
-      : names[0] ?? ''
-  }
-}, { immediate: true })
+// Active category: uses a writable computed that falls back to the first
+// category when the user hasn't selected one. This avoids hydration mismatches
+// because both SSR and client derive the default from the SAME computed data.
+// Suspense resolves all async data before SSR rendering, so categoryNames
+// is already populated when the template evaluates.
+const activeCategory = ref('')
+const displayCategory = computed({
+  get: () => activeCategory.value || categoryNames.value[0] || '',
+  set: (val: string) => { activeCategory.value = val },
+})
 
 // Only show the selected category
 const filteredCategories = computed(() =>
-  categories.value.filter((c) => c.categoria === activeCategory.value),
+  categories.value.filter((c) => c.categoria === displayCategory.value),
 )
 </script>
 
@@ -122,13 +178,13 @@ const filteredCategories = computed(() =>
       <p class="text-lg">Carta no disponible</p>
     </div>
 
-    <!-- Categories -->
-    <template v-else>
+    <!-- Categories (div wrapper avoids Suspense fragment issues) -->
+    <div v-else>
       <CategorySelector
-        v-model="activeCategory"
+        v-model="displayCategory"
         :categories="categoryNames"
       />
       <ProductGrid :categories="filteredCategories" />
-    </template>
+    </div>
   </div>
 </template>

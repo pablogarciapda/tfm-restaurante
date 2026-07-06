@@ -3,22 +3,31 @@
   Toggle cliente_elige_mesa + number input capacidad_total_local.
 -->
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 
 type OcupacionModo = 'auto' | 'manual'
 
 interface ConfigData {
   cliente_elige_mesa: boolean
   capacidad_total_local: number
+  precio_menu_diario: number | null
+  precio_menu_sabado: number | null
   modo_ocupacion: OcupacionModo
   ocupacion_manual: number
+  mostrar_recomendados: boolean
+  titulo_recomendados: string
 }
 
 const props = defineProps<{
   currentConfig: Partial<ConfigData> & {
     cliente_elige_mesa?: boolean
     capacidad_total_local?: number
+    precio_menu_diario?: number | null
+    precio_menu_sabado?: number | null
+    mostrar_recomendados?: boolean
+    titulo_recomendados?: string
   }
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,9 +37,31 @@ const emit = defineEmits<{
 const form = reactive<ConfigData>({
   cliente_elige_mesa: props.currentConfig.cliente_elige_mesa ?? false,
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
+  precio_menu_diario: props.currentConfig.precio_menu_diario ?? null,
+  precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
   modo_ocupacion: props.currentConfig.modo_ocupacion ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
+  mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
+  titulo_recomendados: props.currentConfig.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES',
 })
+
+// Sync form when config loads asynchronously from DB
+watch(
+  () => props.currentConfig,
+  (cfg) => {
+    if (cfg.cliente_elige_mesa !== undefined) form.cliente_elige_mesa = cfg.cliente_elige_mesa
+    if (cfg.capacidad_total_local !== undefined) form.capacidad_total_local = cfg.capacidad_total_local
+    if (cfg.precio_menu_diario !== undefined) form.precio_menu_diario = cfg.precio_menu_diario
+    if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
+    if (cfg.modo_ocupacion !== undefined) form.modo_ocupacion = cfg.modo_ocupacion
+    if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
+    if (cfg.mostrar_recomendados !== undefined) form.mostrar_recomendados = cfg.mostrar_recomendados
+    if (cfg.titulo_recomendados !== undefined) form.titulo_recomendados = cfg.titulo_recomendados
+  },
+  { deep: true },
+)
+
+
 
 const errors = ref<Record<string, string>>({})
 
@@ -90,6 +121,38 @@ function handleSubmit() {
       </p>
     </div>
 
+    <!-- precio_menu_diario -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-diario">
+        Precio Menú Diario (€)
+      </label>
+      <input
+        id="cfg-precio-diario"
+        v-model.number="form.precio_menu_diario"
+        data-testid="cfg-precio-diario"
+        type="number"
+        step="0.01"
+        min="0"
+        class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+      />
+    </div>
+
+    <!-- precio_menu_sabado -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-sabado">
+        Precio Menú Sábado (€)
+      </label>
+      <input
+        id="cfg-precio-sabado"
+        v-model.number="form.precio_menu_sabado"
+        data-testid="cfg-precio-sabado"
+        type="number"
+        step="0.01"
+        min="0"
+        class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+      />
+    </div>
+
     <!-- modo_ocupacion -->
     <div>
       <span class="mb-1 block text-sm font-medium text-slate">Modo de ocupación</span>
@@ -115,6 +178,36 @@ function handleSubmit() {
       </div>
     </div>
 
+    <!-- mostrar_recomendados -->
+    <div class="flex items-center gap-3">
+      <input
+        id="cfg-mostrar-rec"
+        v-model="form.mostrar_recomendados"
+        type="checkbox"
+        class="h-4 w-4 rounded"
+      />
+      <label class="text-sm font-medium text-slate" for="cfg-mostrar-rec">
+        Mostrar "{{ form.titulo_recomendados || 'NUESTRAS RECOMENDACIONES' }}{{ form.mostrar_recomendados ? '' : ' (oculto)' }}" en la carta
+      </label>
+    </div>
+
+    <!-- titulo_recomendados -->
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate" for="cfg-titulo-rec">
+        Título de la sección de recomendados
+      </label>
+      <input
+        id="cfg-titulo-rec"
+        v-model="form.titulo_recomendados"
+        type="text"
+        class="w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        placeholder="Nuestras Recomendaciones"
+      />
+      <p class="mt-1 text-xs text-gray-400">
+        Se mostrará como categoría especial con los platos marcados como recomendado.
+      </p>
+    </div>
+
     <!-- ocupacion_manual -->
     <div v-if="form.modo_ocupacion === 'manual'">
       <label class="mb-1 block text-sm font-medium text-slate" for="cfg-ocupacion-manual">
@@ -133,9 +226,10 @@ function handleSubmit() {
     <div class="pt-4">
       <button
         type="submit"
-        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+        :disabled="saving"
+        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
       >
-        Guardar configuración
+        {{ saving ? 'Guardando...' : 'Guardar configuración' }}
       </button>
     </div>
   </form>

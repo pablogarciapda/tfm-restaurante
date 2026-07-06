@@ -70,7 +70,7 @@ function onImageError() {
           data-testid="product-price"
           class="text-lg font-semibold text-terracotta"
         >
-          {{ plato.precio }}€
+          {{ plato.precio }}
           <span
             v-if="plato.precio.includes('/')"
             class="text-xs font-normal text-gray-500"

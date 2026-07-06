@@ -72,7 +72,12 @@ describe('PlatoForm (CRUD-002)', () => {
   })
 
   it('emits submit with form data when valid', async () => {
-    const wrapper = await mountForm()
+    const wrapper = await mountForm({
+      categories: [
+        { id: '1', nombre: 'Arroces', puesto: 10 },
+        { id: '2', nombre: 'Entrantes', puesto: 20 },
+      ],
+    })
 
     // Fill nombre (required)
     const nombreInput = wrapper.find('input[data-testid="plato-nombre"]')
@@ -82,9 +87,9 @@ describe('PlatoForm (CRUD-002)', () => {
     const precioInput = wrapper.find('input[data-testid="plato-precio"]')
     await precioInput.setValue('15.50')
 
-    // Fill categoria
-    const catInput = wrapper.find('input[data-testid="plato-categoria"]')
-    await catInput.setValue('Arroces')
+    // Fill categoria (select, not input anymore)
+    const catSelect = wrapper.find('select[data-testid="plato-categoria"]')
+    await catSelect.setValue('Arroces')
 
     await wrapper.find('form').trigger('submit.prevent')
 

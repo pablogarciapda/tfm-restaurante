@@ -21,6 +21,7 @@ const g = globalThis as Record<string, unknown>
 
 function makeSupabaseClient(configData?: Record<string, unknown> | null) {
   const result = { data: configData ?? null, error: null }
+  const allResult = { data: [], error: null }
   return {
     from: () => ({
       select: () => ({
@@ -31,9 +32,13 @@ function makeSupabaseClient(configData?: Record<string, unknown> | null) {
           update: () => Promise.resolve({ data: null, error: null }),
           single: () => Promise.resolve(result),
         }),
+        order: () => Promise.resolve(allResult),
       }),
       insert: () => Promise.resolve({ data: null, error: null }),
       update: () => ({
+        eq: () => Promise.resolve({ data: null, error: null }),
+      }),
+      delete: () => ({
         eq: () => Promise.resolve({ data: null, error: null }),
       }),
     }),
