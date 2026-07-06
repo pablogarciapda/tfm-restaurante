@@ -8,13 +8,14 @@ const g = globalThis as Record<string, unknown>
 g.useSupabaseClient = () => ({ from: vi.fn(), auth: vi.fn() })
 
 describe('EventosTable (CEV-001, CEV-003)', () => {
+  const mockCategorias = { 'cat-fest': 'Festivo', 'cat-espec': 'Espectáculo' }
   const mockEventos = [
-    { id: '1', titulo: 'Fiesta', fecha: '2027-08-15T20:00:00Z', categoria: 'festivo', activo: true, estado: 'programado' },
+    { id: '1', titulo: 'Fiesta', fecha: '2027-08-15T20:00:00Z', categoria_id: 'cat-fest', activo: true, estado: 'programado' },
   ]
 
   async function mountTable(eventos = mockEventos) {
     const mod = await import('../../../app/components/EventosTable.vue')
-    return mount(mod.default, { props: { eventos } })
+    return mount(mod.default, { props: { eventos, categorias: mockCategorias } })
   }
 
   it('renders event data', async () => {

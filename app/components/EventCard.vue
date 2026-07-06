@@ -14,7 +14,7 @@ defineProps<{
     titulo: string
     descripcion: string
     imagen_url?: string
-    categoria: 'festivo' | 'espectaculo'
+    categoria: string
     soldOut?: boolean
   }
 }>()
@@ -34,13 +34,8 @@ function formatFecha(fecha: string): string {
 function isPast(fecha: string): boolean {
   const d = new Date(fecha)
   const now = new Date()
-  // Subtract 1 day to give events on "today" the benefit of the doubt
   d.setHours(23, 59, 59, 999)
   return d < now
-}
-
-function categoryLabel(cat: string): string {
-  return cat === 'festivo' ? 'Festivo' : 'Espectáculo'
 }
 </script>
 
@@ -65,7 +60,7 @@ function categoryLabel(cat: string): string {
       <!-- Badges -->
       <div class="absolute left-3 top-3 flex gap-2">
         <span class="rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-white">
-          {{ categoryLabel(evento.categoria) }}
+          {{ evento.categoria }}
         </span>
         <span
           v-if="evento.soldOut"

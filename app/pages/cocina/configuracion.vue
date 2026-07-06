@@ -65,7 +65,68 @@ async function handleSubmit(formData: ConfigData) {
   }
 }
 
-// ── Category management ──
+// ── Drag-and-drop helpers ──
+
+interface DragState {
+  index: number | null
+  overIndex: number | null
+}
+
+const drag = ref<DragState>({ index: null, overIndex: null })
+
+function onDragStart(index: number) {
+  drag.value = { index, overIndex: null }
+}
+
+function onDragEnter(dropIndex: number) {
+  const d = drag.value
+  if (d.index === null || d.index === dropIndex) return
+  d.overIndex = dropIndex
+}
+
+function onDragOver(event: DragEvent) {
+  event.preventDefault()
+}
+
+function onDragLeave() {
+  if (drag.value.overIndex !== null) {
+    drag.value.overIndex = null
+  }
+}
+
+function onDrop<T extends { id?: string; nombre: string; puesto: number; _deleted?: boolean }>(
+  event: DragEvent,
+  dropIdx: number,
+  arr: T[],
+) {
+  event.preventDefault()
+  const d = drag.value
+  if (d.index === null || d.index === dropIdx) {
+    resetDrag()
+    return
+  }
+
+  const [moved] = arr.splice(d.index, 1)
+  arr.splice(dropIdx, 0, moved)
+  resetDrag()
+}
+
+function onDragEnd() {
+  resetDrag()
+}
+
+function resetDrag() {
+  drag.value = { index: null, overIndex: null }
+}
+
+function dragClasses(index: number): string {
+  const d = drag.value
+  if (d.index === index) return 'opacity-40'
+  if (d.overIndex === index) return 'border-t-2 border-terracotta'
+  return ''
+}
+
+// ── Category management (platos) ──
 
 interface CategoryRow {
   id?: string
@@ -108,9 +169,10 @@ async function saveCategories() {
 
   try {
     const toDelete = categorias.value.filter((c) => c._deleted && c.id)
-    const toUpsert = categorias.value.filter((c) => !c._deleted)
+    const toUpsert = categorias.value
+      .filter((c) => !c._deleted)
+      .map((c, i) => ({ ...c, puesto: (i + 1) * 10 }))
 
-    // Validate
     for (const cat of toUpsert) {
       if (!cat.nombre.trim()) {
         categoryError.value = 'Todas las categorías deben tener nombre'
@@ -119,12 +181,10 @@ async function saveCategories() {
       }
     }
 
-    // Delete marked categories
     for (const cat of toDelete) {
       await client.from('categorias').delete().eq('id', cat.id!)
     }
 
-    // Upsert: INSERT new (no id), UPDATE existing (has id)
     for (const cat of toUpsert) {
       const payload = { nombre: cat.nombre.trim().toUpperCase(), puesto: cat.puesto }
       if (cat.id) {
@@ -135,16 +195,94 @@ async function saveCategories() {
     }
 
     await loadCategories()
-  } catch (err) {
+  } catch {
     categoryError.value = 'Error al guardar categorías'
   } finally {
     categorySaving.value = false
   }
 }
 
+// ── Event category management ──
+
+interface EventCategoryRow {
+  id?: string
+  nombre: string
+  puesto: number
+  _deleted?: boolean
+}
+
+const eventCategorias = ref<EventCategoryRow[]>([])
+const eventCatError = ref('')
+const eventCatSaving = ref(false)
+
+async function loadEventCategorias() {
+  const { data } = await client.from('categorias_eventos').select('*').order('puesto')
+  if (data) {
+    eventCategorias.value = data.map((c) => ({ ...c, _deleted: false }))
+  }
+}
+
+function addEventCategory() {
+  eventCategorias.value.push({ nombre: '', puesto: (eventCategorias.value.length + 1) * 10 })
+}
+
+function removeEventCategory(index: number) {
+  const cat = eventCategorias.value[index]
+  if (!cat || cat._deleted) return
+
+  if (confirm('¿Eliminar esta categoría? Los eventos asignados se quedarán sin categoría.')) {
+    if (cat.id) {
+      cat._deleted = true
+    } else {
+      eventCategorias.value.splice(index, 1)
+    }
+  }
+}
+
+async function saveEventCategories() {
+  eventCatSaving.value = true
+  eventCatError.value = ''
+
+  try {
+    const toDelete = eventCategorias.value.filter((c) => c._deleted && c.id)
+    const toUpsert = eventCategorias.value
+      .filter((c) => !c._deleted)
+      .map((c, i) => ({ ...c, puesto: (i + 1) * 10 }))
+
+    for (const cat of toUpsert) {
+      if (!cat.nombre.trim()) {
+        eventCatError.value = 'Todas las categorías deben tener nombre'
+        eventCatSaving.value = false
+        return
+      }
+    }
+
+    for (const cat of toDelete) {
+      await client.from('eventos').update({ categoria_id: null }).eq('categoria_id', cat.id!)
+      await client.from('categorias_eventos').delete().eq('id', cat.id!)
+    }
+
+    for (const cat of toUpsert) {
+      const payload = { nombre: cat.nombre.trim(), puesto: cat.puesto }
+      if (cat.id) {
+        await client.from('categorias_eventos').update(payload).eq('id', cat.id)
+      } else {
+        await client.from('categorias_eventos').insert(payload)
+      }
+    }
+
+    await loadEventCategorias()
+  } catch {
+    eventCatError.value = 'Error al guardar categorías de eventos'
+  } finally {
+    eventCatSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadConfig()
   loadCategories()
+  loadEventCategorias()
 })
 </script>
 
@@ -156,30 +294,34 @@ onMounted(() => {
     <div class="rounded-lg bg-white p-6 shadow">
       <h2 class="mb-4 text-xl font-bold text-slate">Gestión de Categorías</h2>
 
-      <p class="mb-4 text-xs text-gray-400">El número es el orden de aparición (menor = primero). Los nombres se guardan automáticamente en MAYÚSCULAS.</p>
+      <p class="mb-4 text-xs text-gray-400">
+        Arrastra las categorías para reordenarlas. Los nombres se guardan automáticamente en MAYÚSCULAS.
+      </p>
 
       <!-- Category rows -->
-      <div class="space-y-3">
+      <div class="space-y-1">
         <div
           v-for="(cat, index) in categorias"
           :key="index"
-          class="flex items-center gap-3"
+          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', dragClasses(index)]"
+          draggable="true"
+          @dragstart="onDragStart(index)"
+          @dragenter="onDragEnter(index)"
+          @dragover="onDragOver"
+          @dragleave="onDragLeave"
+          @drop="onDrop($event, index, categorias)"
+          @dragend="onDragEnd"
         >
           <template v-if="!cat._deleted">
+            <!-- Drag handle -->
+            <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
+
             <input
               :value="cat.nombre"
               @input="cat.nombre = ($event.target as HTMLInputElement).value.toUpperCase()"
               type="text"
               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase"
               placeholder="Nombre de categoría"
-            />
-            <input
-              v-model.number="cat.puesto"
-              type="number"
-              step="10"
-              min="0"
-              class="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              placeholder="Orden"
             />
             <button
               type="button"
@@ -212,6 +354,71 @@ onMounted(() => {
           @click="saveCategories"
         >
           {{ categorySaving ? 'Guardando...' : 'Guardar categorías' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Category Management Card -->
+    <div class="rounded-lg bg-white p-6 shadow">
+      <h2 class="mb-4 text-xl font-bold text-slate">Categorías de Eventos</h2>
+
+      <p class="mb-4 text-xs text-gray-400">
+        Arrastra las categorías para reordenarlas.
+      </p>
+
+      <div class="space-y-1">
+        <div
+          v-for="(cat, index) in eventCategorias"
+          :key="index"
+          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', dragClasses(index)]"
+          draggable="true"
+          @dragstart="onDragStart(index)"
+          @dragenter="onDragEnter(index)"
+          @dragover="onDragOver"
+          @dragleave="onDragLeave"
+          @drop="onDrop($event, index, eventCategorias)"
+          @dragend="onDragEnd"
+        >
+          <template v-if="!cat._deleted">
+            <!-- Drag handle -->
+            <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
+
+            <input
+              :value="cat.nombre"
+              @input="cat.nombre = ($event.target as HTMLInputElement).value"
+              type="text"
+              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Nombre de categoría"
+            />
+            <button
+              type="button"
+              class="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
+              @click="removeEventCategory(index)"
+            >
+              Eliminar
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <p v-if="eventCatError" class="mt-2 text-sm text-red-600">{{ eventCatError }}</p>
+
+      <button
+        type="button"
+        class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta"
+        @click="addEventCategory"
+      >
+        + Añadir categoría
+      </button>
+
+      <div class="mt-6">
+        <button
+          type="button"
+          class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
+          :disabled="eventCatSaving"
+          @click="saveEventCategories"
+        >
+          {{ eventCatSaving ? 'Guardando...' : 'Guardar categorías de eventos' }}
         </button>
       </div>
     </div>

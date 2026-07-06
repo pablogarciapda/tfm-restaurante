@@ -2,16 +2,24 @@
   EventosTable — Sortable eventos table (CEV-001, CEV-003)
 -->
 <script setup lang="ts">
+interface CategoriaEvento {
+  id: string
+  nombre: string
+}
+
 interface Evento {
   id: string
   titulo: string
   fecha: string
-  categoria: string
+  categoria_id: string
   activo: boolean
   estado?: string
 }
 
-defineProps<{ eventos: Evento[] }>()
+const props = defineProps<{
+  eventos: Evento[]
+  categorias: Record<string, string>
+}>()
 const emit = defineEmits<{
   edit: [id: string]
   delete: [id: string]
@@ -23,10 +31,6 @@ function formatFecha(iso: string): string {
     const d = new Date(iso)
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
   } catch { return iso }
-}
-
-function catLabel(cat: string): string {
-  return cat === 'festivo' ? 'Festivo' : 'Espectáculo'
 }
 </script>
 
@@ -51,7 +55,7 @@ function catLabel(cat: string): string {
           <td class="px-4 py-3 font-medium text-slate">{{ ev.titulo }}</td>
           <td class="px-4 py-3 text-gray-600">{{ formatFecha(ev.fecha) }}</td>
           <td class="px-4 py-3">
-            <span class="rounded-full bg-cream px-2 py-0.5 text-xs text-slate">{{ catLabel(ev.categoria) }}</span>
+            <span class="rounded-full bg-cream px-2 py-0.5 text-xs text-slate">{{ props.categorias[ev.categoria_id] ?? ev.categoria_id }}</span>
           </td>
           <td class="px-4 py-3">
             <button

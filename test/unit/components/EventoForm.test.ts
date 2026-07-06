@@ -7,10 +7,15 @@ import { mount } from '@vue/test-utils'
 const g = globalThis as Record<string, unknown>
 g.useSupabaseClient = () => ({ from: vi.fn(), auth: vi.fn() })
 
+const defaultCategorias = [
+  { id: 'cat-1', nombre: 'Festivo', puesto: 10 },
+  { id: 'cat-2', nombre: 'Espectáculo', puesto: 20 },
+]
+
 describe('EventoForm (CEV-002)', () => {
   async function mountForm(props: Record<string, unknown> = {}) {
     const mod = await import('../../../app/components/EventoForm.vue')
-    return mount(mod.default, { props: { initialEvento: null, ...props } })
+    return mount(mod.default, { props: { initialEvento: null, categorias: defaultCategorias, ...props } })
   }
 
   it('renders Spanish labels', async () => {

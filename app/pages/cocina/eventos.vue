@@ -2,7 +2,7 @@
   Eventos Admin — CRUD eventos management (CEV-001–CEV-004)
 -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { Database } from '~/types/database.types'
 
 definePageMeta({
@@ -17,20 +17,39 @@ interface Evento {
   titulo: string
   descripcion?: string
   fecha: string
-  categoria: string
+  categoria_id: string
   imagen_url?: string
   capacidad?: number
   estado: string
   activo: boolean
 }
 
+interface CategoriaEvento {
+  id: string
+  nombre: string
+}
+
 const eventos = ref<Evento[]>([])
+const categorias = ref<CategoriaEvento[]>([])
 const showForm = ref(false)
 const editingEvento = ref<Evento | null>(null)
+
+const categoriasMap = computed(() => {
+  const map: Record<string, string> = {}
+  for (const c of categorias.value) {
+    map[c.id] = c.nombre
+  }
+  return map
+})
 
 async function loadEventos() {
   const { data, error } = await supabase.from('eventos').select('*').order('fecha', { ascending: false })
   if (!error && data) eventos.value = data as Evento[]
+}
+
+async function loadCategorias() {
+  const { data, error } = await supabase.from('categorias_eventos').select('*').order('puesto')
+  if (!error && data) categorias.value = data as CategoriaEvento[]
 }
 
 async function handleCreate(data: Record<string, unknown>) {
@@ -64,7 +83,10 @@ function handleSubmit(data: Record<string, unknown>) {
   else handleCreate(data)
 }
 
-onMounted(() => loadEventos())
+onMounted(() => {
+  loadEventos()
+  loadCategorias()
+})
 </script>
 
 <template>
@@ -77,9 +99,9 @@ onMounted(() => loadEventos())
     </div>
 
     <div v-if="showForm" class="mb-6">
-      <EventoForm :initial-evento="editingEvento ?? undefined" @submit="handleSubmit" @cancel="showForm = false; editingEvento = null" />
+      <EventoForm :initial-evento="editingEvento ?? undefined" :categorias="categorias" @submit="handleSubmit" @cancel="showForm = false; editingEvento = null" />
     </div>
 
-    <EventosTable v-else :eventos="eventos" @edit="handleEdit" @delete="handleDelete" @toggle-activo="handleToggleActivo" />
+    <EventosTable v-else :eventos="eventos" :categorias="categoriasMap" @edit="handleEdit" @delete="handleDelete" @toggle-activo="handleToggleActivo" />
   </div>
 </template>

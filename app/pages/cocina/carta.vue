@@ -125,6 +125,11 @@ async function handleToggleDisponible(id: string, value: boolean) {
   await loadPlatos()
 }
 
+async function handleToggleRecomendado(id: string, value: boolean) {
+  await supabase.from('platos').update({ recomendado: value } as Database['public']['Tables']['platos']['Update']).eq('id', id)
+  await loadPlatos()
+}
+
 function handleSubmit(data: Record<string, unknown>) {
   if (editingPlato.value) {
     handleUpdate(data)
@@ -238,6 +243,7 @@ watch(showForm, (isOpen) => {
         @edit="handleEdit"
         @delete="handleDelete"
         @toggle-disponible="handleToggleDisponible"
+        @toggle-recomendado="handleToggleRecomendado"
         @reorder="handleReorder"
       />
     </div>
