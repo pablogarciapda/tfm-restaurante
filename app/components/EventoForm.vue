@@ -149,6 +149,15 @@ const cropOverlayStyle = computed(() => {
 
 let dragStart = { x: 0, y: 0, fx: 50, fy: 50 }
 
+// Click anywhere on the image → center crop window there
+function onImageClick(e: MouseEvent) {
+  if (!imgDisplay.value.w || !imgDisplay.value.h) return
+  const img = e.currentTarget as HTMLImageElement
+  const rect = img.getBoundingClientRect()
+  form.crop_focus_x = clamp(0, 100, ((e.clientX - rect.left) / rect.width) * 100)
+  form.crop_focus_y = clamp(0, 100, ((e.clientY - rect.top) / rect.height) * 100)
+}
+
 function startDrag(e: MouseEvent) {
   e.preventDefault()
   if (!imgDisplay.value.w || !imgDisplay.value.h) return
@@ -342,10 +351,12 @@ function handleSubmit() {
             :src="imagePreview"
             alt="Preview"
             class="block max-h-[400px] w-full rounded-lg bg-gray-100"
+            :class="{ 'cursor-crosshair': !isDragging }"
             style="object-fit: contain;"
             draggable="false"
             @load="onImgLoad"
             @dragstart.prevent
+            @click="onImageClick"
           />
 
           <!-- Crop window: represents the visible area on public EventCard -->
@@ -371,7 +382,7 @@ function handleSubmit() {
 
         <!-- Helper text + clear button -->
         <div class="mt-1 flex items-center justify-between text-xs text-gray-500">
-          <span>Arrastra el recuadro para ajustar el área visible en la web</span>
+          <span>Haz clic en cualquier punto de la imagen o arrastra el recuadro para ajustar el área visible</span>
           <button
             type="button"
             class="font-medium text-red-600 hover:underline"
