@@ -80,9 +80,16 @@ La tabla muestra todos los platos con:
 
 Pulsa el icono ✏️ en la fila del plato. Se abre el mismo formulario con los datos cargados.
 
-### Orden de los platos
+### Reordenar platos por categoría (drag & drop)
 
-Los platos se ordenan por **puesto** dentro de cada categoría. Para cambiar el orden, edita el plato y ajusta el número de **puesto** (a menor número, antes aparece).
+1. Selecciona una **categoría** en el filtro (ej: "CARNES").
+2. Al lado de cada plato aparece un handle **⠿**.
+3. Una barra ámbar te indica que estás en modo reorden.
+4. **Arrastra** el plato arriba o abajo dentro de esa categoría.
+5. Al soltar, el orden se guarda automáticamente.
+6. La web pública refleja el nuevo orden al instante.
+
+> 💡 El modo reorden solo se activa cuando filtras por una categoría. Con el filtro "Todas las categorías" puedes ordenar por columnas (nombre, precio).
 
 ---
 
@@ -110,11 +117,33 @@ Configura el menú del día para cada día de la semana.
 4. Marca **Activo** para que se muestre en la web.
 5. Pulsa **Guardar**.
 
-### Editar un menú existente
+### Reordenar platos por sección (drag & drop)
 
-Pulsa **Editar** sobre el día correspondiente. Puedes añadir, quitar o reordenar platos dentro de cada sección.
+Dentro de cada sección (Primer Plato, Segundo Plato, etc.), puedes reordenar los platos arrastrándolos:
 
-> ⚠️ La **fecha** no se puede modificar. El menú se asigna al día de la semana automáticamente.
+1. Sitúa el ratón sobre el handle **⠿** a la izquierda del plato.
+2. **Arrastra** el plato arriba o abajo dentro de la misma sección.
+3. Al soltar, el orden se guarda automáticamente.
+
+### Activar/desactivar secciones
+
+Cada sección del menú tiene un **checkbox** a la izquierda del título:
+
+- ☑ **Activado** — la sección se muestra en la web (ej: "Primer Plato")
+- ☐ **Desactivado** — la sección no aparece en la web (los platos siguen guardados)
+
+Útil para ocultar "Bebida" o "Pan" si no aplican ese día, sin perder los datos.
+
+### Personalizar títulos de secciones
+
+Puedes cambiar el nombre de cualquier sección:
+
+1. Haz **doble clic** sobre el título, o pulsa el botón **✏️**.
+2. Aparecerá un campo de texto. Escribe el nuevo nombre.
+3. Pulsa **Enter** o haz clic fuera para guardar.
+4. Pulsa **Escape** para cancelar.
+
+> 💡 El identificador interno de la sección (ej: `primer`, `segundo`) se muestra en gris a la derecha del título.
 
 ---
 
@@ -225,6 +254,9 @@ Aquí puedes gestionar las categorías que aparecen en la carta:
 | ¿Los cambios en la carta se ven al instante en la web? | Sí, los cambios son en tiempo real |
 | ¿Puedo tener el menú diario de la semana entera ya preparado? | Sí, cada día se configura independientemente y se activa cuando quieras |
 | ¿Qué pasa si borro una categoría con platos? | No te dejará: primero debes reasignar los platos a otra categoría |
+| ¿Cómo reordeno los platos en la carta? | Filtra por categoría y arrastra los platos con el handle ⠿ |
+| ¿Puedo ocultar una sección del menú diario? | Sí, desmarca el checkbox de esa sección en el editor de menú |
+| ¿Puedo cambiar el nombre de "Postre" a "Dulces"? | Sí, doble clic en el título de la sección y escríbelo |
 
 ---
 
@@ -234,4 +266,4 @@ Aquí puedes gestionar las categorías que aparecen en la carta:
 
 ---
 
-> **Documento v1.0** — Última actualización: Julio 2026
+> **Documento v1.1** — Última actualización: Julio 2026. Añadido: drag & drop reorden, configuración de secciones del menú diario.
