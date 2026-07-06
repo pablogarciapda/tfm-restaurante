@@ -303,6 +303,10 @@ function handleSubmit() {
         <p v-if="imageUploadError" class="mt-1 text-sm text-red-600">{{ imageUploadError }}</p>
         <p v-else-if="uploading" class="mt-1 text-sm text-slate-500">Descargando imagen desde URL...</p>
       </div>
+
+      <p class="mt-2 text-xs text-gray-400">
+        Recomendado: 800×450px o superior (proporción ~16:9). La imagen se recortará para ajustarse.
+      </p>
     </div>
 
     <!-- Capacidad -->
