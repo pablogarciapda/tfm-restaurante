@@ -1,7 +1,8 @@
 <!--
-  PlatosTable — Sortable platos table (CRUD-001, CRUD-004, CRUD-005)
-  Columns: nombre, categoria, precio, disponible, acciones.
-  Emits edit/delete for row actions.
+  PlatosTable — Sortable platos table with drag-and-drop reorder (CRUD-001, CRUD-004, CRUD-005)
+  Props: platos, draggable (enable DnD reorder when filtering by category).
+  Emits edit/delete/toggle-disponible for row actions.
+  Emits reorder(newOrder: string[]) when drag completes — array of plato IDs in new visual order.
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
@@ -19,19 +20,24 @@ interface Plato {
 
 const props = defineProps<{
   platos: Plato[]
+  draggable?: boolean
 }>()
 
 const emit = defineEmits<{
   edit: [id: string]
   delete: [id: string]
   'toggle-disponible': [id: string, value: boolean]
+  reorder: [platoIds: string[]]
 }>()
 
+// ── Sort (only when NOT in drag mode) ──
 type SortField = 'nombre' | 'categoria' | 'precio' | 'tipo_menu' | 'disponible' | null
 const sortField = ref<SortField>(null)
 const sortDir = ref<'asc' | 'desc'>('asc')
 
 const sortedPlatos = computed(() => {
+  // In drag mode: show platos in DB order (no user sorting)
+  if (props.draggable) return props.platos
   if (!sortField.value) return props.platos
   const field = sortField.value
   const dir = sortDir.value === 'asc' ? 1 : -1
@@ -46,6 +52,7 @@ const sortedPlatos = computed(() => {
 })
 
 function toggleSort(field: SortField) {
+  if (props.draggable) return // no sort during drag mode
   if (sortField.value === field) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   } else {
@@ -55,12 +62,72 @@ function toggleSort(field: SortField) {
 }
 
 function sortIndicator(field: SortField): string {
+  if (props.draggable) return ''
   if (sortField.value !== field) return '↕'
   return sortDir.value === 'asc' ? '↑' : '↓'
 }
 
 function formatPrecio(precio: number): string {
   return `${precio.toFixed(2).replace('.', ',')}€`
+}
+
+// ── Drag & Drop state ──
+const dragIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+const localOrder = ref<string[] | null>(null)
+
+const displayPlatos = computed(() => {
+  if (!localOrder.value || !props.draggable) return sortedPlatos.value
+  return localOrder.value
+    .map((id) => props.platos.find((p) => p.id === id))
+    .filter(Boolean) as Plato[]
+})
+
+function onDragStart(event: DragEvent, index: number) {
+  dragIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function onDragOver(event: DragEvent, index: number) {
+  if (dragIndex.value === null || dragIndex.value === index) return
+  dragOverIndex.value = index
+  event.dataTransfer!.dropEffect = 'move'
+}
+
+function onDragLeave() {
+  dragOverIndex.value = null
+}
+
+function onDrop(event: DragEvent, dropIdx: number) {
+  event.preventDefault()
+  const fromIdx = dragIndex.value
+  if (fromIdx === null || fromIdx === dropIdx) {
+    resetDrag()
+    return
+  }
+
+  // Build new order based on current display order
+  const currentOrder = displayPlatos.value.map((p) => p.id)
+  const [moved] = currentOrder.splice(fromIdx, 1)
+  currentOrder.splice(dropIdx, 0, moved)
+  localOrder.value = currentOrder
+
+  // Emit the new order so parent can save
+  emit('reorder', currentOrder)
+
+  resetDrag()
+}
+
+function onDragEnd() {
+  resetDrag()
+}
+
+function resetDrag() {
+  dragIndex.value = null
+  dragOverIndex.value = null
 }
 </script>
 
@@ -78,32 +145,39 @@ function formatPrecio(precio: number): string {
     <table v-else class="w-full text-left text-sm">
       <thead class="bg-cream">
         <tr>
+          <!-- Drag handle column header (only in drag mode) -->
+          <th v-if="draggable" class="sticky top-0 z-10 w-10 bg-cream px-2 py-3"></th>
           <th
             class="sticky top-0 z-10 cursor-pointer select-none bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            :class="{ 'cursor-default hover:bg-cream': draggable }"
             @click="toggleSort('nombre')"
           >
             Nombre <span class="text-xs text-gray-400">{{ sortIndicator('nombre') }}</span>
           </th>
           <th
             class="sticky top-0 z-10 cursor-pointer select-none bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            :class="{ 'cursor-default hover:bg-cream': draggable }"
             @click="toggleSort('categoria')"
           >
             Categoría <span class="text-xs text-gray-400">{{ sortIndicator('categoria') }}</span>
           </th>
           <th
             class="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            :class="{ 'cursor-default hover:bg-cream': draggable }"
             @click="toggleSort('precio')"
           >
             Precio <span class="text-xs text-gray-400">{{ sortIndicator('precio') }}</span>
           </th>
           <th
             class="sticky top-0 z-10 cursor-pointer select-none bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            :class="{ 'cursor-default hover:bg-cream': draggable }"
             @click="toggleSort('tipo_menu')"
           >
             Tipo <span class="text-xs text-gray-400">{{ sortIndicator('tipo_menu') }}</span>
           </th>
           <th
             class="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-cream px-4 py-3 font-medium text-slate transition-colors hover:bg-gray-200"
+            :class="{ 'cursor-default hover:bg-cream': draggable }"
             @click="toggleSort('disponible')"
           >
             Disponible <span class="text-xs text-gray-400">{{ sortIndicator('disponible') }}</span>
@@ -114,10 +188,26 @@ function formatPrecio(precio: number): string {
       </thead>
       <tbody class="divide-y divide-gray-100">
         <tr
-          v-for="plato in sortedPlatos"
+          v-for="(plato, index) in displayPlatos"
           :key="plato.id"
-          class="hover:bg-cream/50 transition-colors"
+          :draggable="draggable"
+          class="transition-colors"
+          :class="{
+            'hover:bg-cream/50': !draggable,
+            'cursor-grab active:cursor-grabbing': draggable,
+            'opacity-40': draggable && dragIndex === index,
+            'border-t-2 border-terracotta': draggable && dragOverIndex === index,
+          }"
+          @dragstart="onDragStart($event, index)"
+          @dragover="onDragOver($event, index)"
+          @dragleave="onDragLeave"
+          @drop="onDrop($event, index)"
+          @dragend="onDragEnd"
         >
+          <!-- Drag handle -->
+          <td v-if="draggable" class="w-10 px-2 py-3 text-center text-gray-400 select-none">
+            ⠿
+          </td>
           <td class="px-4 py-3 font-medium text-slate">{{ plato.nombre }}</td>
           <td class="px-4 py-3 text-gray-600">{{ plato.categoria }}</td>
           <td class="px-4 py-3 font-medium text-terracotta">{{ formatPrecio(plato.precio) }}</td>
