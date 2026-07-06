@@ -135,6 +135,8 @@ export type Database = {
           capacidad: number | null
           categoria_id: string | null
           created_at: string
+          crop_focus_x: number
+          crop_focus_y: number
           descripcion: string | null
           estado: string | null
           fecha: string
@@ -148,6 +150,8 @@ export type Database = {
           capacidad?: number | null
           categoria_id?: string | null
           created_at?: string
+          crop_focus_x?: number
+          crop_focus_y?: number
           descripcion?: string | null
           estado?: string | null
           fecha: string
@@ -161,6 +165,8 @@ export type Database = {
           capacidad?: number | null
           categoria_id?: string | null
           created_at?: string
+          crop_focus_x?: number
+          crop_focus_y?: number
           descripcion?: string | null
           estado?: string | null
           fecha?: string

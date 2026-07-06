@@ -7,7 +7,7 @@
  * soldOut badge (red), past-event badge (gray, disabled CTA).
  */
 
-defineProps<{
+const props = defineProps<{
   evento: {
     id: string
     fecha: string
@@ -16,6 +16,8 @@ defineProps<{
     imagen_url?: string
     categoria: string
     soldOut?: boolean
+    crop_focus_x?: number
+    crop_focus_y?: number
   }
 }>()
 
@@ -41,14 +43,17 @@ function isPast(fecha: string): boolean {
 
 <template>
   <article class="overflow-hidden rounded-xl bg-white shadow-md transition-shadow hover:shadow-lg">
-    <!-- Image -->
-    <div class="relative h-48 overflow-hidden bg-gray-200">
+    <!-- Image: bigger container + focal point from admin crop tool -->
+    <div class="relative h-64 overflow-hidden bg-gray-200 sm:h-72">
       <img
         v-if="evento.imagen_url"
         :src="evento.imagen_url"
         :alt="evento.titulo"
         loading="lazy"
         class="h-full w-full object-cover"
+        :style="{
+          objectPosition: `${props.evento.crop_focus_x ?? 50}% ${props.evento.crop_focus_y ?? 50}%`,
+        }"
       />
       <div
         v-else
