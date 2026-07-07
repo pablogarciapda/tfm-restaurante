@@ -21,6 +21,11 @@ export default defineNuxtConfig({
   supabase: {
     redirect: false,
     types: '~/types/database.types.ts',
+    // Cookie SameSite/Secure — Secure=true requires HTTPS. On HTTP-only VPS,
+    // set NUXT_PUBLIC_SUPABASE_COOKIE_SECURE=false in .env to allow cookie storage.
+    cookieOptions: {
+      secure: process.env.NUXT_PUBLIC_SUPABASE_COOKIE_SECURE !== 'false',
+    },
   },
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)
