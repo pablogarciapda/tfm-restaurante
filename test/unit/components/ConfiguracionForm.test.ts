@@ -18,9 +18,11 @@ describe('ConfiguracionForm (CFG-001)', () => {
     })
   }
 
-  it('renders heading "Configuración del sistema"', async () => {
+  it('renders section headings (new 8-section layout)', async () => {
     const wrapper = await mountForm()
-    expect(wrapper.text()).toContain('Configuración del sistema')
+    expect(wrapper.text()).toContain('General')
+    expect(wrapper.text()).toContain('Elección de mesa')
+    expect(wrapper.text()).toContain('Reservas')
   })
 
   it('displays cliente_elige_mesa toggle unchecked when false', async () => {
@@ -102,5 +104,222 @@ describe('ConfiguracionForm (CFG-001)', () => {
     const emittedData = wrapper.emitted('submit')![0][0]
     expect(emittedData.modo_ocupacion).toBe('manual')
     expect(emittedData.ocupacion_manual).toBe(25)
+    // New fields should have sensible defaults
+    expect(emittedData.modo_reserva).toBe('automatica')
+  })
+
+  // ── New sections (configuracion-horarios-zonas) ──
+
+  describe('Horarios section (HOR-001)', () => {
+    it('renders "Horarios" section heading', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('Horarios')
+    })
+
+    it('renders 4 time inputs for comida and cena', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.find('input[data-testid="cfg-comida-inicio"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-comida-fin"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-cena-inicio"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-cena-fin"]').exists()).toBe(true)
+    })
+
+    it('renders intervalo select with 3 options', async () => {
+      const wrapper = await mountForm()
+      const select = wrapper.find('select[data-testid="cfg-intervalo"]')
+      expect(select.exists()).toBe(true)
+      const options = select.findAll('option')
+      expect(options.length).toBeGreaterThanOrEqual(3)
+      expect(options.some((o) => o.text().includes('15 minutos'))).toBe(true)
+      expect(options.some((o) => o.text().includes('20 minutos'))).toBe(true)
+      expect(options.some((o) => o.text().includes('30 minutos'))).toBe(true)
+    })
+
+    it('renders slot preview when horarios_config is valid', async () => {
+      const wrapper = await mountForm()
+      // Default has valid horarios_config
+      const previewSpans = wrapper.findAll('[data-testid="slot-preview"]')
+      expect(previewSpans.length).toBeGreaterThan(0)
+    })
+
+    it('emits submit with horarios_config values', async () => {
+      const wrapper = await mountForm()
+      await wrapper.find('form').trigger('submit.prevent')
+      const emitted = wrapper.emitted('submit')![0][0]
+      expect(emitted.horarios_config).toBeDefined()
+      expect(emitted.horarios_config.comida_inicio).toBe('13:30')
+      expect(emitted.horarios_config.intervalo_minutos).toBe(15)
+    })
+  })
+
+  describe('Zonas section (ZON-001, ZON-002)', () => {
+    it('renders "Zonas del restaurante" section heading', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('Zonas del restaurante')
+    })
+
+    it('renders total capacity', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.find('[data-testid="zona-capacidad-total"]').exists()).toBe(true)
+      // Default 5 zones sum: 70+14+60+100+20 = 264
+      expect(wrapper.find('[data-testid="zona-capacidad-total"]').text()).toBe('264')
+    })
+
+    it('renders 5 default zone rows', async () => {
+      const wrapper = await mountForm()
+      const nombreInputs = wrapper.findAll('[data-testid="zona-nombre"]')
+      expect(nombreInputs.length).toBe(5)
+    })
+
+    it('each zone row has nombre, capacidad, enabled, and delete', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.findAll('[data-testid="zona-capacidad"]').length).toBe(5)
+      expect(wrapper.findAll('[data-testid="zona-enabled"]').length).toBe(5)
+      expect(wrapper.findAll('[data-testid="zona-delete"]').length).toBe(5)
+    })
+
+    it('"Añadir zona" button adds a new zone row', async () => {
+      const wrapper = await mountForm()
+      const addBtn = wrapper.find('[data-testid="zona-add"]')
+      expect(addBtn.exists()).toBe(true)
+
+      await addBtn.trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="zona-nombre"]').length).toBe(6)
+    })
+
+    it('delete button is disabled when only 1 zone', async () => {
+      // Mount with minimal config that has only 1 zone
+      const wrapper = await mountForm({
+        currentConfig: {
+          cliente_elige_mesa: false,
+          capacidad_total_local: 80,
+          zonas_config: [{ id: 'test', nombre: 'Test', capacidad: 10, enabled: true }],
+        },
+      })
+      const deleteBtn = wrapper.find('[data-testid="zona-delete"]')
+      expect((deleteBtn.element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('emits submit with zonas_config values', async () => {
+      const wrapper = await mountForm()
+      await wrapper.find('form').trigger('submit.prevent')
+      const emitted = wrapper.emitted('submit')![0][0]
+      expect(emitted.zonas_config).toBeDefined()
+      expect(Array.isArray(emitted.zonas_config)).toBe(true)
+      expect(emitted.zonas_config.length).toBe(5)
+      expect(emitted.zonas_config[0].id).toBe('principal')
+    })
+  })
+
+  describe('cliente_elige_zona (CFG-014)', () => {
+    it('renders cliente_elige_zona radio group in Reservas section', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('El cliente puede elegir zona')
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-none"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-zona"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-zona-mesa"]').exists()).toBe(true)
+    })
+
+    it('defaults to "none"', async () => {
+      const wrapper = await mountForm()
+      const noneRadio = wrapper.find('input[data-testid="cfg-elige-zona-none"]')
+      expect((noneRadio.element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('emits submit with cliente_elige_zona', async () => {
+      const wrapper = await mountForm({
+        currentConfig: {
+          cliente_elige_mesa: false,
+          capacidad_total_local: 80,
+          cliente_elige_zona: 'zona',
+        },
+      })
+      await wrapper.find('form').trigger('submit.prevent')
+      const emitted = wrapper.emitted('submit')![0][0]
+      expect(emitted.cliente_elige_zona).toBe('zona')
+    })
+  })
+
+  describe('Días bloqueados section (CFG-012, BLO-001)', () => {
+    it('renders "Días bloqueados" section heading', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('Días bloqueados')
+    })
+
+    it('renders add form with date, recurrente, motivo, and add button', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.find('[data-testid="dia-fecha"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="dia-recurrente"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="dia-motivo"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="dia-add"]').exists()).toBe(true)
+    })
+
+    it('shows "no hay días bloqueados" when empty', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('No hay días bloqueados')
+    })
+
+    it('renders existing blocked days from prop', async () => {
+      const dias = [
+        { id: '1', fecha: '2026-12-25', recurrente: true, motivo: 'Navidad', fecha_fin: null },
+        { id: '2', fecha: '2026-01-01', recurrente: false, motivo: null, fecha_fin: null },
+      ]
+      const wrapper = await mountForm({
+        currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80 },
+        existingDiasBloqueados: dias,
+      })
+      expect(wrapper.text()).toContain('2026-12-25')
+      expect(wrapper.text()).toContain('Navidad')
+      expect(wrapper.text()).toContain('Cada año')
+      expect(wrapper.find('[data-testid="dia-delete"]').exists()).toBe(true)
+    })
+
+    it('emits addDiaBloqueado with form data', async () => {
+      const wrapper = await mountForm()
+
+      await wrapper.find('[data-testid="dia-fecha"]').setValue('2026-12-25')
+      await wrapper.find('[data-testid="dia-motivo"]').setValue('Navidad')
+      await wrapper.find('[data-testid="dia-add"]').trigger('click')
+
+      expect(wrapper.emitted('addDiaBloqueado')).toBeTruthy()
+      expect(wrapper.emitted('addDiaBloqueado')![0][0]).toEqual({
+        fecha: '2026-12-25',
+        recurrente: false,
+        fecha_fin: null,
+        motivo: 'Navidad',
+      })
+    })
+
+    it('emits addDiaBloqueado with recurrente flag', async () => {
+      const wrapper = await mountForm()
+
+      await wrapper.find('[data-testid="dia-fecha"]').setValue('2026-12-25')
+      await wrapper.find('[data-testid="dia-recurrente"]').setValue(true)
+      await wrapper.find('[data-testid="dia-add"]').trigger('click')
+
+      expect(wrapper.emitted('addDiaBloqueado')![0][0].recurrente).toBe(true)
+    })
+
+    it('emits deleteDiaBloqueado when delete button clicked', async () => {
+      const dias = [{ id: 'abc-123', fecha: '2026-12-25', recurrente: false, motivo: null, fecha_fin: null }]
+      const wrapper = await mountForm({
+        currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80 },
+        existingDiasBloqueados: dias,
+      })
+
+      await wrapper.find('[data-testid="dia-delete"]').trigger('click')
+      expect(wrapper.emitted('deleteDiaBloqueado')).toBeTruthy()
+      expect(wrapper.emitted('deleteDiaBloqueado')![0][0]).toBe('abc-123')
+    })
+
+    it('extends section heading test to include 11 sections', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('General')
+      expect(wrapper.text()).toContain('Horarios')
+      expect(wrapper.text()).toContain('Zonas del restaurante')
+      expect(wrapper.text()).toContain('Días bloqueados')
+    })
   })
 })
