@@ -16,6 +16,7 @@ const ROUTE_RESOURCE_MAP: Record<string, string> = {
   '/cocina/reservas': 'reservas',
   '/cocina/configuracion': 'configuracion',
   '/cocina/usuarios': 'usuarios',
+  '/cocina/clientes': 'clientes',
 }
 
 export default defineNuxtRouteMiddleware((to, _from) => {
