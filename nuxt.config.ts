@@ -58,6 +58,9 @@ export default defineNuxtConfig({
 
   // Runtime config — server-only secrets + public vars
   runtimeConfig: {
+    // CORS: comma-separated allowed origins (set NUXT_CORS_ALLOWED_ORIGINS in .env)
+    corsAllowedOrigins: 'http://localhost:3000,https://www.lazingara.es',
+
     // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
     smsProvider: 'mock',
 
