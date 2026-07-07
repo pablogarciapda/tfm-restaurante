@@ -21,6 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   verified: []
   back: []
+  resend: []
 }>()
 
 const code = ref('')
@@ -94,6 +95,8 @@ function handleResend() {
   error.value = ''
   code.value = ''
   startCooldown()
+  // Tell parent to re-send the code via API
+  emit('resend')
 }
 
 const cooldownText = computed(() => {

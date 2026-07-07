@@ -66,6 +66,9 @@ export default defineNuxtConfig({
     // CORS: comma-separated allowed origins (set NUXT_CORS_ALLOWED_ORIGINS in .env)
     corsAllowedOrigins: 'http://localhost:3000,https://www.lazingara.es',
 
+    // SMTP password: set NUXT_SMTP_PASSWORD in .env (server-only, overrides DB value)
+    smtpPassword: '',
+
     // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
     smsProvider: 'mock',
 

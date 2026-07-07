@@ -7,8 +7,8 @@
  * Auto-imported in Nuxt 4 via imports.dirs: ['shared/contracts'].
  */
 
-/** 5-zone restaurant layout (SCH-006) */
-export type Zona = 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
+/** Dynamic zone names (configuracion-horarios-zonas — editable by admin) */
+export type Zona = string
 
 /** Table occupancy state derived from reservas (MCA-005) */
 export type MesaEstado = 'libre' | 'ocupada' | 'reservada'

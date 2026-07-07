@@ -1,22 +1,3 @@
-// Supabase database types — auto-generated from the live DB schema.
-// Project: sqtzcjcyciatagakmmcf (La Zíngara)
-// Generated: 2026-07-06 via supabase-zingara_generate_typescript_types (MCP)
-//
-// REGENERATION CONVENTION (IMPORTANT):
-//   1. Regenerate structural types via the MCP tool supabase-zingara_generate_typescript_types
-//      (or CLI: `supabase gen types typescript --project-id sqtzcjcyciatagakmmcf`).
-//   2. RE-APPLY the CHECK-constrained literal unions listed below. supabase gen types
-//      infers real Postgres enums but NOT text columns with CHECK constraints — these
-//      are narrowed here to literal unions for compile-time type-safety. If a CHECK
-//      constraint changes, update the union here too.
-//        profiles.role             -> 'admin' | 'editor'
-//        configuracion.modo_ocupacion -> 'auto' | 'manual'
-//        configuracion.max_ancho_imagen, max_peso_imagen, calidad_imagen, auto_comprimir_imagen -> added via migration 2026-07-06
-//        mesas.zona                -> 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
-//        reservas.estado           -> 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
-//        menu_diario_items.seccion  -> 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
-//   Do NOT hand-edit any other part of this file. Only the 6 overlay rules above are a manual overlay.
-
 export type Json =
   | string
   | number
@@ -75,57 +56,147 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes: {
+        Row: {
+          apellidos: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          nombre: string
+          telefono: string
+          updated_at: string | null
+        }
+        Insert: {
+          apellidos?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nombre: string
+          telefono: string
+          updated_at?: string | null
+        }
+        Update: {
+          apellidos?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nombre?: string
+          telefono?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       configuracion: {
         Row: {
           auto_comprimir_imagen: boolean
           calidad_imagen: number
           capacidad_total_local: number | null
           cliente_elige_mesa: boolean | null
+          cliente_elige_zona: string
           created_at: string
+          horarios_config: Json
           id: string
           max_ancho_imagen: number
           max_peso_imagen: number
-          modo_ocupacion: 'auto' | 'manual'
+          modo_ocupacion: string
+          modo_reserva: string | null
+          mostrar_recomendados: boolean | null
           ocupacion_manual: number
           precio_menu_diario: number | null
           precio_menu_sabado: number | null
-          mostrar_recomendados: boolean | null
+          public_config: Json
+          smtp_from_email: string | null
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+          smtp_user: string | null
+          texto_proteccion_datos: string | null
           titulo_recomendados: string | null
           updated_at: string
+          zonas_config: Json
         }
         Insert: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
           capacidad_total_local?: number | null
           cliente_elige_mesa?: boolean | null
+          cliente_elige_zona?: string
           created_at?: string
+          horarios_config?: Json
           id?: string
           max_ancho_imagen?: number
           max_peso_imagen?: number
-          modo_ocupacion?: 'auto' | 'manual'
+          modo_ocupacion?: string
+          modo_reserva?: string | null
+          mostrar_recomendados?: boolean | null
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
-          mostrar_recomendados?: boolean | null
+          public_config?: Json
+          smtp_from_email?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_user?: string | null
+          texto_proteccion_datos?: string | null
           titulo_recomendados?: string | null
           updated_at?: string
+          zonas_config?: Json
         }
         Update: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
           capacidad_total_local?: number | null
           cliente_elige_mesa?: boolean | null
+          cliente_elige_zona?: string
           created_at?: string
+          horarios_config?: Json
           id?: string
           max_ancho_imagen?: number
           max_peso_imagen?: number
-          modo_ocupacion?: 'auto' | 'manual'
+          modo_ocupacion?: string
+          modo_reserva?: string | null
+          mostrar_recomendados?: boolean | null
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
-          mostrar_recomendados?: boolean | null
+          public_config?: Json
+          smtp_from_email?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_user?: string | null
+          texto_proteccion_datos?: string | null
           titulo_recomendados?: string | null
           updated_at?: string
+          zonas_config?: Json
+        }
+        Relationships: []
+      }
+      dias_bloqueados: {
+        Row: {
+          created_at: string
+          fecha: string
+          fecha_fin: string | null
+          id: string
+          motivo: string | null
+          recurrente: boolean
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          fecha_fin?: string | null
+          id?: string
+          motivo?: string | null
+          recurrente?: boolean
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          fecha_fin?: string | null
+          id?: string
+          motivo?: string | null
+          recurrente?: boolean
         }
         Relationships: []
       }
@@ -225,7 +296,7 @@ export type Database = {
           id: string
           plato_nombre: string
           puesto: number | null
-          seccion: 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
+          seccion: string
         }
         Insert: {
           config_id: string
@@ -233,7 +304,7 @@ export type Database = {
           id?: string
           plato_nombre: string
           puesto?: number | null
-          seccion: 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
+          seccion: string
         }
         Update: {
           config_id?: string
@@ -241,7 +312,7 @@ export type Database = {
           id?: string
           plato_nombre?: string
           puesto?: number | null
-          seccion?: 'primer' | 'segundo' | 'postre' | 'bebida' | 'pan'
+          seccion?: string
         }
         Relationships: [
           {
@@ -268,7 +339,8 @@ export type Database = {
           posicion_y: number | null
           rotacion: number | null
           updated_at: string
-          zona: 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
+          zona: string
+          zona_nombre: string | null
         }
         Insert: {
           alto?: number | null
@@ -284,7 +356,8 @@ export type Database = {
           posicion_y?: number | null
           rotacion?: number | null
           updated_at?: string
-          zona: 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
+          zona: string
+          zona_nombre?: string | null
         }
         Update: {
           alto?: number | null
@@ -300,7 +373,8 @@ export type Database = {
           posicion_y?: number | null
           rotacion?: number | null
           updated_at?: string
-          zona?: 'Principal' | 'Zingaro' | 'Privado' | 'Terraza' | 'Bar'
+          zona?: string
+          zona_nombre?: string | null
         }
         Relationships: [
           {
@@ -369,7 +443,7 @@ export type Database = {
           created_at: string
           id: string
           permissions: Json
-          role: 'admin' | 'editor'
+          role: string
           updated_at: string
         }
         Insert: {
@@ -377,7 +451,7 @@ export type Database = {
           created_at?: string
           id: string
           permissions?: Json
-          role?: 'admin' | 'editor'
+          role?: string
           updated_at?: string
         }
         Update: {
@@ -385,46 +459,50 @@ export type Database = {
           created_at?: string
           id?: string
           permissions?: Json
-          role?: 'admin' | 'editor'
+          role?: string
           updated_at?: string
         }
         Relationships: []
       }
       reservas: {
         Row: {
+          cliente_id: string | null
           created_at: string
-          email: string | null
-          estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
+          estado: string | null
           fecha_hora: string
           id: string
           mesa_id: string | null
-          nombre_cliente: string
           numero_comensales: number | null
-          telefono: string | null
+          zona_id: string | null
         }
         Insert: {
+          cliente_id?: string | null
           created_at?: string
-          email?: string | null
-          estado?: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
+          estado?: string | null
           fecha_hora: string
           id?: string
           mesa_id?: string | null
-          nombre_cliente: string
           numero_comensales?: number | null
-          telefono?: string | null
+          zona_id?: string | null
         }
         Update: {
+          cliente_id?: string | null
           created_at?: string
-          email?: string | null
-          estado?: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'standby' | null
+          estado?: string | null
           fecha_hora?: string
           id?: string
           mesa_id?: string | null
-          nombre_cliente?: string
           numero_comensales?: number | null
-          telefono?: string | null
+          zona_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reservas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservas_mesa_id_fkey"
             columns: ["mesa_id"]

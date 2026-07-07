@@ -218,11 +218,121 @@ async function loadConfiguracion() {
 
     if (data) {
       capacidadTotal.value = data.capacidad_total_local ?? 80
-      modoOcupacion.value = data.modo_ocupacion ?? 'auto'
+      modoOcupacion.value = (data.modo_ocupacion ?? 'auto') as 'auto' | 'manual'
       ocupacionManual.value = data.ocupacion_manual ?? 0
     }
   } catch {
     // Keep defaults on error
+  }
+}
+
+// ── Admin Reasignar ──
+
+interface ReservaRow {
+  id: string
+  nombre_cliente?: string
+  cliente?: { nombre?: string } | null
+  fecha_hora: string
+  numero_comensales: number | null
+  estado: string
+  zona_id?: string | null
+  mesa_id?: string | null
+  created_at?: string
+}
+
+interface ZonaOption {
+  id: string
+  nombre: string
+  capacidad: number
+  enabled: boolean
+}
+
+const reservasList = ref<ReservaRow[]>([])
+const zonasConfig = ref<ZonaOption[]>([])
+const reasignarShow = ref(false)
+const reasignarReserva = ref<ReservaRow | null>(null)
+const reasignarZonaId = ref('')
+const reasignarMesaId = ref('')
+const reasignarMotivo = ref('')
+const reasignarSaving = ref(false)
+const reasignarError = ref('')
+const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+
+async function loadReservas() {
+  try {
+    const { data, error } = await client
+      .from('reservas')
+      .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cliente:cliente_id(nombre)')
+      .order('fecha_hora', { ascending: true })
+      .limit(100)
+
+    if (error) throw error
+    reservasList.value = (data || []) as unknown as ReservaRow[]
+  } catch {
+    reservasList.value = []
+  }
+}
+
+async function loadZonasConfig() {
+  try {
+    const { data } = await client
+      .from('configuracion')
+      .select('zonas_config')
+      .single()
+    if (data?.zonas_config) {
+      zonasConfig.value = (data.zonas_config as ZonaOption[]).filter((z) => z.enabled)
+    }
+  } catch {
+    zonasConfig.value = []
+  }
+}
+
+function openReasignar(reserva: ReservaRow) {
+  reasignarReserva.value = reserva
+  reasignarZonaId.value = ''
+  reasignarMesaId.value = ''
+  reasignarMotivo.value = ''
+  reasignarError.value = ''
+  reasignarShow.value = true
+}
+
+function closeReasignar() {
+  reasignarShow.value = false
+  reasignarReserva.value = null
+}
+
+async function handleReasignar() {
+  if (!reasignarReserva.value) return
+  reasignarError.value = ''
+  reasignarSaving.value = true
+
+  if (!reasignarMotivo.value.trim()) {
+    reasignarError.value = 'El motivo es obligatorio'
+    reasignarSaving.value = false
+    return
+  }
+
+  try {
+    const body: Record<string, unknown> = {
+      reserva_id: reasignarReserva.value.id,
+      motivo: reasignarMotivo.value.trim(),
+    }
+    if (reasignarZonaId.value) body.nueva_zona_id = reasignarZonaId.value
+    if (reasignarMesaId.value) body.nueva_mesa_id = reasignarMesaId.value
+
+    await $fetch('/api/admin/reasignar', {
+      method: 'POST',
+      body,
+    })
+
+    toastReasignar.value = { message: 'Reserva reasignada correctamente', type: 'success' }
+    setTimeout(() => { toastReasignar.value = null }, 3000)
+    closeReasignar()
+    await loadReservas()
+  } catch (err: any) {
+    reasignarError.value = err?.data?.message || err?.statusMessage || 'Error al reasignar'
+  } finally {
+    reasignarSaving.value = false
   }
 }
 
@@ -231,6 +341,8 @@ onMounted(async () => {
   await loadMesas()
   subscribeRealtime()
   await refreshStandbyReservations()
+  await loadReservas()
+  await loadZonasConfig()
 })
 
 onUnmounted(() => {
@@ -276,5 +388,174 @@ onUnmounted(() => {
       @standby="handleFusionStandby"
       @close="handleFusionClose"
     />
+
+    <!-- Reservas List (Admin Reasignar) -->
+    <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div class="border-b border-gray-100 px-4 py-3">
+        <h2 class="text-lg font-bold text-slate">Listado de Reservas</h2>
+      </div>
+
+      <div v-if="reservasList.length === 0" class="p-6 text-center text-sm text-gray-400">
+        No hay reservas registradas.
+      </div>
+
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="border-b border-gray-100 bg-gray-50">
+            <tr>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Cliente</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Comensales</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Zona</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
+              <th class="px-4 py-2 text-right font-medium text-gray-500">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="reserva in reservasList"
+              :key="reserva.id"
+              class="border-b border-gray-50 hover:bg-gray-50/50"
+            >
+              <td class="px-4 py-2">
+                {{ (reserva.cliente as any)?.nombre || '—' }}
+              </td>
+              <td class="px-4 py-2 text-gray-600">
+                {{ new Date(reserva.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}
+              </td>
+              <td class="px-4 py-2">{{ reserva.numero_comensales ?? '—' }}</td>
+              <td class="px-4 py-2">{{ reserva.zona_id || '—' }}</td>
+              <td class="px-4 py-2">
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-800': reserva.estado === 'confirmada',
+                    'bg-yellow-100 text-yellow-800': reserva.estado === 'pendiente',
+                    'bg-red-100 text-red-800': reserva.estado === 'cancelada',
+                    'bg-blue-100 text-blue-800': reserva.estado === 'completada',
+                    'bg-gray-100 text-gray-600': !['confirmada', 'pendiente', 'cancelada', 'completada'].includes(reserva.estado),
+                  }"
+                >
+                  {{ reserva.estado }}
+                </span>
+              </td>
+              <td class="px-4 py-2 text-right">
+                <button
+                  type="button"
+                  data-testid="reasignar-btn"
+                  class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
+                  @click="openReasignar(reserva)"
+                >
+                  Reasignar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Reasignar Modal -->
+    <Teleport to="body">
+      <div
+        v-if="reasignarShow"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        @click.self="closeReasignar"
+      >
+        <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <h3 class="mb-4 text-lg font-bold text-slate">Reasignar reserva</h3>
+
+          <div v-if="reasignarReserva" class="mb-4 space-y-1 text-sm text-slate">
+            <p><strong>Cliente:</strong> {{ (reasignarReserva.cliente as any)?.nombre || '—' }}</p>
+            <p><strong>Fecha:</strong> {{ new Date(reasignarReserva.fecha_hora).toLocaleString('es-ES') }}</p>
+            <p><strong>Zona actual:</strong> {{ reasignarReserva.zona_id || '—' }}</p>
+          </div>
+
+          <!-- Zone dropdown -->
+          <div class="mb-3">
+            <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-zona">
+              Nueva zona
+            </label>
+            <select
+              id="reasignar-zona"
+              v-model="reasignarZonaId"
+              data-testid="reasignar-zona"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">— Sin cambio —</option>
+              <option
+                v-for="zona in zonasConfig"
+                :key="zona.id"
+                :value="zona.id"
+              >
+                {{ zona.nombre }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Mesa dropdown (simplified: no mesas list loaded, just a text hint) -->
+          <div class="mb-3">
+            <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-mesa">
+              Nueva mesa (opcional)
+            </label>
+            <input
+              id="reasignar-mesa"
+              v-model="reasignarMesaId"
+              type="text"
+              placeholder="ID de mesa (opcional)"
+              data-testid="reasignar-mesa"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <!-- Motivo -->
+          <div class="mb-4">
+            <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-motivo">
+              Motivo *
+            </label>
+            <textarea
+              id="reasignar-motivo"
+              v-model="reasignarMotivo"
+              rows="3"
+              data-testid="reasignar-motivo"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Ej: El cliente prefiere terraza..."
+            />
+          </div>
+
+          <p v-if="reasignarError" class="mb-3 text-sm text-red-600">{{ reasignarError }}</p>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              @click="closeReasignar"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              :disabled="reasignarSaving"
+              data-testid="reasignar-save"
+              class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
+              @click="handleReasignar"
+            >
+              {{ reasignarSaving ? 'Guardando...' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Reasignar toast -->
+    <Teleport to="body">
+      <div
+        v-if="toastReasignar"
+        class="fixed right-4 top-4 z-50 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg"
+        :class="toastReasignar.type === 'success' ? 'bg-green-600' : 'bg-red-600'"
+      >
+        {{ toastReasignar.message }}
+      </div>
+    </Teleport>
   </div>
 </template>
