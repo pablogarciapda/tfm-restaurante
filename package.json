@@ -18,11 +18,13 @@
     "@pinia/nuxt": "^0.11.3",
     "@supabase/supabase-js": "^2.108.2",
     "konva": "^10.3.0",
+    "nodemailer": "^9.0.3",
     "nuxt": "4.4.8",
     "pinia": "^3.0.4",
     "vue": "latest",
     "vue-konva": "^3.4.0",
-    "vue-router": "latest"
+    "vue-router": "latest",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
@@ -30,6 +32,7 @@
     "@nuxt/test-utils": "^4.0.0",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/vite": "^4.3.0",
+    "@types/nodemailer": "^8.0.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vitest/coverage-v8": "^4.1.9",
     "@vue/test-utils": "^2.4.11",
