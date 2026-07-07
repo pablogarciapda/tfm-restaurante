@@ -42,7 +42,7 @@
 |---------|------|---------|-------|
 | `id` | `uuid` | gen_random_uuid() | PK |
 | `cliente_elige_mesa` | `boolean` | false | |
-| `capacidad_total_local` | `integer` | 80 | Check 1..999 |
+| `capacidad_total_local` | `integer` | null | Check 1..999. Deprecated — usar zonas_config |
 | `modo_ocupacion` | `text` | 'auto' | 'auto' \| 'manual' |
 | `ocupacion_manual` | `integer` | 0 | >= 0 |
 | `precio_menu_diario` | `numeric` | null | Precio menú diario (lun-vie) |
@@ -53,6 +53,17 @@
 | `calidad_imagen` | `integer` | 80 | Check 10..100. Calidad WebP |
 | `max_peso_imagen` | `integer` | 5 | Check 1..20. Peso máximo en MB |
 | `auto_comprimir_imagen` | `boolean` | true | Comprimir automáticamente al subir |
+| `smtp_host` | `text` | null | Servidor SMTP |
+| `smtp_port` | `integer` | null | Puerto SMTP |
+| `smtp_user` | `text` | null | Usuario SMTP |
+| `smtp_from_email` | `text` | null | Email remitente |
+| `smtp_password` | `text` | null | Write-only desde admin, nunca se expone en API |
+| `texto_proteccion_datos` | `text` | null | Texto GDPR para formulario reservas |
+| `modo_reserva` | `text` | 'automatica' | 'automatica' \| 'verificada' (con SMS) |
+| `cliente_elige_zona` | `text` | 'none' | 'none' \| 'zona' \| 'zona_mesa' |
+| `horarios_config` | `jsonb` | '{}' | Horarios apertura (comida/cena, intervalo) |
+| `zonas_config` | `jsonb` | '{}' | Zonas del local (nombre, capacidad, enabled) |
+| `public_config` | `jsonb` | '{}' | Cache de datos públicos (horarios, zonas, GDPR) |
 
 ### `platos`
 | Columna | Tipo | Notas |
@@ -126,12 +137,33 @@
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `uuid` | PK |
-| `nombre_cliente` | `text` | |
-| `telefono` / `email` | `text` | Nullable |
 | `fecha_hora` | `timestamptz` | |
 | `numero_comensales` | `integer` | Nullable |
 | `estado` | `text` | 'pendiente' \| 'confirmada' \| 'cancelada' \| 'completada' \| 'standby' |
-| `mesa_id` | `uuid` | FK → mesas |
+| `mesa_id` | `uuid` | FK → mesas, nullable |
+| `cliente_id` | `uuid` | FK → clientes, nullable |
+| `zona_id` | `text` | Nullable, id de zona desde zonas_config |
+| `created_at` | `timestamptz` | Default now() |
+
+### `clientes`
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | `uuid` | PK, gen_random_uuid() |
+| `nombre` | `text` | |
+| `apellidos` | `text` | Nullable |
+| `telefono` | `text` | Unique |
+| `email` | `text` | Nullable |
+| `created_at` / `updated_at` | `timestamptz` | Default now() |
+
+### `dias_bloqueados`
+| Columna | Tipo | Default | Notas |
+|---------|------|---------|-------|
+| `id` | `uuid` | gen_random_uuid() | PK |
+| `fecha` | `date` | | Unique, día bloqueado |
+| `recurrente` | `boolean` | false | Se repite cada año (ej: Navidad) |
+| `fecha_fin` | `date` | null | Para rangos de fechas |
+| `motivo` | `text` | null | Razón del bloqueo |
+| `created_at` | `timestamptz` | now() | |
 
 ### `eventos`
 | Columna | Tipo | Notas |
@@ -167,7 +199,7 @@
 - `/` -> Inicio
 - `/carta` -> Carta con filtro por alérgenos, info calórica, y sección recomendados configurable
 - `/menu-diario` -> Menú del Día (precio desde Configuración)
-- `/reservas` -> Formulario / selección de mesa (según `configuracion.cliente_elige_mesa`)
+- `/reservas` -> Formulario con slot grid (15min), selector de zona/mesa según `configuracion`, GDPR, verificación SMS
 - `/eventos` -> Eventos
 - `/contacto` -> Contacto
 
@@ -178,8 +210,9 @@
 - `/cocina/carta` -> CRUD platos con sticky layout, filtro por categorías reales (tabla `categorias`), columna recomendado
 - `/cocina/menu-diario` -> Editor menú diario (crear/editar config por día, precio desde `configuracion`, fecha read-only)
 - `/cocina/eventos` -> CRUD eventos (categorías dinámicas desde DB)
-- `/cocina/reservas` -> Mapa interactivo Konva + fusiones + sync Realtime
-- `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, categorías CRUD) con toast de confirmación
+- `/cocina/reservas` -> Mapa interactivo Konva + fusiones + sync Realtime + lista de reservas + modal reasignar zona/mesa
+- `/cocina/clientes` -> CRUD clientes con historial de reservas
+- `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, horarios, zonas, días bloqueados, categorías CRUD, SMTP) con toast de confirmación
 - `/cocina/usuarios` -> Gestión de usuarios y permisos
 
 ## 6. Funcionalidades Clave
@@ -189,7 +222,7 @@
 - Home con filosofía y accesos directos.
 - Carta con filtros de alérgenos y calorías, categorías ordenadas por `categorias.puesto`, sección recomendados configurable (título + toggle desde admin).
 - Menú diario dinámico (precio desde Configuración).
-- Reservas inteligentes: modo "cliente elige mesa" (selector sobre plano) o "reserva estándar" (resta aforo).
+- Reservas inteligentes: modo "cliente elige mesa" (selector sobre plano) o "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona/mesa según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
 - Eventos en cartelera.
 - Contacto con mapa y formulario.
 
@@ -202,9 +235,11 @@
   - **Modo Fusión:** unión lógica con `id_fusion`, recalculo de capacidad, ID de mesa unida.
   - Resta automática del aforo total del restaurante.
   - Sincronización Realtime vía WebSockets.
-- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, CRUD categorías de eventos.
+- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password).
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆).
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
+- **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
+- **Reservas Admin:** Lista de reservas + modal de reasignación (cambiar zona/mesa en una reserva existente con motivo obligatorio).
 
 ## 7. Roadmap / MVP — Estado Actual
 
@@ -229,7 +264,17 @@
 - **Precio 0 → "Consultar":** en carta pública cuando el precio es 0
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
-- 652 tests unitarios pasando
+- 789 tests unitarios pasando (6 pre-existing failures en test/unit/layouts/cocina.test.ts + nuxt smoke tests)
+- **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona/mesa, slots de 15 minutos en horarios configurables
+- **CRUD clientes:** tabla `clientes` con FK en reservas, 4 endpoints API, formulario con historial de reservas
+- **Configuración SMTP:** campos write-only, servidor/puerto/configurables, test endpoint
+- **GET /api/config -> admin-only:** seguridad hardening, nunca expone smtp_password
+- **GET /api/public-config:** endpoint público con horarios, zonas enabled, GDPR text, modo_reserva
+- **Horarios configurables:** comida/cena con horario de inicio/fin e intervalo (15/30min)
+- **Zonas editables:** JSONB array con nombre, capacidad, enabled. Capacidad total deducida de zonas habilitadas (264: Principal=70, Reservado=14, Zíngaro=60, Terraza=100, Bar=20)
+- **Días bloqueados:** tabla `dias_bloqueados` con soporte para fecha única, recurrente (MM-DD) y rangos
+- **Rate limiting SMS:** 1 request/phone/min + 5 request/IP/min
+- **Phone normalization:** shared/utils/phone.ts (disponible client+server)
 
 ## 8. Reglas para agentes IA
 
@@ -249,13 +294,13 @@ tfm-restaurant/
 ├── app/                       # Nuxt srcDir (SSR público + SPA admin)
 │   ├── app.vue                # Entry point Nuxt
 │   ├── assets/                # Imágenes, estilos globales
-│   ├── components/            # 26 componentes (ver listado abajo)
+│   ├── components/            # 29 componentes (ver listado abajo)
 │   ├── composables/           # useAuth, usePlatos, useMenuDiario, useEventos
 │   ├── features/              # Módulos feature (futuro)
 │   ├── layouts/               # Layouts Nuxt
 │   ├── middleware/             # Protección rutas admin
-│   ├── pages/                 # 8 páginas (ver rutas sección 5)
-│   │   └── cocina/            # 8 páginas admin
+│   ├── pages/                 # 6 páginas (ver rutas sección 5)
+│   │   └── cocina/            # 9 páginas admin
 │   ├── plugins/               # Plugins Nuxt (Supabase, Konva, etc.)
 │   ├── stores/                # Pinia stores (pendiente de implementar)
 │   ├── types/                 # database.types.ts (generado desde Supabase)
@@ -268,15 +313,27 @@ tfm-restaurant/
 ├── scripts/                   # Scripts auxiliares
 ├── server/                    # API routes, plugins, middleware server-side
 │   ├── api/                   # Endpoints Nitro
+│   │   ├── admin/             # Admin reasignar zona/mesa
+│   │   ├── cocina/clientes/   # CRUD clientes + historial reservas
+│   │   ├── cocina/reservas/   # Confirmar reserva manual
+│   │   ├── cocina/smtp/       # Test conexión SMTP
+│   │   ├── cocina/usuarios/   # Gestión usuarios
+│   │   ├── dias-bloqueados/   # CRUD días bloqueados
+│   │   ├── config.get.ts      # GET /api/config (admin-only)
+│   │   ├── config.post.ts     # POST /api/config (admin)
+│   │   ├── config.handlers.ts # Lógica compartida config
+│   │   ├── public-config.get.ts # GET /api/public-config (público)
+│   │   ├── reservas.handlers.ts # Lógica compartida reservas
+│   │   └── ...                # Endpoints existentes
 │   ├── plugins/               # Hooks server (Supabase admin client, etc.)
 │   ├── sms/                   # Lógica SMS (verificación)
-│   └── utils/                 # Utilidades server-side
+│   └── utils/                 # email.ts, rate-limit.ts, validation.ts, sms-*.ts, image-security.ts
 ├── shared/                    # Contratos, tipos, utilidades compartidas (ambos lados)
-│   ├── contracts/             # Interfaces entre módulos
+│   ├── contracts/             # mesas.contract.ts, reservation.contract.ts, sms.contract.ts
 │   ├── db/                    # Acceso a base de datos (compartido)
 │   ├── fixtures/              # Datos de prueba
 │   ├── types/                 # Tipos compartidos
-│   └── utils/                 # Utilidades compartidas
+│   └── utils/                 # phone.ts, slots.ts, fusion-math.ts
 ├── test/                      # Tests
 │   ├── __fixtures__/          # Fixtures de prueba
 │   ├── e2e/                   # Tests Playwright
@@ -302,11 +359,14 @@ tfm-restaurant/
 | `BaseButton` | Botón base reutilizable |
 | `BaseCard` | Card base |
 | `CategorySelector` | Selector de categorías |
-| `ConfiguracionForm` | Formulario configuración sistema (precios, capacidad, categorías CRUD) |
+| `ClienteForm` | CRUD formulario clientes |
+| `ClientesTable` | Tabla clientes admin |
+| `ConfiguracionForm` | Formulario configuración sistema (precios, capacidad, categorías CRUD, horarios, zonas, días bloqueados, SMTP) |
 | `ContactForm` | Formulario de contacto |
 | `EventCard` | Card de evento público |
 | `EventoForm` | CRUD formulario eventos |
 | `EventosTable` | Tabla eventos admin |
+| `GdprConsentModal` | Modal consentimiento GDPR para reservas |
 | `MapEmbed` | Mapa embebido contacto |
 | `MenuDiarioEditor` | Editor menú diario admin |
 | `MetricCard` | Card métrica dashboard |
@@ -316,7 +376,7 @@ tfm-restaurant/
 | `PlatosTable` | Tabla platos admin (sticky, Recom solo ★) |
 | `ProductCard` | Card plato público |
 | `ProductGrid` | Grid platos público |
-| `ReservationForm` | Formulario reservas |
+| `ReservationForm` | Formulario reservas con slot grid + selector zona/mesa |
 | `SectionDivider` | Divisor de secciones |
 | `SmsVerificationStep` | Paso verificación SMS |
 | `UsuarioForm` | CRUD formulario usuarios |
@@ -337,3 +397,12 @@ tfm-restaurant/
 | **Categorías eventos** | Categorías hardcodeadas 'festivo'/'espectaculo' | Tabla `categorias_eventos` con FK, CRUD desde Configuración |
 | **Estrella recomendado** | Sin toggle visual directo en tabla admin | Estrella clicable ★/☆ sin abrir formulario de edición |
 | **Precio 0** | Mostraba 0,00€ o vacío en carta pública | Muestra "Consultar" cuando precio es 0 o null |
+| **SMTP write-only** | smtp_password no debe exponerse en API | Solo escritura desde admin, nunca en GET /api/config; "••••••••" preserva valor existente |
+| **GET /api/config admin-only** | Endpoint expuesto públicamente | Se añadió `requireUserSession` — solo usuarios autenticados. Nuevo GET /api/public-config para datos públicos |
+| **Horarios configurables** | Horarios hardcodeados para comida/cena | JSONB en configuracion con comida_inicio/fin, cena_inicio/fin, intervalo_minutos (15/30) |
+| **Zonas editables** | Zonas fijas via CHECK constraint en mesas.zona | JSONB array en configuracion.zonas_config con id/nombre/capacidad/enabled. Admin puede crear/renombrar/deshabilitar zonas libremente |
+| **Capacidad desde zonas** | capacidad_total_local (default 80) no reflejaba el local real | Capacidad deducida de zonas habilitadas. 5 zonas = 264 capacidad total. Deprecado capacidad_total_local |
+| **Días bloqueados** | Sin soporte para cerrar el restaurante en fechas específicas | Tabla `dias_bloqueados` con fecha única, recurrente (MM-DD) y rangos (fecha_fin) |
+| **Slot grid en reservas** | Datetime-local obligaba a escribir hora manualmente | Date picker + botones de slot de 15min. Slots generados desde horarios_config, excluye pasados y días bloqueados |
+| **Rate limiting SMS** | Endpoint SMS sin protección contra abuso | Token bucket: 1 request/phone/min + 5 request/IP/min, devuelve 429 |
+| **Phone normalization compartida** | Duplicado en server/utils/phone.ts | Movido a shared/utils/phone.ts, importable ambos lados vía `#shared/utils/phone` |
