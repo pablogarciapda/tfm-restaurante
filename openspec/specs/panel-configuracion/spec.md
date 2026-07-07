@@ -2,7 +2,7 @@
 
 ## Purpose
 
-System settings page at `/cocina/configuracion`. Single-row configuration editing: `cliente_elige_mesa` (boolean), `capacidad_total_local` (integer), dual occupancy mode (`modo_ocupacion` auto/manual), and manual occupancy override (`ocupacion_manual`). Admin-only access.
+System settings page at `/cocina/configuracion`. Organized in 11 labeled sections: General, Elección de mesa, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados. Covers: `cliente_elige_mesa` (boolean), `capacidad_total_local` (integer), dual occupancy mode (`modo_ocupacion` auto/manual), manual occupancy override (`ocupacion_manual`), menu pricing, SMTP configuration, GDPR consent text, reservation mode, service hours, zone management, and blocked days. Admin-only access; config loaded/saved via `/api/config` (no direct Supabase client).
 
 ## Requirements
 
@@ -13,17 +13,23 @@ System settings page at `/cocina/configuracion`. Single-row configuration editin
 | CFG-003 | Admin-only: editor role blocked by permissions middleware | MUST |
 | CFG-004 | "Aforo del local" informational section showing capacidad_total_local as the table manager capacity ceiling | MUST |
 | CFG-005 | Dual occupancy mode selector: Auto/Manual radio + ocupacion_manual number input (visible on Manual) | MUST |
+| CFG-006 | Configuration page reorganized into labeled sections with visual dividers | MUST |
+| CFG-007 | SMTP section: smtp_host, smtp_port, smtp_user, smtp_from_email (editable), smtp_password (write-only: masked input, placeholder dots on load, sent on change only) | MUST |
+| CFG-008 | Protección de datos section: texto_proteccion_datos (textarea, nullable) | MUST |
+| CFG-009 | Reservas section: modo_reserva (radio: Automática / Verificada) | MUST |
+| CFG-010 | Test email button in SMTP section: POST /api/cocina/smtp/test → success/error toast | MUST |
+| CFG-011 | Horarios section with time inputs for comida/cena + intervalo select | MUST |
+| CFG-012 | Zonas section with editable nombre/capacidad/toggle table + add/delete | MUST |
+| CFG-013 | Días bloqueados inline CRUD with date picker + recurrente checkbox | MUST |
+| CFG-014 | cliente_elige_zona radio (none/zona/zona_mesa with "Próximamente" disabled) | MUST |
 
 ### Requirement: CFG-001 — Settings Form
 
-The system MUST render a form at `/cocina/configuracion` with four fields:
+The system MUST render a section-based form at `/cocina/configuracion` organized into 11 sections (see CFG-006). Save button: **"Guardar configuración"**. Sections: General, Elección de mesa, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados.
 
-- **"Permitir que el cliente elija mesa"**: toggle bound to `cliente_elige_mesa`
-- **"Capacidad total del local"**: number input bound to `capacidad_total_local`, min=1, max=999
-- **"Modo de ocupación"**: radio group (Automático / Manual) bound to `modo_ocupacion`
-- **"Ocupación manual"**: number input bound to `ocupacion_manual`, visible when Manual selected, min=0, max=capacidad_total_local
+(Previously: single flat form with toggle, capacity, price, image fields.)
 
-Form heading: **"Configuración del sistema"**. Save button: **"Guardar configuración"**.
+(All original CFG-001 scenarios preserved: Form loads, Toggle, Invalid capacidad — now rendered within their respective section groups.)
 
 #### Scenario: Form loads with current values
 
@@ -32,6 +38,7 @@ Form heading: **"Configuración del sistema"**. Save button: **"Guardar configur
 - THEN toggle shows unchecked; number input shows 80
 - AND "Automático" radio is selected
 - AND "Ocupación manual" input is hidden
+- AND all 11 sections render with correct headers
 
 #### Scenario: Toggle cliente_elige_mesa
 
@@ -116,9 +123,179 @@ When mode is "Automático", aforo on `/cocina/reservas` is calculated as `SUM(ca
 - AND clicks save
 - THEN validation error: **"La ocupación manual no puede superar la capacidad total del local"**
 
+### Requirement: CFG-006 — Section Layout
+
+The configuration page MUST display fields grouped into labeled sections with `<h3>` headers and visual separators: **General** (capacidad_total_local, modo_ocupacion, ocupacion_manual), **Elección de mesa** (cliente_elige_mesa, cliente_elige_zona), **Precios** (precio_menu_diario, precio_menu_sabado), **Recomendados** (mostrar_recomendados, titulo_recomendados), **Imágenes** (max_ancho_imagen, calidad_imagen, max_peso_imagen, auto_comprimir_imagen), **Correo saliente** (SMTP fields), **Protección de datos** (texto_proteccion_datos), **Reservas** (modo_reserva), **Horarios** (comida/cena time inputs, intervalo select), **Zonas** (editable table), **Días bloqueados** (inline CRUD table).
+
+#### Scenario: Sections render with headers
+- GIVEN admin visits /cocina/configuracion
+- WHEN page loads
+- THEN 11 section headers displayed
+- AND fields grouped under respective sections
+- AND sections visually separated (borders/backgrounds)
+
+### Requirement: CFG-007 — SMTP Section
+
+SMTP fields: `smtp_host` (text), `smtp_port` (number, 1-65535), `smtp_user` (text), `smtp_from_email` (email), `smtp_password` (password input). On load, password field SHALL show placeholder dots (not real value). Sending an empty password field MUST NOT overwrite the stored password. Only non-empty submissions update the stored value.
+
+#### Scenario: Password masked on load
+- GIVEN smtp_password='secret123' in DB
+- WHEN config form loads
+- THEN password input shows placeholder "••••••••"
+- AND actual value not rendered in DOM or network response
+
+#### Scenario: Empty password preserves existing
+- GIVEN stored smtp_password='secret123'
+- WHEN admin saves config with password field unchanged (placeholder)
+- THEN smtp_password remains 'secret123' in DB
+
+### Requirement: CFG-008 — Protección de Datos Section
+
+The system MUST render a `<textarea>` for `texto_proteccion_datos` under "Protección de datos" section. Null value = empty textarea. Placeholder: "Texto de protección de datos que se muestra en el popup GDPR...".
+
+#### Scenario: GDPR text saved
+- GIVEN texto_proteccion_datos=NULL
+- WHEN admin enters text and saves
+- THEN texto_proteccion_datos updated in configuracion
+
+### Requirement: CFG-009 — Reservas Section
+
+Radio group for `modo_reserva`: "Automática" (value='automatica'), "Verificada" (value='verificada'). Default: 'automatica'. Description: "Automática: reserva confirmada tras SMS. Verificada: pendiente hasta confirmación manual."
+
+#### Scenario: Select verificada mode
+- GIVEN modo_reserva='automatica'
+- WHEN admin selects "Verificada" and saves
+- THEN modo_reserva='verificada' persisted
+- AND new reservations default to 'pendiente' state
+
+### Requirement: CFG-010 — Test Email Button
+
+A "Enviar correo de prueba" button in SMTP section MUST call POST /api/cocina/smtp/test with current form SMTP values (including password if changed). Success → green toast "Correo de prueba enviado". Failure → red toast with error message.
+
+#### Scenario: Test email succeeds
+- GIVEN valid SMTP config in form
+- WHEN admin clicks "Enviar correo de prueba"
+- THEN POST /api/cocina/smtp/test called
+- AND "Correo de prueba enviado" toast shown
+
+#### Scenario: Test email with missing config
+- GIVEN smtp_host is empty
+- WHEN admin clicks "Enviar correo de prueba"
+- THEN red toast: "Configure los datos SMTP primero"
+
+### Requirement: CFG-011 — Horarios Section
+
+ConfiguracionForm MUST render a new "Horarios" section with: time inputs for comida_inicio, comida_fin, cena_inicio, cena_fin (type=time, hh:mm format), and select for intervalo_minutos (options: 5, 10, 15, 20, 30, 60). Section heading: **"Horarios de servicio"**. Fields bound to `form.horarios_config.*`. Save via POST /api/config with Zod validation server-side.
+
+#### Scenario: Horarios section renders with defaults
+
+- GIVEN horarios_config has defaults (13:30-15:30, 21:00-23:30, 15min)
+- WHEN admin visits /cocina/configuracion
+- THEN "Horarios de servicio" section visible with correct time inputs
+- AND intervalo select shows "15 minutos"
+
+#### Scenario: Admin edits lunch end time
+
+- GIVEN comida_fin="15:30"
+- WHEN admin changes to "16:00" and clicks "Guardar configuración"
+- THEN POST body includes updated horarios_config
+- AND success toast: "Configuración actualizada"
+
+#### Scenario: Invalid interval rejected
+
+- GIVEN admin changes intervalo_minutos to 45
+- WHEN saves
+- THEN client-side validation error: "El intervalo debe dividir 60"
+- OR server-side 400 with Zod error
+
+### Requirement: CFG-012 — Zonas Section
+
+ConfiguracionForm MUST render a "Zonas" section with a table showing each zone: nombre (editable text input), capacidad (number input, min 1, max 999), and enabled toggle (checkbox). Button "Añadir zona" appends new row. Button "Eliminar" (trash icon) removes zone row. Section heading: **"Zonas del restaurante"**. All changes saved together via POST /api/config.
+
+#### Scenario: Zonas table renders 5 default zones
+
+- GIVEN zonas_config has 5 default zones
+- WHEN admin visits /cocina/configuracion
+- THEN table shows 5 rows with nombre, capacidad, enabled toggle
+- AND each row has edit/delete capability
+
+#### Scenario: Admin renames a zone
+
+- GIVEN zone "Privado" exists
+- WHEN admin edits nombre to "Reservado" and saves
+- THEN POST body includes updated zonas_config with new name
+- AND mesas CHECK constraint updated server-side
+
+#### Scenario: Admin adds new zone
+
+- GIVEN 5 zones exist
+- WHEN admin clicks "Añadir zona", fills nombre="VIP" and capacidad=10
+- AND saves
+- THEN zonas_config has 6 entries
+- AND VIP zone appears in total capacity sum
+
+#### Scenario: Admin deletes a zone
+
+- GIVEN zone "Bar" exists with mesas assigned
+- WHEN admin clicks delete on "Bar" row
+- THEN warning shown: "Esta zona tiene X mesas asignadas"
+- AND on confirm, zone removed from zonas_config
+- AND mesas assigned to "Bar" retain the value (stored name, not FK)
+
+### Requirement: CFG-013 — Días Bloqueados Section
+
+ConfiguracionForm MUST render a "Días bloqueados" section with inline CRUD table: columns for fecha (date input), recurrente (checkbox with "Anual" label), motivo (optional text, placeholder "Motivo opcional"), acciones (delete button). "Añadir día bloqueado" button adds new row. Rows loaded from GET /api/dias-bloqueados. Saved individually via POST, deleted via DELETE. Server returns updated list after each operation. Section heading: **"Días bloqueados"**.
+
+#### Scenario: Días bloqueados table loads
+
+- GIVEN 2 blocked days exist in DB
+- WHEN admin visits /cocina/configuracion
+- THEN "Días bloqueados" section shows 2 rows
+- AND recurrent rows show "Anual" badge
+
+#### Scenario: Add blocked day
+
+- GIVEN admin enters fecha="2026-12-25", checks "Anual", motivo="Navidad"
+- WHEN clicks save
+- THEN POST /api/dias-bloqueados succeeds
+- AND row appears in table with "Anual" badge
+
+#### Scenario: Cannot block past date
+
+- GIVEN today is 2026-07-07
+- WHEN admin enters fecha="2026-07-01"
+- THEN save rejected: "No se pueden bloquear fechas pasadas"
+
+#### Scenario: Delete blocked day
+
+- GIVEN a blocked day row exists
+- WHEN admin clicks delete icon
+- THEN DELETE /api/dias-bloqueados/[id] called
+- AND row removed from table
+
+### Requirement: CFG-014 — Elección de Zona Selector
+
+ConfiguracionForm MUST add a "Elección de zona" field to the "Elección de mesa" section: radio group bound to `cliente_elige_zona` with options: **"No permitir"** (none), **"Permitir elegir zona"** (zona), **"Permitir elegir mesa"** (zona_mesa, disabled with "Próximamente"). Changes the zone selector visibility in `/reservas`.
+
+#### Scenario: Radio group renders with current value
+
+- GIVEN cliente_elige_zona='none'
+- WHEN admin visits /cocina/configuracion
+- THEN "No permitir" radio selected
+- AND zona_mesa radio shows disabled with "Próximamente" tooltip
+
+#### Scenario: Admin enables zone selection
+
+- GIVEN cliente_elige_zona='none'
+- WHEN admin selects "Permitir elegir zona" and saves
+- THEN cliente_elige_zona='zona' persisted
+- AND /reservas shows zone dropdown
+
 ## Edge Cases
 
 - **Missing config row**: if no configuracion row exists, form shows defaults (cliente_elige_mesa=false, capacidad_total_local=0) and first save creates the row
 - **Concurrent edit**: last-write-wins (single-row table, low contention)
 - **Dual occupancy auto→manual transition**: when switching from Manual to Auto, `ocupacion_manual` is cleared (NULL) and aforo recalculates from mesas
 - **Manual value > capacidad_total_local**: validation error blocks save; admin must reduce value or increase capacidad_total_local first
+- **Zones validation**: at least one zone must be enabled; deleting all enabled zones is rejected
+- **Horarios validation**: lunch and dinner start/end validated server-side via Zod; overlapping turns are allowed (admin controls schedule)

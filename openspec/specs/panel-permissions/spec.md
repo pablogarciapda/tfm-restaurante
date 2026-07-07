@@ -10,7 +10,7 @@ Role-based access control with 2 roles (admin/editor), permissions stored as `js
 |----|------------|----------|
 | PERM-001 | Profiles table with `role` (admin|editor) and `permissions` (jsonb) | MUST |
 | PERM-002 | Auth trigger: new `auth.users` row auto-creates `profiles` row | MUST |
-| PERM-003 | Default editor permissions: `{carta,menu_diario,eventos}` = true; `{reservas,configuracion,usuarios}` = false | MUST |
+| PERM-003 | Default editor permissions: `{carta,menu_diario,eventos}` = true; `{clientes,reservas,configuracion,usuarios}` = false | MUST |
 | PERM-004 | `can_write(resource)` Postgres function for RLS policy enforcement | MUST |
 | PERM-005 | 3-tier middleware: auth.ts → role.ts → permissions.ts | MUST |
 
@@ -44,13 +44,23 @@ The system MUST create a Postgres trigger on `auth.users` INSERT that auto-creat
 
 ### Requirement: PERM-003 — Default Editor Permissions
 
-The default editor permissions jsonb MUST be: `{"carta": true, "menu_diario": true, "eventos": true, "reservas": false, "configuracion": false, "usuarios": false}`.
+The default editor permissions jsonb MUST be: `{"carta": true, "menu_diario": true, "eventos": true, "clientes": false, "reservas": false, "configuracion": false, "usuarios": false}`.
+
+(Previously: `{"carta": true, "menu_diario": true, "eventos": true, "reservas": false, "configuracion": false, "usuarios": false}` — no 'clientes' key.)
+
+#### Scenario: Default editor cannot access clientes
+
+- GIVEN a newly created editor with default permissions
+- WHEN the editor navigates to `/cocina/clientes`
+- THEN the permissions middleware redirects to `/cocina/dashboard` with permissions error
 
 #### Scenario: Default editor cannot access usuarios
 
 - GIVEN a newly created editor with default permissions
 - WHEN the editor navigates to `/cocina/usuarios`
 - THEN the permissions middleware redirects to `/cocina/dashboard` with error
+
+Migration: Existing profiles MUST be updated so `permissions` jsonb includes `"clientes": false` if key missing. RLS function `can_write('clientes')` MUST check this key.
 
 ### Requirement: PERM-004 — can_write() Function
 
