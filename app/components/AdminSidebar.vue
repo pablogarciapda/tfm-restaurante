@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { label: 'Menú Diario', to: '/cocina/menu-diario', resource: 'menu_diario' },
   { label: 'Eventos', to: '/cocina/eventos', resource: 'eventos' },
   { label: 'Reservas', to: '/cocina/reservas', resource: 'reservas' },
+  { label: 'Clientes', to: '/cocina/clientes', resource: 'clientes' },
   { label: 'Configuración', to: '/cocina/configuracion', resource: 'configuracion' },
   { label: 'Usuarios', to: '/cocina/usuarios', resource: 'usuarios' },
 ]
