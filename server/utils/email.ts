@@ -15,7 +15,6 @@ interface EmailConfig {
   user: string
   password: string
   fromEmail: string
-  fromName: string
   security: 'auto' | 'ssl' | 'starttls' | 'none'
 }
 
@@ -25,6 +24,7 @@ interface ConfirmationParams {
   fecha_hora: string
   comensales: number
   id: string
+  referencia?: string
 }
 
 /**
@@ -38,7 +38,7 @@ export async function getEmailConfig(
 ): Promise<EmailConfig | null> {
   const { data } = await supabase
     .from('configuracion')
-    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_from_name, smtp_security')
+    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_security')
     .limit(1)
     .single()
 
@@ -57,7 +57,6 @@ export async function getEmailConfig(
     user: data.smtp_user ?? '',
     password,
     fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@lazingara.es',
-    fromName: (data.smtp_from_name as string) || 'Restaurante La Zíngara',
     security: ['auto', 'ssl', 'starttls', 'none'].includes(securityRaw)
       ? (securityRaw as EmailConfig['security'])
       : 'auto',
@@ -118,7 +117,7 @@ export async function sendEmail(
   try {
     const transporter = createTransporter(config)
     await transporter.sendMail({
-      from: `"${config.fromName}" <${config.fromEmail}>`,
+      from: `"La Zíngara" <${config.fromEmail}>`,
       to,
       subject,
       html,
@@ -130,11 +129,52 @@ export async function sendEmail(
   }
 }
 
+interface RestaurantInfo {
+  nombre: string
+  direccion: string
+  telefono: string
+  maps_url: string
+}
+
+/**
+ * Read restaurant info from DB config. Falls back to hardcoded defaults.
+ */
+export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> {
+  try {
+    const { data } = await supabase
+      .from('configuracion')
+      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url')
+      .limit(1)
+      .single()
+
+    if (data) {
+      return {
+        nombre: (data.restaurant_nombre as string) || 'La Zíngara',
+        direccion: (data.restaurant_direccion as string) || '',
+        telefono: (data.restaurant_telefono as string) || '',
+        maps_url: (data.restaurant_maps_url as string) || '',
+      }
+    }
+  } catch {
+    // fall through to defaults
+  }
+
+  return {
+    nombre: 'La Zíngara',
+    direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
+    telefono: '987 350 350',
+    maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
+  }
+}
+
 /**
  * Build an HTML confirmation email for a reservation.
  * Pure function — no side effects.
  */
-export function buildConfirmationHtml(params: ConfirmationParams): string {
+export function buildConfirmationHtml(
+  params: ConfirmationParams,
+  restaurant: RestaurantInfo,
+): string {
   const nombreCompleto = params.apellidos
     ? `${params.nombre} ${params.apellidos}`
     : params.nombre
@@ -154,23 +194,62 @@ export function buildConfirmationHtml(params: ConfirmationParams): string {
   return `
 <!DOCTYPE html>
 <html>
-<body style="font-family: Georgia, serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #c25b3c;">La Zíngara — Confirmación de reserva</h2>
-  <p>Hola <strong>${nombreCompleto}</strong>,</p>
-  <p>Tu reserva ha sido <strong>confirmada</strong>:</p>
-  <table style="margin: 16px 0; border-collapse: collapse;">
-    <tr><td style="padding: 6px 12px 6px 0; color: #666;">Fecha:</td>
-        <td style="padding: 6px 0;">${fechaStr}</td></tr>
-    <tr><td style="padding: 6px 12px 6px 0; color: #666;">Hora:</td>
-        <td style="padding: 6px 0;">${horaStr}</td></tr>
-    <tr><td style="padding: 6px 12px 6px 0; color: #666;">Comensales:</td>
-        <td style="padding: 6px 0;">${params.comensales}</td></tr>
-    <tr><td style="padding: 6px 12px 6px 0; color: #666;">Referencia:</td>
-        <td style="padding: 6px 0;">${params.id}</td></tr>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f3f0; font-family: Georgia, 'Times New Roman', serif;">
+  <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; margin-top: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <tr>
+      <td style="background-color: #c25b3c; padding: 32px 24px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: normal;">${restaurant.nombre}</h1>
+        <p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">Confirmación de reserva</p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding: 32px 24px;">
+        <p style="margin: 0 0 16px; color: #333; font-size: 16px;">Hola <strong>${nombreCompleto}</strong>,</p>
+        <p style="margin: 0 0 24px; color: #555; font-size: 15px;">Tu reserva ha sido confirmada. Aquí tienes los detalles:</p>
+
+        <!-- Reservation details card -->
+        <table role="presentation" style="width: 100%; background-color: #faf8f6; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Fecha</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${fechaStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Hora</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${horaStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Comensales</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${params.comensales}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Referencia</td>
+            <td style="padding: 6px 0; color: #c25b3c; font-size: 14px; font-weight: bold;">${params.referencia ?? params.id}</td>
+          </tr>
+        </table>
+
+        <!-- Restaurant info -->
+        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 20px;">
+        <p style="margin: 0 0 4px; color: #c25b3c; font-size: 14px; font-weight: bold;">${restaurant.nombre}</p>
+        <p style="margin: 0 0 2px; color: #666; font-size: 13px;">${restaurant.direccion}</p>
+        ${restaurant.telefono ? `<p style="margin: 0 0 2px; color: #666; font-size: 13px;">☎ ${restaurant.telefono}</p>` : ''}
+        ${restaurant.maps_url ? `<p style="margin: 8px 0 0;"><a href="${restaurant.maps_url}" style="color: #c25b3c; font-size: 13px; text-decoration: underline;">Ver en Google Maps</a></p>` : ''}
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #f5f3f0; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; color: #aaa; font-size: 11px;">Este email es automático, no respondas a este mensaje.</p>
+      </td>
+    </tr>
   </table>
-  <p style="color: #888; font-size: 14px;">
-    La Zíngara — Plaza Mayor, Santa María del Páramo (León)
-  </p>
 </body>
 </html>`.trim()
 }
@@ -196,13 +275,18 @@ export async function sendConfirmationEmail(
       return
     }
 
-    const html = buildConfirmationHtml({
-      nombre: params.nombre,
-      apellidos: params.apellidos,
-      fecha_hora: params.fecha_hora,
-      comensales: params.comensales,
-      id: params.id,
-    })
+    const restaurantInfo = await getRestaurantInfo(supabase)
+
+    const html = buildConfirmationHtml(
+      {
+        nombre: params.nombre,
+        apellidos: params.apellidos,
+        fecha_hora: params.fecha_hora,
+        comensales: params.comensales,
+        id: params.id,
+      },
+      restaurantInfo,
+    )
 
     const result = await sendEmail(
       config,

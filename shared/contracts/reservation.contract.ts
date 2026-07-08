@@ -65,9 +65,11 @@ export interface PublicConfig {
   horarios: HorarioConfig
   zonas: ZonaConfig[] // only enabled zones
   texto_proteccion_datos: string | null
-  modo_reserva: 'automatica' | 'verificada'
+  modo_reserva: 'automatica' | 'verificada' // confirmation mode
+  sms_verificacion: boolean // whether SMS verification is required
   cliente_elige_zona: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
+  notificacion_reserva: 'email' | 'sms' | 'ambos'
 }
 
 // ──────────────────────────── Admin ───────────────────────────────
@@ -93,6 +95,7 @@ export interface ReservationRequest {
   zona_id?: string // optional zone id from selector
   sms_verified?: boolean
   captcha_token?: string // Cloudflare Turnstile token (required when captcha_habilitado=true)
+  gdpr_aceptado?: boolean // marks GDPR acceptance for this phone
 }
 
 /** Response from POST /api/reservas */
@@ -136,7 +139,6 @@ export interface ConfigData {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
-  smtp_from_name?: string | null
   smtp_security?: string | null
   texto_proteccion_datos?: string | null
   modo_reserva: 'automatica' | 'verificada'
@@ -146,6 +148,12 @@ export interface ConfigData {
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
+  sms_verificacion: boolean
+  notificacion_reserva?: 'email' | 'sms' | 'ambos'
+  restaurant_nombre: string
+  restaurant_direccion: string
+  restaurant_telefono: string
+  restaurant_maps_url: string
 }
 
 /** Cliente data from the API */
@@ -191,7 +199,6 @@ export interface ConfigUpdatePayload {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
-  smtp_from_name?: string | null
   smtp_security?: string | null
   smtp_password?: string // write-only; empty or "••••••••" = preserve existing
   texto_proteccion_datos?: string | null
@@ -201,4 +208,10 @@ export interface ConfigUpdatePayload {
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado?: boolean
+  sms_verificacion?: boolean
+  notificacion_reserva?: 'email' | 'sms' | 'ambos'
+  restaurant_nombre?: string
+  restaurant_direccion?: string
+  restaurant_telefono?: string
+  restaurant_maps_url?: string
 }

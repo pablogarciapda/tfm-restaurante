@@ -38,7 +38,7 @@ function formatTime(h: number, m: number): string {
  * Generate slots for a single turn (lunch or dinner).
  *
  * @param inicio - Start time "HH:MM" (inclusive)
- * @param fin - End time "HH:MM" (exclusive)
+ * @param fin - End time "HH:MM" (inclusive if aligned with interval)
  * @param intervalo - Minutes between slots
  * @returns Ordered array of SlotOption within [inicio, fin)
  */
@@ -47,7 +47,7 @@ export function generateTurnSlots(inicio: string, fin: string, intervalo: number
   const finMinutes = toMinutes(fin)
   let current = toMinutes(inicio)
 
-  while (current < finMinutes) {
+  while (current <= finMinutes) {
     const h = Math.floor(current / 60)
     const m = current % 60
     const hora = formatTime(h, m)

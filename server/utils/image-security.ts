@@ -1,8 +1,8 @@
 // Shared image security utilities for server-side Nitro endpoints.
 // Used by /api/fetch-image (external URL proxy) and /api/images (Supabase storage proxy).
 
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'bmp']
-const ALLOWED_BUCKETS = ['plato-images', 'evento-images']
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'bmp', 'ico']
+const ALLOWED_BUCKETS = ['plato-images', 'evento-images', 'config-images']
 
 // Magic bytes signatures for image formats we allow
 const IMAGE_MAGIC_BYTES: Array<{ label: string; bytes: number[]; offset: number }> = [
@@ -11,6 +11,7 @@ const IMAGE_MAGIC_BYTES: Array<{ label: string; bytes: number[]; offset: number 
   { label: 'GIF', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 }, // GIF87a or GIF89a
   { label: 'BMP', bytes: [0x42, 0x4D], offset: 0 },
   { label: 'WebP', bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 }, // RIFF....WEBP → 'WEBP' at offset 8
+  { label: 'ICO', bytes: [0x00, 0x00, 0x01, 0x00], offset: 0 }, // ICO: reserved(0) + type(1=icon) + count
 ]
 
 /**

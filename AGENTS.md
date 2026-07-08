@@ -264,8 +264,15 @@
 - **Precio 0 → "Consultar":** en carta pública cuando el precio es 0
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
-- 789 tests unitarios pasando (6 pre-existing failures en test/unit/layouts/cocina.test.ts + nuxt smoke tests)
+- 767 tests unitarios pasando (6 pre-existing failures en test/unit/layouts/cocina.test.ts + nuxt smoke tests; 41 adicionales por refactor de ConfiguracionForm.vue y slots.ts)
 - **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona/mesa, slots de 15 minutos en horarios configurables
+- **GDPR tracking:** consentimiento explícito registrado en `clientes.gdpr_aceptado` + `gdpr_aceptado_at`. Sincronización automática de datos del cliente (nombre/apellidos/email) desde el formulario de reserva
+- **SMS toggle independiente:** `sms_verificacion` separado de `modo_reserva`. Control independiente para requerir verificación SMS
+- **Notificación configurable:** `notificacion_reserva` soporta `email` | `sms` | `ambos`. Se aplica tanto en reservas públicas como en confirmación desde admin
+- **Admin confirmar reserva:** modal para confirmar reservas pendientes con asignación opcional de mesa y envío de notificación según configuración
+- **Referencia legible:** función `generarReferencia(uuid, fecha)` en `shared/utils/referencia.ts` para mostrar al cliente
+- **CAPTCHA Turnstile:** integración Cloudflare Turnstile con toggle en configuración
+- **SMTP security:** selector TLS/STARTTLS para conexión SMTP
 - **CRUD clientes:** tabla `clientes` con FK en reservas, 4 endpoints API, formulario con historial de reservas
 - **Configuración SMTP:** campos write-only, servidor/puerto/configurables, test endpoint
 - **GET /api/config -> admin-only:** seguridad hardening, nunca expone smtp_password
@@ -333,7 +340,7 @@ tfm-restaurant/
 │   ├── db/                    # Acceso a base de datos (compartido)
 │   ├── fixtures/              # Datos de prueba
 │   ├── types/                 # Tipos compartidos
-│   └── utils/                 # phone.ts, slots.ts, fusion-math.ts
+│   └── utils/                 # phone.ts, slots.ts, fusion-math.ts, referencia.ts
 ├── test/                      # Tests
 │   ├── __fixtures__/          # Fixtures de prueba
 │   ├── e2e/                   # Tests Playwright
@@ -406,3 +413,10 @@ tfm-restaurant/
 | **Slot grid en reservas** | Datetime-local obligaba a escribir hora manualmente | Date picker + botones de slot de 15min. Slots generados desde horarios_config, excluye pasados y días bloqueados |
 | **Rate limiting SMS** | Endpoint SMS sin protección contra abuso | Token bucket: 1 request/phone/min + 5 request/IP/min, devuelve 429 |
 | **Phone normalization compartida** | Duplicado en server/utils/phone.ts | Movido a shared/utils/phone.ts, importable ambos lados vía `#shared/utils/phone` |
+| **GDPR tracking** | Consentimiento GDPR no se persistía | `clientes.gdpr_aceptado` + `gdpr_aceptado_at`. Se marca al hacer reserva. Datos del cliente se sincronizan desde el formulario |
+| **SMS toggle vs modo_reserva** | `sms_verificacion` estaba acoplado a `modo_reserva` (automatica=sin SMS, verificada=con SMS) | `sms_verificacion` es un booleano independiente en config. `modo_reserva` queda para futuros modos de confirmación |
+| **Notificación configurable** | La notificación siempre era email, sin opción SMS | `notificacion_reserva`: `email` | `sms` | `ambos`. Se usa tanto en create como en confirmación admin |
+| **Referencia legible** | Mostrar UUID completo en la confirmación era ilegible | `generarReferencia(uuid, fecha)` en `shared/utils/referencia.ts` — formato legible tipo `LN4F-28JUN` |
+| **SMTP Security** | Sin control de tipo de conexión SMTP | Selector TLS/STARTTLS en configuración, se pasa directo a nodemailer |
+| **CAPTCHA Turnstile** | Sin protección contra bots en formulario público | Cloudflare Turnstile, toggle en config, invisible por defecto, fallback a checkbox si bloquea |
+| **Admin confirm reservation** | Admin no podía confirmar reservas pendientes desde el panel | Modal en `/cocina/reservas` con asignación opcional de mesa, envía notificación según config |

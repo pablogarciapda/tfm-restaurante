@@ -28,7 +28,6 @@ const defaultConfig: ConfigData = {
   smtp_port: null,
   smtp_user: '',
   smtp_from_email: '',
-  smtp_from_name: 'Restaurante La Zíngara',
   smtp_security: 'auto',
   texto_proteccion_datos: '',
   modo_reserva: 'automatica',
@@ -42,6 +41,12 @@ const defaultConfig: ConfigData = {
   ],
   cliente_elige_zona: 'none',
   captcha_habilitado: false,
+  sms_verificacion: false,
+  notificacion_reserva: 'email',
+  restaurant_nombre: 'La Zíngara',
+  restaurant_direccion: 'Plaza Mayor, 1, 24250 Santa María del Páramo, León',
+  restaurant_telefono: '987 123 456',
+  restaurant_maps_url: 'https://maps.google.com/?q=La+Zíngara+Santa+María+del+Páramo',
 }
 
 const config = ref<ConfigData>({ ...defaultConfig })
