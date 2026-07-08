@@ -175,6 +175,7 @@ function handleGdprAccept() {
 function handleGdprReject() {
   // Back to form, data preserved
   step.value = 'form'
+  error.value = ''
 }
 
 async function handleVerified() {
@@ -221,12 +222,12 @@ async function handleResend() {
       </div>
 
       <!-- API error -->
-      <div v-if="error" class="mb-6 rounded-lg bg-red-50 p-4 text-center text-red-800">
+      <div v-if="typeof error === 'string' && error.length > 0" class="mb-6 rounded-lg bg-red-50 p-4 text-center text-red-800">
         {{ error }}
       </div>
 
-      <!-- Step 1: Form -->
-      <div v-if="step === 'form'">
+      <!-- Step 1: Form (v-show para preservar estado interno al ir/volver de GDPR) -->
+      <div v-show="step === 'form'">
         <p class="mb-6 text-center text-sm text-slate">
           <template v-if="modoReserva === 'verificada'">Rellena tus datos. Te enviaremos un código SMS de verificación.</template>
           <template v-else>Rellena tus datos para completar la reserva.</template>
@@ -245,6 +246,7 @@ async function handleResend() {
       <GdprConsentModal
         :show="step === 'gdpr'"
         :text="gdprText || ''"
+        :sending="sending"
         @accept="handleGdprAccept"
         @reject="handleGdprReject"
       />
