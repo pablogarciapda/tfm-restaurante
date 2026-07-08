@@ -74,15 +74,7 @@ export async function handleCreateReservation(
 
   const b = body as unknown as ReservationBody
 
-  // 2. SMS gate
-  if (!b.sms_verified) {
-    return {
-      status: 403,
-      body: { error: 'Verificación SMS requerida' },
-    }
-  }
-
-  // 3. Normalize phone
+  // 3. Normalize phone (needed early for customer lookup)
   const normalizedPhone = normalizePhone(b.telefono)
   if (!normalizedPhone) {
     return {
@@ -101,7 +93,15 @@ export async function handleCreateReservation(
   const horariosConfig = config?.horarios_config as HorarioConfig | null
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
 
-  // 4a. Validate Turnstile token if captcha is enabled
+  // 4a. SMS gate — only required in 'verificada' mode
+  if (modo === 'verificada' && !b.sms_verified) {
+    return {
+      status: 403,
+      body: { error: 'Verificación SMS requerida' },
+    }
+  }
+
+  // 4b. Validate Turnstile token if captcha is enabled
   if (captchaHabilitado) {
     const cfToken = runtimeConfig?.turnstile?.secretKey || process.env.NUXT_TURNSTILE_SECRET_KEY
     if (!b.captcha_token) {
@@ -132,7 +132,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4b. Validate blocked days
+  // 4c. Validate blocked days
   const fechaDate = b.fecha_hora.split('T')[0]
   if (fechaDate) {
     // Check exact date match
@@ -168,7 +168,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4c. Validate time slot
+  // 4d. Validate time slot
   if (horariosConfig) {
     const hora = b.fecha_hora.slice(11, 16) // Extract "HH:MM" from ISO string
     if (hora && !isSlotInRange(hora, horariosConfig)) {
@@ -179,7 +179,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4d. Validate zone if provided
+  // 4e. Validate zone if provided
   if (b.zona_id) {
     const zonas: ZonaConfig[] = (config?.zonas_config as ZonaConfig[]) || []
     const zona = zonas.find(

@@ -35,6 +35,7 @@ const horariosConfig = ref<HorarioConfig | null>(null)
 const zonas = ref<ZonaConfig[]>([])
 const clienteEligeZona = ref<'none' | 'zona' | 'zona_mesa'>('none')
 const captchaHabilitado = ref(false)
+const modoReserva = ref<'automatica' | 'verificada'>('automatica')
 const blockedDates = ref<string[]>([])
 
 onMounted(async () => {
@@ -46,6 +47,7 @@ onMounted(async () => {
     zonas.value = data?.zonas || []
     clienteEligeZona.value = data?.cliente_elige_zona || 'none'
     captchaHabilitado.value = data?.captcha_habilitado ?? false
+    modoReserva.value = data?.modo_reserva || 'automatica'
     gdprText.value = data?.texto_proteccion_datos || null
   } catch {
     // If config API fails, use defaults
@@ -92,47 +94,10 @@ onMounted(async () => {
   }
 })
 
-async function handleFormSubmit(data: ReservationPayload) {
+async function submitReservation(smsVerified: boolean) {
+  if (!formData.value) return
   sending.value = true
   error.value = ''
-
-  // Normalize phone to E.164 for SMS API and final reservation
-  const normalizedPhone = normalizePhone(data.telefono) ?? data.telefono
-  const payload = { ...data, telefono: normalizedPhone }
-
-  try {
-    await $fetch('/api/sms/send', {
-      method: 'POST',
-      body: { phone: normalizedPhone },
-    })
-
-    formData.value = payload
-
-    // If GDPR text is configured, show the consent modal
-    if (gdprText.value) {
-      step.value = 'gdpr'
-    } else {
-      step.value = 'sms'
-    }
-  } catch {
-    error.value = 'Error al enviar el código. Inténtalo de nuevo.'
-  } finally {
-    sending.value = false
-  }
-}
-
-function handleGdprAccept() {
-  if (!formData.value) return
-  step.value = 'sms'
-}
-
-function handleGdprReject() {
-  // Back to form, data preserved
-  step.value = 'form'
-}
-
-async function handleVerified() {
-  if (!formData.value) return
 
   try {
     const result = await $fetch<{ success: boolean; reserva_id: string; estado: string }>('/api/reservas', {
@@ -145,7 +110,7 @@ async function handleVerified() {
         fecha_hora: formData.value.fecha_hora,
         numero_comensales: formData.value.numero_comensales,
         zona_id: formData.value.zona_id,
-        sms_verified: true,
+        sms_verified: smsVerified,
         captcha_token: formData.value.captcha_token,
       },
     })
@@ -153,9 +118,67 @@ async function handleVerified() {
     reservaId.value = result.reserva_id
     reservaEstado.value = result.estado
     step.value = 'confirmation'
-  } catch {
-    error.value = 'Error al confirmar la reserva. Inténtalo de nuevo.'
+  } catch (err: any) {
+    error.value = err?.data?.error || err?.message || 'Error al confirmar la reserva. Inténtalo de nuevo.'
+  } finally {
+    sending.value = false
   }
+}
+
+async function handleFormSubmit(data: ReservationPayload) {
+  sending.value = true
+  error.value = ''
+
+  // Normalize phone to E.164
+  const normalizedPhone = normalizePhone(data.telefono) ?? data.telefono
+  const payload = { ...data, telefono: normalizedPhone }
+  formData.value = payload
+
+  if (modoReserva.value === 'automatica') {
+    // Skip SMS — go straight to GDPR (if configured) or direct submit
+    sending.value = false
+    if (gdprText.value) {
+      step.value = 'gdpr'
+    } else {
+      await submitReservation(false)
+    }
+  } else {
+    // verificada — send SMS code first
+    try {
+      await $fetch('/api/sms/send', {
+        method: 'POST',
+        body: { phone: normalizedPhone },
+      })
+
+      if (gdprText.value) {
+        step.value = 'gdpr'
+      } else {
+        step.value = 'sms'
+      }
+    } catch {
+      error.value = 'Error al enviar el código. Inténtalo de nuevo.'
+    } finally {
+      sending.value = false
+    }
+  }
+}
+
+function handleGdprAccept() {
+  if (!formData.value) return
+  if (modoReserva.value === 'automatica') {
+    submitReservation(false)
+  } else {
+    step.value = 'sms'
+  }
+}
+
+function handleGdprReject() {
+  // Back to form, data preserved
+  step.value = 'form'
+}
+
+async function handleVerified() {
+  await submitReservation(true)
 }
 
 function handleBack() {

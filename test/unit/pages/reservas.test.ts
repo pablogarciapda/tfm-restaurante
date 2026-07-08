@@ -63,7 +63,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   it('transitions to SMS step on form submit (no GDPR text)', async () => {
     // public-config + dias-bloqueados + sms send
     mockFetch
-      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null, modo_reserva: 'verificada' })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })
 
@@ -96,7 +96,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
 
   it('can go back from SMS step to form', async () => {
     mockFetch
-      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null, modo_reserva: 'verificada' })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })
 
@@ -155,7 +155,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   it('shows confirmation after SMS verified', async () => {
     // public-config + dias-bloqueados + sms send + reservas POST
     mockFetch
-      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null, modo_reserva: 'verificada' })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true, reserva_id: 'mock-123', estado: 'confirmada' })
