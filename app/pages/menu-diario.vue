@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+/** Normalize any text to sentence case: first letter uppercase, rest lowercase */
+function sentenceCase(text: string): string {
+  if (!text) return text
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
+}
+
 /**
  * Menu Diario page — 5-section daily menu from Supabase (MD-001, MD-004, MD-005)
  *
@@ -62,7 +68,7 @@ const sectionKeys = computed(() =>
 )
 
 function getSectionTitle(section: string): string {
-  return seccionesConfig.value[section]?.titulo ?? section
+  return sentenceCase(seccionesConfig.value[section]?.titulo ?? section)
 }
 
 // Spanish date formatting
@@ -125,7 +131,7 @@ const formattedDate = computed(() => {
               >
                 <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-terracotta" />
                 <div>
-                  <span class="font-medium text-slate">{{ dish.plato_nombre }}</span>
+                  <span class="font-medium text-slate">{{ sentenceCase(dish.plato_nombre) }}</span>
                   <p
                     v-if="dish.descripcion"
                     class="mt-0.5 text-sm text-gray-500"
