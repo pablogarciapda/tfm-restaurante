@@ -52,6 +52,7 @@ interface ConfigFormData {
   smtp_port: number | null
   smtp_user: string
   smtp_from_email: string
+  smtp_from_name: string
   smtp_security: string
   smtp_password: string
   texto_proteccion_datos: string
@@ -94,6 +95,7 @@ const form = reactive<ConfigFormData>({
   smtp_port: props.currentConfig.smtp_port ?? null,
   smtp_user: props.currentConfig.smtp_user ?? '',
   smtp_from_email: props.currentConfig.smtp_from_email ?? '',
+  smtp_from_name: props.currentConfig.smtp_from_name ?? 'Restaurante La Zíngara',
   smtp_security: props.currentConfig.smtp_security ?? 'auto',
   smtp_password: '',
   texto_proteccion_datos: props.currentConfig.texto_proteccion_datos ?? '',
@@ -255,6 +257,7 @@ watch(
     if (cfg.smtp_port !== undefined) form.smtp_port = cfg.smtp_port ?? null
     if (cfg.smtp_user !== undefined) form.smtp_user = cfg.smtp_user ?? ''
     if (cfg.smtp_from_email !== undefined) form.smtp_from_email = cfg.smtp_from_email ?? ''
+    if (cfg.smtp_from_name !== undefined) form.smtp_from_name = cfg.smtp_from_name ?? 'Restaurante La Zíngara'
     if (cfg.smtp_security !== undefined) form.smtp_security = cfg.smtp_security as string
     if (cfg.texto_proteccion_datos !== undefined) form.texto_proteccion_datos = cfg.texto_proteccion_datos ?? ''
     if (cfg.modo_reserva !== undefined) form.modo_reserva = cfg.modo_reserva as ReservaModo
@@ -286,6 +289,7 @@ function handleSubmit() {
 function handleSmtpTest() {
   if (testEmail.value) {
     emit('smtpTest', testEmail.value)
+    testEmail.value = ''
   }
 }
 
@@ -490,7 +494,12 @@ const checkboxClass = 'h-4 w-4 rounded'
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-from">Email remitente</label>
-          <input id="cfg-smtp-from" v-model="form.smtp_from_email" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="reservas@lazingara.es" />
+          <input id="cfg-smtp-from" v-model="form.smtp_from_email" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="cuenta@dominio.com" />
+          <p class="mt-1 text-xs text-gray-400">Debe coincidir con la cuenta SMTP o el servidor lo rechazará.</p>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-name">Nombre remitente</label>
+          <input id="cfg-smtp-name" v-model="form.smtp_from_name" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Restaurante La Zíngara" />
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-security">Tipo de conexión</label>
