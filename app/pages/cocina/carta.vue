@@ -29,12 +29,29 @@ interface Plato {
   familia_id?: string | null
 }
 
+interface FamiliaRow {
+  id: string
+  nombre: string
+  categoria_id: string
+  puesto: number
+}
+
 const platos = ref<Plato[]>([])
 const categoriasData = ref<{ id: string; nombre: string; puesto: number }[]>([])
+const familiasData = ref<FamiliaRow[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const editingPlato = ref<Plato | null>(null)
 const savingOrder = ref(false)
+
+// Map familia_id → nombre for subcategory display
+const familiasMap = computed(() => {
+  const map: Record<string, string> = {}
+  for (const f of familiasData.value) {
+    map[f.id] = f.nombre
+  }
+  return map
+})
 
 // ── Filters ──
 const searchTerm = ref('')
@@ -80,6 +97,16 @@ async function loadCategories() {
     .order('puesto')
   if (data) {
     categoriasData.value = data
+  }
+}
+
+async function loadFamilias() {
+  const { data } = await supabase
+    .from('familias')
+    .select('*')
+    .order('puesto')
+  if (data) {
+    familiasData.value = data as FamiliaRow[]
   }
 }
 
@@ -165,6 +192,7 @@ async function handleReorder(platoIds: string[]) {
 onMounted(() => {
   loadPlatos()
   loadCategories()
+  loadFamilias()
 })
 
 watch(showForm, (isOpen) => {
@@ -240,6 +268,7 @@ watch(showForm, (isOpen) => {
       </div>
       <PlatosTable
         :platos="filteredPlatos"
+        :familias-map="familiasMap"
         :draggable="isDraggable"
         @edit="handleEdit"
         @delete="handleDelete"

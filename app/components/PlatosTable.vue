@@ -16,10 +16,12 @@ interface Plato {
   tipo_menu?: string
   puesto?: number
   recomendado?: boolean
+  familia_id?: string | null
 }
 
 const props = defineProps<{
   platos: Plato[]
+  familiasMap?: Record<string, string>
   draggable?: boolean
 }>()
 
@@ -219,7 +221,14 @@ function resetDrag() {
           <td v-if="draggable" class="w-10 px-2 py-3 text-center text-gray-400 select-none">
             ⠿
           </td>
-          <td class="px-4 py-3 font-medium text-slate">{{ plato.nombre }}</td>
+          <td class="px-4 py-3 font-medium text-slate">
+            {{ plato.nombre }}
+            <span v-if="plato.familia_id && familiasMap?.[plato.familia_id]"
+              class="ml-2 text-xs font-normal text-gray-400"
+            >
+              {{ familiasMap[plato.familia_id] }}
+            </span>
+          </td>
           <td class="px-4 py-3 text-gray-600">{{ plato.categoria }}</td>
           <td class="px-4 py-3 font-medium text-terracotta">{{ formatPrecio(plato.precio) }}</td>
           <td class="px-4 py-3">
