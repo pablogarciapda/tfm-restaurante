@@ -75,16 +75,23 @@ export function useMenuDiario() {
 
       if (itemsError) throw itemsError
 
-      // 6) Check if today is a holiday
-      const { data: holidayData, error: holidayError } = await client
-        .from('eventos')
+      // 6) Check if today is a holiday (via categorias_eventos FK)
+      let isHoliday = false
+      const { data: festivoCat } = await client
+        .from('categorias_eventos')
         .select('id')
-        .eq('categoria', 'festivo')
-        .eq('fecha', todayStr)
-        .eq('activo', true)
+        .ilike('nombre', 'festivo')
         .maybeSingle()
-
-      if (holidayError) throw holidayError
+      if (festivoCat?.id) {
+        const { data: holidayData } = await client
+          .from('eventos')
+          .select('id')
+          .eq('categoria_id', festivoCat.id)
+          .eq('fecha', todayStr)
+          .eq('activo', true)
+          .maybeSingle()
+        isHoliday = holidayData !== null
+      }
 
       // Group items by seccion
       interface MenuItem {
@@ -118,7 +125,7 @@ export function useMenuDiario() {
         items: grouped,
         precio: menuPrice != null ? String(menuPrice) : null,
         matchType,
-        isHoliday: holidayData !== null,
+        isHoliday,
       }
     },
   )
