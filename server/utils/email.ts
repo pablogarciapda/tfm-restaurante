@@ -284,16 +284,13 @@ export async function sendConfirmationEmail(
         fecha_hora: params.fecha_hora,
         comensales: params.comensales,
         id: params.id,
+        referencia: params.referencia,
       },
       restaurantInfo,
     )
 
-    const result = await sendEmail(
-      config,
-      params.email,
-      'Confirmación de reserva — La Zíngara',
-      html,
-    )
+    const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`
+    const result = await sendEmail(config, params.email, asunto, html)
 
     if (!result.success) {
       console.warn('[email] Failed to send confirmation:', result.message)
