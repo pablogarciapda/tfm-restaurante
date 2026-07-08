@@ -9,6 +9,9 @@
  *
  * "Elegir mesa" button: shown when cliente_elige_zona === 'zona_mesa',
  * disabled with "Próximamente" tooltip otherwise — Phase 3 Konva work.
+ *
+ * GDPR tracking: returning customers who already accepted GDPR skip the
+ * consent step. Acceptance is stored per-phone in clientes.gdpr_aceptado.
  */
 import { ref, onMounted } from 'vue'
 import { normalizePhone } from '#shared/utils/phone'
@@ -35,6 +38,7 @@ const horariosConfig = ref<HorarioConfig | null>(null)
 const zonas = ref<ZonaConfig[]>([])
 const clienteEligeZona = ref<'none' | 'zona' | 'zona_mesa'>('none')
 const captchaHabilitado = ref(false)
+const modoReserva = ref<'automatica' | 'verificada'>('automatica')
 const blockedDates = ref<string[]>([])
 
 onMounted(async () => {
@@ -46,6 +50,7 @@ onMounted(async () => {
     zonas.value = data?.zonas || []
     clienteEligeZona.value = data?.cliente_elige_zona || 'none'
     captchaHabilitado.value = data?.captcha_habilitado ?? false
+    modoReserva.value = data?.modo_reserva || 'automatica'
     gdprText.value = data?.texto_proteccion_datos || null
   } catch {
     // If config API fails, use defaults
@@ -92,47 +97,11 @@ onMounted(async () => {
   }
 })
 
-async function handleFormSubmit(data: ReservationPayload) {
+/** Submit final reservation to the API */
+async function submitReservation(smsVerified: boolean, gdprAceptado = false) {
+  if (!formData.value) return
   sending.value = true
   error.value = ''
-
-  // Normalize phone to E.164 for SMS API and final reservation
-  const normalizedPhone = normalizePhone(data.telefono) ?? data.telefono
-  const payload = { ...data, telefono: normalizedPhone }
-
-  try {
-    await $fetch('/api/sms/send', {
-      method: 'POST',
-      body: { phone: normalizedPhone },
-    })
-
-    formData.value = payload
-
-    // If GDPR text is configured, show the consent modal
-    if (gdprText.value) {
-      step.value = 'gdpr'
-    } else {
-      step.value = 'sms'
-    }
-  } catch {
-    error.value = 'Error al enviar el código. Inténtalo de nuevo.'
-  } finally {
-    sending.value = false
-  }
-}
-
-function handleGdprAccept() {
-  if (!formData.value) return
-  step.value = 'sms'
-}
-
-function handleGdprReject() {
-  // Back to form, data preserved
-  step.value = 'form'
-}
-
-async function handleVerified() {
-  if (!formData.value) return
 
   try {
     const result = await $fetch<{ success: boolean; reserva_id: string; estado: string }>('/api/reservas', {
@@ -145,17 +114,91 @@ async function handleVerified() {
         fecha_hora: formData.value.fecha_hora,
         numero_comensales: formData.value.numero_comensales,
         zona_id: formData.value.zona_id,
-        sms_verified: true,
+        sms_verified: smsVerified,
         captcha_token: formData.value.captcha_token,
+        gdpr_aceptado: gdprAceptado,
       },
     })
 
     reservaId.value = result.reserva_id
     reservaEstado.value = result.estado
     step.value = 'confirmation'
-  } catch {
-    error.value = 'Error al confirmar la reserva. Inténtalo de nuevo.'
+  } catch (err: any) {
+    error.value = err?.data?.error || err?.message || 'Error al confirmar la reserva. Inténtalo de nuevo.'
+  } finally {
+    sending.value = false
   }
+}
+
+/** Check if a phone has already accepted GDPR */
+async function checkGdprStatus(phone: string): Promise<boolean> {
+  try {
+    const res = await $fetch<{ gdpr_aceptado: boolean }>('/api/clientes/gdpr-status', {
+      params: { phone },
+    })
+    return res.gdpr_aceptado
+  } catch {
+    return false
+  }
+}
+
+async function handleFormSubmit(data: ReservationPayload) {
+  sending.value = true
+  error.value = ''
+
+  // Normalize phone to E.164
+  const normalizedPhone = normalizePhone(data.telefono) ?? data.telefono
+  const payload = { ...data, telefono: normalizedPhone }
+  formData.value = payload
+
+  // Check if user already accepted GDPR (only when GDPR text is configured)
+  const yaAcepto = gdprText.value ? await checkGdprStatus(normalizedPhone) : false
+
+  if (modoReserva.value === 'automatica') {
+    if (gdprText.value && !yaAcepto) {
+      // Show GDPR — submitReservation fires from handleGdprAccept
+      sending.value = false
+      step.value = 'gdpr'
+    } else {
+      // Submit directly (already accepted or no GDPR text)
+      await submitReservation(false, !yaAcepto && !!gdprText.value)
+    }
+  } else {
+    // verificada: send SMS code first
+    try {
+      await $fetch('/api/sms/send', {
+        method: 'POST',
+        body: { phone: normalizedPhone },
+      })
+
+      if (gdprText.value && !yaAcepto) {
+        step.value = 'gdpr'
+      } else {
+        step.value = 'sms'
+      }
+    } catch {
+      error.value = 'Error al enviar el código. Inténtalo de nuevo.'
+    } finally {
+      sending.value = false
+    }
+  }
+}
+
+async function handleGdprAccept() {
+  if (!formData.value) return
+  if (modoReserva.value === 'automatica') {
+    await submitReservation(false, true)
+  } else {
+    step.value = 'sms'
+  }
+}
+
+function handleGdprReject() {
+  step.value = 'form'
+}
+
+async function handleVerified() {
+  await submitReservation(true)
 }
 
 function handleBack() {
@@ -221,6 +264,7 @@ async function handleResend() {
       <GdprConsentModal
         :show="step === 'gdpr'"
         :text="gdprText || ''"
+        :sending="sending"
         @accept="handleGdprAccept"
         @reject="handleGdprReject"
       />

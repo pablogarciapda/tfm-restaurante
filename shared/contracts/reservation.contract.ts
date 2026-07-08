@@ -93,6 +93,7 @@ export interface ReservationRequest {
   zona_id?: string // optional zone id from selector
   sms_verified?: boolean
   captcha_token?: string // Cloudflare Turnstile token (required when captcha_habilitado=true)
+  gdpr_aceptado?: boolean // marks GDPR acceptance for this phone
 }
 
 /** Response from POST /api/reservas */

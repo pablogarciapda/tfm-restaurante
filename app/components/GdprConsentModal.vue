@@ -11,6 +11,7 @@ import { ref } from 'vue'
 const props = defineProps<{
   show: boolean
   text: string
+  sending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -56,11 +57,11 @@ function handleScroll(event: Event) {
         <button
           data-testid="gdpr-accept"
           type="button"
-          :disabled="!scrolledToBottom"
+          :disabled="!scrolledToBottom || sending"
           class="flex-1 rounded-lg bg-terracotta px-4 py-2 font-medium text-white transition-colors hover:bg-terracotta/90 disabled:cursor-not-allowed disabled:opacity-50"
           @click="emit('accept')"
         >
-          Aceptar
+          {{ sending ? 'Enviando…' : 'Aceptar' }}
         </button>
         <button
           data-testid="gdpr-reject"

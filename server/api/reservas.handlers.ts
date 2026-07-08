@@ -27,6 +27,7 @@ interface ReservationBody {
   zona_id?: string
   sms_verified?: boolean
   captcha_token?: string
+  gdpr_aceptado?: boolean
 }
 
 function validateBody(body: ReservationBody): string[] {
@@ -74,14 +75,6 @@ export async function handleCreateReservation(
 
   const b = body as unknown as ReservationBody
 
-  // 2. SMS gate
-  if (!b.sms_verified) {
-    return {
-      status: 403,
-      body: { error: 'Verificación SMS requerida' },
-    }
-  }
-
   // 3. Normalize phone
   const normalizedPhone = normalizePhone(b.telefono)
   if (!normalizedPhone) {
@@ -101,7 +94,15 @@ export async function handleCreateReservation(
   const horariosConfig = config?.horarios_config as HorarioConfig | null
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
 
-  // 4a. Validate Turnstile token if captcha is enabled
+  // 4a. SMS gate — only required in 'verificada' mode
+  if (modo === 'verificada' && !b.sms_verified) {
+    return {
+      status: 403,
+      body: { error: 'Verificación SMS requerida' },
+    }
+  }
+
+  // 4c. Validate Turnstile token if captcha is enabled
   if (captchaHabilitado) {
     const cfToken = runtimeConfig?.turnstile?.secretKey || process.env.NUXT_TURNSTILE_SECRET_KEY
     if (!b.captcha_token) {
@@ -132,7 +133,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4b. Validate blocked days
+  // 4d. Validate blocked days
   const fechaDate = b.fecha_hora.split('T')[0]
   if (fechaDate) {
     // Check exact date match
@@ -168,7 +169,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4c. Validate time slot
+  // 4e. Validate time slot
   if (horariosConfig) {
     const hora = b.fecha_hora.slice(11, 16) // Extract "HH:MM" from ISO string
     if (hora && !isSlotInRange(hora, horariosConfig)) {
@@ -179,7 +180,7 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4d. Validate zone if provided
+  // 4f. Validate zone if provided
   if (b.zona_id) {
     const zonas: ZonaConfig[] = (config?.zonas_config as ZonaConfig[]) || []
     const zona = zonas.find(
@@ -196,22 +197,34 @@ export async function handleCreateReservation(
   // 5. Upsert cliente by phone
   const { data: existing } = await supabase
     .from('clientes')
-    .select('id')
+    .select('id, gdpr_aceptado')
     .eq('telefono', normalizedPhone)
     .maybeSingle()
 
   let clienteId: string
   if (existing?.id) {
     clienteId = existing.id
+    // Update gdpr_aceptado if the user accepted via this reservation
+    if (b.gdpr_aceptado && !existing.gdpr_aceptado) {
+      await supabase
+        .from('clientes')
+        .update({ gdpr_aceptado: true, gdpr_aceptado_at: new Date().toISOString() })
+        .eq('id', clienteId)
+    }
   } else {
+    const insertData: Record<string, any> = {
+      nombre: b.nombre.trim(),
+      apellidos: b.apellidos?.trim() || null,
+      telefono: normalizedPhone,
+      email: b.email.trim(),
+    }
+    if (b.gdpr_aceptado) {
+      insertData.gdpr_aceptado = true
+      insertData.gdpr_aceptado_at = new Date().toISOString()
+    }
     const { data: created } = await supabase
       .from('clientes')
-      .insert({
-        nombre: b.nombre.trim(),
-        apellidos: b.apellidos?.trim() || null,
-        telefono: normalizedPhone,
-        email: b.email.trim(),
-      })
+      .insert(insertData as any)
       .select('id')
       .single()
 
