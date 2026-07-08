@@ -28,6 +28,7 @@ const defaultConfig: ConfigData = {
   smtp_port: null,
   smtp_user: '',
   smtp_from_email: '',
+  smtp_from_name: 'Restaurante La Zíngara',
   smtp_security: 'auto',
   texto_proteccion_datos: '',
   modo_reserva: 'automatica',

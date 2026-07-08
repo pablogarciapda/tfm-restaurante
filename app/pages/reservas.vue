@@ -228,7 +228,8 @@ async function handleResend() {
       <!-- Step 1: Form -->
       <div v-if="step === 'form'">
         <p class="mb-6 text-center text-sm text-slate">
-          Rellena tus datos. Te enviaremos un código de verificación.
+          <template v-if="modoReserva === 'verificada'">Rellena tus datos. Te enviaremos un código SMS de verificación.</template>
+          <template v-else>Rellena tus datos para completar la reserva.</template>
         </p>
         <ReservationForm
           :horarios-config="horariosConfig"
