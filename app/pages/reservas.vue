@@ -15,6 +15,7 @@
  */
 import { ref, onMounted } from 'vue'
 import { normalizePhone } from '#shared/utils/phone'
+import { generarReferencia } from '#shared/utils/referencia'
 import type { PublicConfig, DiaBloqueado, HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import ReservationForm from '../components/ReservationForm.vue'
 import SmsVerificationStep from '../components/SmsVerificationStep.vue'
@@ -39,7 +40,9 @@ const zonas = ref<ZonaConfig[]>([])
 const clienteEligeZona = ref<'none' | 'zona' | 'zona_mesa'>('none')
 const captchaHabilitado = ref(false)
 const modoReserva = ref<'automatica' | 'verificada'>('automatica')
+const smsVerificacion = ref(false)
 const blockedDates = ref<string[]>([])
+const gdprAceptadoEnSesion = ref(false)
 
 onMounted(async () => {
   // Fetch public config (horarios, zonas, cliente_elige_zona, GDPR)
@@ -51,6 +54,7 @@ onMounted(async () => {
     clienteEligeZona.value = data?.cliente_elige_zona || 'none'
     captchaHabilitado.value = data?.captcha_habilitado ?? false
     modoReserva.value = data?.modo_reserva || 'automatica'
+    smsVerificacion.value = data?.sms_verificacion ?? false
     gdprText.value = data?.texto_proteccion_datos || null
   } catch {
     // If config API fails, use defaults
@@ -154,7 +158,7 @@ async function handleFormSubmit(data: ReservationPayload) {
   // Check if user already accepted GDPR (only when GDPR text is configured)
   const yaAcepto = gdprText.value ? await checkGdprStatus(normalizedPhone) : false
 
-  if (modoReserva.value === 'automatica') {
+  if (!smsVerificacion.value) {
     if (gdprText.value && !yaAcepto) {
       // Show GDPR — submitReservation fires from handleGdprAccept
       sending.value = false
@@ -164,7 +168,7 @@ async function handleFormSubmit(data: ReservationPayload) {
       await submitReservation(false, !yaAcepto && !!gdprText.value)
     }
   } else {
-    // verificada: send SMS code first
+    // SMS verification: send code first
     try {
       await $fetch('/api/sms/send', {
         method: 'POST',
@@ -186,7 +190,8 @@ async function handleFormSubmit(data: ReservationPayload) {
 
 async function handleGdprAccept() {
   if (!formData.value) return
-  if (modoReserva.value === 'automatica') {
+  gdprAceptadoEnSesion.value = true
+  if (!smsVerificacion.value) {
     await submitReservation(false, true)
   } else {
     step.value = 'sms'
@@ -198,7 +203,7 @@ function handleGdprReject() {
 }
 
 async function handleVerified() {
-  await submitReservation(true)
+  await submitReservation(true, gdprAceptadoEnSesion.value)
 }
 
 function handleBack() {
@@ -309,11 +314,19 @@ async function handleResend() {
               reservaEstado === 'pendiente' ? 'text-yellow-600' : 'text-green-600',
             ]"
           >
-            Referencia: <strong>{{ reservaId }}</strong>
+            Referencia: <strong>{{ generarReferencia(reservaId, formData?.fecha_hora) }}</strong>
           </p>
         </div>
         <p class="mt-6 text-sm text-slate">
-          Te hemos enviado un SMS de confirmación al {{ formData?.telefono }}.
+          <template v-if="publicConfig?.notificacion_reserva === 'sms'">
+            Te hemos enviado un SMS de confirmación al {{ formData?.telefono }}.
+          </template>
+          <template v-else-if="publicConfig?.notificacion_reserva === 'ambos'">
+            Te hemos enviado un email y un SMS de confirmación.
+          </template>
+          <template v-else>
+            Te hemos enviado un email de confirmación a {{ formData?.email }}.
+          </template>
         </p>
       </div>
     </section>

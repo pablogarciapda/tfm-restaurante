@@ -12,6 +12,7 @@ import type { Database } from '~/types/database.types'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { normalizePhone } from '#shared/utils/phone'
 import { isSlotInRange } from '#shared/utils/slots'
+import { generarReferencia } from '#shared/utils/referencia'
 import { sendConfirmationEmail } from '../utils/email'
 
 type SupabaseServerClient = SupabaseClient<Database>
@@ -84,18 +85,19 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4. Read config → modo_reserva, horarios_config, zonas_config, captcha_habilitado
+  // 4. Read config → modo_reserva, sms_verificacion, horarios_config, zonas_config, captcha_habilitado
   const { data: config } = await supabase
     .from('configuracion')
-    .select('modo_reserva, horarios_config, zonas_config, captcha_habilitado')
+    .select('modo_reserva, sms_verificacion, notificacion_reserva, horarios_config, zonas_config, captcha_habilitado')
     .limit(1)
     .single()
   const modo = config?.modo_reserva ?? 'automatica'
+  const smsReq = (config?.sms_verificacion as boolean) ?? false
   const horariosConfig = config?.horarios_config as HorarioConfig | null
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
 
-  // 4a. SMS gate — only required in 'verificada' mode
-  if (modo === 'verificada' && !b.sms_verified) {
+  // 4a. SMS gate — only required when sms_verificacion is enabled
+  if (smsReq && !b.sms_verified) {
     return {
       status: 403,
       body: { error: 'Verificación SMS requerida' },
@@ -199,18 +201,30 @@ export async function handleCreateReservation(
   // 5. Upsert cliente by phone
   const { data: existing } = await supabase
     .from('clientes')
-    .select('id, gdpr_aceptado')
+    .select('id, nombre, apellidos, email, gdpr_aceptado')
     .eq('telefono', normalizedPhone)
     .maybeSingle()
 
   let clienteId: string
   if (existing?.id) {
     clienteId = existing.id
-    // Update gdpr_aceptado if the user accepted via this reservation
+    // Sync nombre/apellidos/email from form data if they differ
+    const updates: Record<string, any> = {}
+    const trimmedNombre = b.nombre.trim()
+    const trimmedApellidos = (b.apellidos?.trim() || null) ?? null
+    const trimmedEmail = b.email.trim()
+    // Always update name/email from form — the customer is the authority on their own data
+    if (trimmedNombre !== existing.nombre) updates.nombre = trimmedNombre
+    if (trimmedApellidos !== existing.apellidos) updates.apellidos = trimmedApellidos
+    if (trimmedEmail !== existing.email) updates.email = trimmedEmail
     if (b.gdpr_aceptado && !existing.gdpr_aceptado) {
+      updates.gdpr_aceptado = true
+      updates.gdpr_aceptado_at = new Date().toISOString()
+    }
+    if (Object.keys(updates).length > 0) {
       await supabase
         .from('clientes')
-        .update({ gdpr_aceptado: true, gdpr_aceptado_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', clienteId)
     }
   } else {
@@ -270,20 +284,39 @@ export async function handleCreateReservation(
     }
   }
 
-  // 7. Fire-and-forget confirmation email (only if modo=automatica and email provided)
-  if (estado === 'confirmada' && b.email) {
-    sendConfirmationEmail(
-      {
-        nombre: b.nombre.trim(),
-        apellidos: b.apellidos?.trim() || null,
-        email: b.email.trim(),
-        fecha_hora: b.fecha_hora,
-        comensales: b.numero_comensales,
-        id: reserva.id,
-      },
-      supabase,
-      runtimeConfig,
-    ).catch((err: any) => console.warn('[reservas] Email send failed:', err.message))
+  // 7. Send notifications based on configuracion.notificacion_reserva
+  if (estado === 'confirmada') {
+    const notifConfig = (config?.notificacion_reserva as string) || 'email'
+    const sendEmail = notifConfig === 'email' || notifConfig === 'ambos'
+    const sendSms = notifConfig === 'sms' || notifConfig === 'ambos'
+
+    if (sendEmail && b.email) {
+      const ref = generarReferencia(reserva.id, b.fecha_hora)
+      sendConfirmationEmail(
+        {
+          nombre: b.nombre.trim(),
+          apellidos: b.apellidos?.trim() || null,
+          email: b.email.trim(),
+          fecha_hora: b.fecha_hora,
+          comensales: b.numero_comensales,
+          id: reserva.id,
+          referencia: ref,
+        },
+        supabase,
+        runtimeConfig,
+      ).catch((err: any) => console.warn('[reservas] Email send failed:', err.message))
+    }
+
+    if (sendSms && normalizedPhone) {
+      const fecha = new Date(b.fecha_hora).toLocaleString('es-ES', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit',
+      })
+      const emailInfo = b.email ? ` Tu email es: ${b.email}.` : ''
+      const ref = generarReferencia(reserva.id, b.fecha_hora)
+      const msg = `✅ Reserva confirmada en La Zíngara. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
+      console.info(`[reservas] SMS to ${normalizedPhone}: ${msg}`)
+    }
   }
 
   return {

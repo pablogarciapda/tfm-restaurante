@@ -177,13 +177,13 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     expect(wrapper.text()).toContain('Reserva confirmada')
   })
 
-  it('transitions to SMS step in verificada mode', async () => {
-    // public-config (verificada mode) + dias-bloqueados + sms send
+  it('transitions to SMS step when sms_verificacion is enabled', async () => {
+    // public-config (sms_verificacion enabled) + dias-bloqueados + sms send
     mockFetch
       .mockResolvedValueOnce({
         horarios: null, zonas: [], cliente_elige_zona: 'none',
         texto_proteccion_datos: null,
-        modo_reserva: 'verificada',
+        sms_verificacion: true,
       })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })
@@ -217,7 +217,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
       .mockResolvedValueOnce({
         horarios: null, zonas: [], cliente_elige_zona: 'none',
         texto_proteccion_datos: null,
-        modo_reserva: 'verificada',
+        sms_verificacion: true,
       })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })
@@ -275,12 +275,12 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   })
 
   it('shows confirmation after SMS verified', async () => {
-    // public-config (verificada) + dias-bloqueados + sms send + reservas POST
+    // public-config (sms_verificacion enabled) + dias-bloqueados + sms send + reservas POST
     mockFetch
       .mockResolvedValueOnce({
         horarios: null, zonas: [], cliente_elige_zona: 'none',
         texto_proteccion_datos: null,
-        modo_reserva: 'verificada',
+        sms_verificacion: true,
       })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true })

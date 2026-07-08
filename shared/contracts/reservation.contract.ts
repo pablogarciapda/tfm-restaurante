@@ -65,9 +65,11 @@ export interface PublicConfig {
   horarios: HorarioConfig
   zonas: ZonaConfig[] // only enabled zones
   texto_proteccion_datos: string | null
-  modo_reserva: 'automatica' | 'verificada'
+  modo_reserva: 'automatica' | 'verificada' // confirmation mode
+  sms_verificacion: boolean // whether SMS verification is required
   cliente_elige_zona: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
+  notificacion_reserva: 'email' | 'sms' | 'ambos'
 }
 
 // ──────────────────────────── Admin ───────────────────────────────
@@ -146,6 +148,12 @@ export interface ConfigData {
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
+  sms_verificacion: boolean
+  notificacion_reserva?: 'email' | 'sms' | 'ambos'
+  restaurant_nombre: string
+  restaurant_direccion: string
+  restaurant_telefono: string
+  restaurant_maps_url: string
 }
 
 /** Cliente data from the API */
@@ -200,4 +208,10 @@ export interface ConfigUpdatePayload {
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado?: boolean
+  sms_verificacion?: boolean
+  notificacion_reserva?: 'email' | 'sms' | 'ambos'
+  restaurant_nombre?: string
+  restaurant_direccion?: string
+  restaurant_telefono?: string
+  restaurant_maps_url?: string
 }

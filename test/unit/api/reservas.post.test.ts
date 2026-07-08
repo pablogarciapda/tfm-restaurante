@@ -147,10 +147,10 @@ describe('handleCreateReservation', () => {
     expect(result.body).toHaveProperty('estado', 'confirmada')
   })
 
-  it('requires sms_verified in modo=verificada — returns 403 if missing', async () => {
+  it('requires sms_verified when sms_verificacion enabled — returns 403 if missing', async () => {
     const mockSupabase = createMockSupabase({
       configSelect: vi.fn().mockResolvedValue({
-        data: { modo_reserva: 'verificada' },
+        data: { modo_reserva: 'automatica', sms_verificacion: true },
         error: null,
       }),
     })

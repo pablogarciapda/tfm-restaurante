@@ -1,12 +1,14 @@
 <!--
-  ConfiguracionForm — System settings form with 11 sections (CFG-011, CFG-012, CFG-013, CFG-014)
-  Sections: General, Elección mesa, Precios, Recomendados, Imágenes,
-            Correo saliente, Protección datos, Reservas,
-            Horarios, Zonas del restaurante, Días bloqueados
+  ConfiguracionForm — System settings form with 12 sections
+  Sections order: Horarios, Precios, Días bloqueados, Zonas restaurante,
+                  Elección mesa, General, Recomendaciones, Reservas,
+                  Datos restaurante, Protección datos, Optimización imágenes,
+                  Correo saliente
 -->
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue'
 import { generateSlots } from '#shared/utils/slots'
+import { toProxyUrl } from '~/utils/image-url'
 
 type OcupacionModo = 'auto' | 'manual'
 type ReservaModo = 'automatica' | 'verificada'
@@ -56,10 +58,18 @@ interface ConfigFormData {
   smtp_password: string
   texto_proteccion_datos: string
   modo_reserva: ReservaModo
+  sms_verificacion: boolean
+  notificacion_reserva: 'email' | 'sms' | 'ambos'
   horarios_config: HorarioConfigForm
   zonas_config: ZoneConfigForm[]
   cliente_elige_zona: ClienteEligeZona
   captcha_habilitado: boolean
+  restaurant_nombre: string
+  restaurant_direccion: string
+  restaurant_telefono: string
+  restaurant_maps_url: string
+  restaurant_logo_url: string
+  restaurant_icon_url: string
 }
 
 const props = defineProps<{
@@ -98,6 +108,8 @@ const form = reactive<ConfigFormData>({
   smtp_password: '',
   texto_proteccion_datos: props.currentConfig.texto_proteccion_datos ?? '',
   modo_reserva: (props.currentConfig.modo_reserva as ReservaModo) ?? 'automatica',
+  sms_verificacion: (props.currentConfig as any).sms_verificacion ?? false,
+  notificacion_reserva: ((props.currentConfig as any).notificacion_reserva as 'email' | 'sms' | 'ambos') ?? 'email',
   horarios_config: (props.currentConfig.horarios_config as HorarioConfigForm) ?? {
     comida_inicio: '13:30',
     comida_fin: '15:30',
@@ -114,6 +126,12 @@ const form = reactive<ConfigFormData>({
   ],
   cliente_elige_zona: (props.currentConfig.cliente_elige_zona as ClienteEligeZona) ?? 'none',
   captcha_habilitado: props.currentConfig.captcha_habilitado ?? false,
+  restaurant_nombre: (props.currentConfig as any).restaurant_nombre ?? 'La Zíngara',
+  restaurant_direccion: (props.currentConfig as any).restaurant_direccion ?? '',
+  restaurant_telefono: (props.currentConfig as any).restaurant_telefono ?? '',
+  restaurant_maps_url: (props.currentConfig as any).restaurant_maps_url ?? '',
+  restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
+  restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
 })
 
 const testEmail = ref('')
@@ -150,6 +168,86 @@ const diaBloqueadoError = ref('')
 
 // ── Zonas drag state ──
 const zoneDrag = ref<{ index: number | null; overIndex: number | null }>({ index: null, overIndex: null })
+
+// ── Restaurante image upload state ──
+const { uploading: logoUploading, uploadFromFile: logoUploadFromFile } = useImageUpload({ bucket: 'config-images' })
+const supabase = useSupabaseClient()
+const logoPreview = ref<string | null>(toProxyUrl(form.restaurant_logo_url) ?? null)
+const iconPreview = ref<string | null>(toProxyUrl(form.restaurant_icon_url) ?? null)
+const iconUploading = ref(false)
+const imageUploadError = ref<string | null>(null)
+
+async function handleLogoUpload(file: File) {
+  imageUploadError.value = null
+  const result = await logoUploadFromFile(file, `logo-${Date.now()}`)
+  if (result) {
+    form.restaurant_logo_url = result
+    logoPreview.value = result
+  } else {
+    imageUploadError.value = 'No se pudo subir el logo'
+  }
+}
+
+async function handleIconUpload(file: File) {
+  imageUploadError.value = null
+
+  // Allow .ico without compression; other formats go through normal flow
+  if (file.name.toLowerCase().endsWith('.ico')) {
+    await uploadIconDirect(file)
+    return
+  }
+
+  // PNG/JPEG/etc — use standard WebP compression
+  const { uploadFromFile: compressUpload } = useImageUpload({ bucket: 'config-images' })
+  const result = await compressUpload(file, `icon-${Date.now()}`)
+  if (result) {
+    form.restaurant_icon_url = result
+    iconPreview.value = result
+  } else {
+    imageUploadError.value = 'No se pudo subir el icono'
+  }
+}
+
+async function uploadIconDirect(file: File) {
+  if (!file.type && !file.name.toLowerCase().endsWith('.ico')) {
+    imageUploadError.value = 'Formato no soportado'
+    return
+  }
+
+  iconUploading.value = true
+  try {
+    const uniqueName = `icon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ico`
+    const { error } = await supabase.storage
+      .from('config-images')
+      .upload(`public/${uniqueName}`, file, {
+        contentType: 'image/x-icon',
+        upsert: true,
+      })
+
+    if (error) {
+      imageUploadError.value = error.message
+      return
+    }
+
+    const url = `/api/images/config-images/public/${uniqueName}`
+    form.restaurant_icon_url = url
+    iconPreview.value = url
+  } catch (e) {
+    imageUploadError.value = e instanceof Error ? e.message : 'Error al subir el icono'
+  } finally {
+    iconUploading.value = false
+  }
+}
+
+function handleLogoRemove() {
+  form.restaurant_logo_url = ''
+  logoPreview.value = null
+}
+
+function handleIconRemove() {
+  form.restaurant_icon_url = ''
+  iconPreview.value = null
+}
 
 function onZoneDragStart(index: number) {
   zoneDrag.value = { index, overIndex: null }
@@ -258,10 +356,18 @@ watch(
     if (cfg.smtp_security !== undefined) form.smtp_security = cfg.smtp_security as string
     if (cfg.texto_proteccion_datos !== undefined) form.texto_proteccion_datos = cfg.texto_proteccion_datos ?? ''
     if (cfg.modo_reserva !== undefined) form.modo_reserva = cfg.modo_reserva as ReservaModo
+    if ((cfg as any).sms_verificacion !== undefined) form.sms_verificacion = (cfg as any).sms_verificacion as boolean
+    if ((cfg as any).notificacion_reserva !== undefined) form.notificacion_reserva = (cfg as any).notificacion_reserva as 'email' | 'sms' | 'ambos'
     if (cfg.horarios_config !== undefined) form.horarios_config = (cfg.horarios_config as HorarioConfigForm) ?? form.horarios_config
     if (cfg.zonas_config !== undefined) form.zonas_config = (cfg.zonas_config as ZoneConfigForm[]) ?? form.zonas_config
     if (cfg.cliente_elige_zona !== undefined) form.cliente_elige_zona = (cfg.cliente_elige_zona as ClienteEligeZona) ?? 'none'
     if (cfg.captcha_habilitado !== undefined) form.captcha_habilitado = cfg.captcha_habilitado as boolean
+    if ((cfg as any).restaurant_nombre !== undefined) form.restaurant_nombre = (cfg as any).restaurant_nombre as string
+    if ((cfg as any).restaurant_direccion !== undefined) form.restaurant_direccion = (cfg as any).restaurant_direccion as string
+    if ((cfg as any).restaurant_telefono !== undefined) form.restaurant_telefono = (cfg as any).restaurant_telefono as string
+    if ((cfg as any).restaurant_maps_url !== undefined) form.restaurant_maps_url = (cfg as any).restaurant_maps_url as string
+    if ((cfg as any).restaurant_logo_url !== undefined) form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
+    if ((cfg as any).restaurant_icon_url !== undefined) form.restaurant_icon_url = (cfg as any).restaurant_icon_url as string
     // smtp_password is NEVER loaded — always empty on GET
   },
   { deep: true },
@@ -299,7 +405,293 @@ const checkboxClass = 'h-4 w-4 rounded'
 
 <template>
   <form class="space-y-6" @submit.prevent="handleSubmit">
-    <!-- Section 1: General -->
+    <!-- Section 1: Horarios -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Horarios</h2>
+
+      <!-- Comida -->
+      <div class="mb-4">
+        <span class="mb-2 block text-sm font-medium text-slate">Comida</span>
+        <div class="flex items-center gap-2">
+          <input
+            v-model="form.horarios_config.comida_inicio"
+            type="time"
+            data-testid="cfg-comida-inicio"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <span class="text-gray-400">a</span>
+          <input
+            v-model="form.horarios_config.comida_fin"
+            type="time"
+            data-testid="cfg-comida-fin"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <!-- Cena -->
+      <div class="mb-4">
+        <span class="mb-2 block text-sm font-medium text-slate">Cena</span>
+        <div class="flex items-center gap-2">
+          <input
+            v-model="form.horarios_config.cena_inicio"
+            type="time"
+            data-testid="cfg-cena-inicio"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <span class="text-gray-400">a</span>
+          <input
+            v-model="form.horarios_config.cena_fin"
+            type="time"
+            data-testid="cfg-cena-fin"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <!-- Intervalo -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-slate" for="cfg-intervalo">
+          Intervalo entre turnos
+        </label>
+        <select
+          id="cfg-intervalo"
+          v-model.number="form.horarios_config.intervalo_minutos"
+          data-testid="cfg-intervalo"
+          class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option :value="15">15 minutos</option>
+          <option :value="20">20 minutos</option>
+          <option :value="30">30 minutos</option>
+        </select>
+      </div>
+
+      <!-- Preview -->
+      <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
+        <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="slot in slotPreview"
+            :key="slot.hora"
+            class="rounded-md bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
+            data-testid="slot-preview"
+          >
+            {{ slot.hora }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Precios -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Precios</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-diario">
+            Precio Menú Diario (€)
+          </label>
+          <input
+            id="cfg-precio-diario"
+            v-model.number="form.precio_menu_diario"
+            data-testid="cfg-precio-diario"
+            type="number"
+            step="0.01"
+            min="0"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-sabado">
+            Precio Menú Sábado (€)
+          </label>
+          <input
+            id="cfg-precio-sabado"
+            v-model.number="form.precio_menu_sabado"
+            data-testid="cfg-precio-sabado"
+            type="number"
+            step="0.01"
+            min="0"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Días bloqueados -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Días bloqueados</h2>
+
+      <!-- Add form -->
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label class="mb-1 block text-xs text-slate" for="cfg-dia-fecha">Fecha</label>
+          <input
+            id="cfg-dia-fecha"
+            v-model="newDiaFecha"
+            type="date"
+            data-testid="dia-fecha"
+            class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-slate" for="cfg-dia-fecha-fin">Fecha fin (rango)</label>
+          <input
+            id="cfg-dia-fecha-fin"
+            v-model="newDiaFechaFin"
+            type="date"
+            data-testid="dia-fecha-fin"
+            class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="newDiaRecurrente"
+              type="checkbox"
+              data-testid="dia-recurrente"
+              class="h-4 w-4 rounded"
+            />
+            <span class="text-sm text-slate">Recurrente</span>
+          </label>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-slate" for="cfg-dia-motivo">Motivo</label>
+          <input
+            id="cfg-dia-motivo"
+            v-model="newDiaMotivo"
+            type="text"
+            data-testid="dia-motivo"
+            class="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Ej: Navidad, Fiesta local..."
+          />
+        </div>
+        <button
+          type="button"
+          data-testid="dia-add"
+          class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+          @click="handleAddDiaBloqueado"
+        >
+          Añadir
+        </button>
+      </div>
+      <p v-if="diaBloqueadoError" class="mb-3 text-sm text-red-600">{{ diaBloqueadoError }}</p>
+
+      <!-- Existing blocked days list -->
+      <div v-if="props.existingDiasBloqueados && props.existingDiasBloqueados.length > 0" class="mt-4">
+        <p class="mb-2 text-xs font-medium text-gray-500">Días bloqueados actuales</p>
+        <div class="max-h-60 space-y-1 overflow-y-auto">
+          <div
+            v-for="dia in props.existingDiasBloqueados"
+            :key="dia.id"
+            class="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
+          >
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate">{{ dia.fecha }}</span>
+              <span v-if="dia.recurrente" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Cada año</span>
+              <span v-if="dia.motivo" class="text-xs text-gray-400">{{ dia.motivo }}</span>
+            </div>
+            <button
+              type="button"
+              data-testid="dia-delete"
+              class="rounded px-2 py-1 text-sm text-red-500 hover:bg-red-50"
+              @click="emit('deleteDiaBloqueado', dia.id)"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+      <p v-else class="mt-4 text-xs text-gray-400">No hay días bloqueados configurados.</p>
+    </div>
+
+    <!-- Section 4: Zonas del restaurante -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Zonas del restaurante</h2>
+
+      <!-- Total capacity -->
+      <p class="mb-4 text-sm text-gray-600">
+        Capacidad total: <strong data-testid="zona-capacidad-total">{{ totalCapacidadZonas }}</strong>
+      </p>
+
+      <!-- Zone rows -->
+      <div class="space-y-2">
+        <div
+          v-for="(zona, index) in form.zonas_config"
+          :key="zona.id"
+          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', zoneDragClasses(index)]"
+          draggable="true"
+          @dragstart="onZoneDragStart(index)"
+          @dragenter="onZoneDragEnter(index)"
+          @dragover="onZoneDragOver"
+          @dragleave="onZoneDragLeave"
+          @drop="onZoneDrop($event, index)"
+          @dragend="onZoneDragEnd"
+        >
+          <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
+          <input
+            v-model="zona.nombre"
+            type="text"
+            data-testid="zona-nombre"
+            class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Nombre de la zona"
+          />
+          <input
+            v-model.number="zona.capacidad"
+            type="number"
+            min="0"
+            max="999"
+            data-testid="zona-capacidad"
+            class="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <label class="flex items-center gap-1 cursor-pointer text-sm">
+            <input
+              v-model="zona.enabled"
+              type="checkbox"
+              data-testid="zona-enabled"
+              class="h-4 w-4 rounded"
+            />
+            <span class="text-slate">Activo</span>
+          </label>
+          <button
+            type="button"
+            :disabled="form.zonas_config.length <= 1"
+            data-testid="zona-delete"
+            class="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50 disabled:opacity-30"
+            @click="removeZone(index)"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        data-testid="zona-add"
+        class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta"
+        @click="addZone"
+      >
+        + Añadir zona
+      </button>
+    </div>
+
+    <!-- Section 5: Elección de mesa -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Elección de mesa</h2>
+      <div class="flex items-center gap-3">
+        <input
+          id="cfg-elige-mesa"
+          v-model="form.cliente_elige_mesa"
+          data-testid="cfg-elige-mesa"
+          type="checkbox"
+          class="h-4 w-4 rounded"
+        />
+        <label class="text-sm font-medium text-slate" for="cfg-elige-mesa">
+          Permitir que el cliente elija mesa
+        </label>
+      </div>
+    </div>
+
+    <!-- Section 6: General -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">General</h2>
 
@@ -351,61 +743,9 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 2: Elección de mesa -->
+    <!-- Section 7: Recomendaciones -->
     <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Elección de mesa</h2>
-      <div class="flex items-center gap-3">
-        <input
-          id="cfg-elige-mesa"
-          v-model="form.cliente_elige_mesa"
-          data-testid="cfg-elige-mesa"
-          type="checkbox"
-          class="h-4 w-4 rounded"
-        />
-        <label class="text-sm font-medium text-slate" for="cfg-elige-mesa">
-          Permitir que el cliente elija mesa
-        </label>
-      </div>
-    </div>
-
-    <!-- Section 3: Precios -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Precios</h2>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-diario">
-            Precio Menú Diario (€)
-          </label>
-          <input
-            id="cfg-precio-diario"
-            v-model.number="form.precio_menu_diario"
-            data-testid="cfg-precio-diario"
-            type="number"
-            step="0.01"
-            min="0"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-sabado">
-            Precio Menú Sábado (€)
-          </label>
-          <input
-            id="cfg-precio-sabado"
-            v-model.number="form.precio_menu_sabado"
-            data-testid="cfg-precio-sabado"
-            type="number"
-            step="0.01"
-            min="0"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 4: Recomendados -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Recomendados</h2>
+      <h2 :class="sectionTitleClass">Recomendaciones</h2>
       <div class="flex items-center gap-3 mb-3">
         <input
           id="cfg-mostrar-rec"
@@ -430,7 +770,274 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 5: Imágenes -->
+    <!-- Section 8: Reservas -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Reservas</h2>
+
+      <!-- SMS Verification toggle -->
+      <div class="mb-4">
+        <label class="inline-flex items-center gap-3 cursor-pointer">
+          <div class="relative">
+            <input v-model="form.sms_verificacion" type="checkbox" class="sr-only peer" />
+            <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-terracotta peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+          </div>
+          <span class="text-sm font-medium text-slate">Requerir verificación SMS</span>
+        </label>
+        <p class="mt-1 text-xs text-gray-400">
+          <template v-if="form.sms_verificacion">
+            El cliente debe validar su teléfono con un código SMS antes de completar la reserva.
+          </template>
+          <template v-else>
+            No se envía SMS. La reserva se tramita directamente con los datos del formulario.
+          </template>
+        </p>
+      </div>
+
+      <!-- Reservation confirmation mode -->
+      <div>
+        <span class="mb-1 block text-sm font-medium text-slate">Modo de confirmación</span>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input v-model="form.modo_reserva" type="radio" value="automatica" class="h-3 w-3 accent-terracotta" />
+            <span class="text-sm text-slate">Automática</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input v-model="form.modo_reserva" type="radio" value="verificada" class="h-3 w-3 accent-terracotta" />
+            <span class="text-sm text-slate">Manual (admin confirma)</span>
+          </label>
+        </div>
+        <p class="mt-1 text-xs text-gray-400">
+          <template v-if="form.modo_reserva === 'verificada'">
+            La reserva se crea en estado <strong>pendiente</strong>. Un administrador debe confirmarla desde el panel.
+          </template>
+          <template v-else>
+            La reserva se confirma al instante y se envía un email al cliente.
+          </template>
+        </p>
+      </div>
+
+      <!-- Notification method -->
+      <div class="mt-4">
+        <span class="mb-2 block text-sm font-medium text-slate">Notificación al confirmar reserva</span>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input v-model="form.notificacion_reserva" type="radio" value="email" class="h-3 w-3 accent-terracotta" />
+            <span class="text-sm text-slate">Email</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input v-model="form.notificacion_reserva" type="radio" value="sms" class="h-3 w-3 accent-terracotta" />
+            <span class="text-sm text-slate">SMS</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input v-model="form.notificacion_reserva" type="radio" value="ambos" class="h-3 w-3 accent-terracotta" />
+            <span class="text-sm text-slate">Email + SMS</span>
+          </label>
+        </div>
+        <p class="mt-1 text-xs text-gray-400">
+          <template v-if="form.notificacion_reserva === 'email'">Se envía un email de confirmación al cliente (requiere SMTP configurado).</template>
+          <template v-else-if="form.notificacion_reserva === 'sms'">Se envía un SMS de confirmación al teléfono del cliente.</template>
+          <template v-else>Se envía email y SMS de confirmación al cliente.</template>
+        </p>
+      </div>
+
+      <!-- Cliente elige zona -->
+      <div class="mt-5">
+        <span class="mb-2 block text-sm font-medium text-slate">El cliente puede elegir zona</span>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="none"
+              data-testid="cfg-elige-zona-none"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">No</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="zona"
+              data-testid="cfg-elige-zona-zona"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">Solo zona</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="zona_mesa"
+              data-testid="cfg-elige-zona-zona-mesa"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">Zona y mesa</span>
+          </label>
+        </div>
+        <p class="mt-2 text-xs text-gray-400">
+          <strong>No:</strong> el cliente reserva sin elegir zona.<br />
+          <strong>Solo zona:</strong> el cliente elige la zona del restaurante.<br />
+          <strong>Zona y mesa:</strong> el cliente elige zona y mesa (requiere plano interactivo).
+        </p>
+      </div>
+
+      <!-- CAPTCHA -->
+      <div class="mt-5">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input v-model="form.captcha_habilitado" type="checkbox" class="h-4 w-4 accent-terracotta" />
+          <span class="text-sm font-medium text-slate">Protección anti-bots (Cloudflare Turnstile)</span>
+        </label>
+        <p class="mt-1 text-xs text-gray-400">
+          Muestra un CAPTCHA en el formulario de reservas para evitar spam. Requiere
+          configurar <code>NUXT_PUBLIC_TURNSTILE_SITE_KEY</code> y <code>NUXT_TURNSTILE_SECRET_KEY</code> en el servidor.
+        </p>
+      </div>
+    </div>
+
+    <!-- Section 9: Datos del restaurante -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Datos del restaurante</h2>
+      <p class="mb-4 text-xs text-gray-400">
+        Estos datos se usan en el email de confirmación y en el footer de la web. Si se dejan vacíos se usarán los valores por defecto.
+      </p>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-nombre">
+            Nombre del restaurante
+          </label>
+          <input
+            id="cfg-rest-nombre"
+            v-model="form.restaurant_nombre"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="La Zíngara"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-telefono">
+            Teléfono de contacto
+          </label>
+          <input
+            id="cfg-rest-telefono"
+            v-model="form.restaurant_telefono"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="987 350 350"
+          />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-direccion">
+            Dirección
+          </label>
+          <input
+            id="cfg-rest-direccion"
+            v-model="form.restaurant_direccion"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Avda. del Páramo, 11, 24240 Santa María del Páramo, León"
+          />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-maps">
+            URL de Google Maps
+          </label>
+          <input
+            id="cfg-rest-maps"
+            v-model="form.restaurant_maps_url"
+            type="url"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+          />
+        </div>
+      </div>
+
+      <!-- Logo -->
+      <div class="mt-6">
+        <span class="mb-2 block text-sm font-medium text-slate">Logo del restaurante</span>
+        <div class="flex items-start gap-4">
+          <div v-if="logoPreview" class="relative">
+            <img :src="logoPreview" alt="Logo" class="h-20 w-auto rounded-lg border object-contain" />
+            <button
+              type="button"
+              class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600"
+              @click="handleLogoRemove"
+            >
+              ✕
+            </button>
+          </div>
+          <div>
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm text-slate hover:border-terracotta hover:text-terracotta">
+              <span>{{ logoPreview ? 'Cambiar logo' : 'Subir logo' }}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                class="hidden"
+                :disabled="logoUploading"
+                @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleLogoUpload(f); (e.target as HTMLInputElement).value = '' }"
+              />
+            </label>
+            <p v-if="logoUploading" class="mt-1 text-xs text-slate-500">Subiendo...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Icono / Favicon -->
+      <div class="mt-4">
+        <span class="mb-2 block text-sm font-medium text-slate">Icono / Favicon</span>
+        <div class="flex items-start gap-4">
+          <div v-if="iconPreview" class="relative">
+            <img :src="iconPreview" alt="Icono" class="h-12 w-12 rounded-lg border object-contain" />
+            <button
+              type="button"
+              class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600"
+              @click="handleIconRemove"
+            >
+              ✕
+            </button>
+          </div>
+          <div>
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm text-slate hover:border-terracotta hover:text-terracotta">
+              <span>{{ iconPreview ? 'Cambiar icono' : 'Subir icono' }}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif,.ico,image/x-icon"
+                class="hidden"
+                :disabled="iconUploading"
+                @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleIconUpload(f); (e.target as HTMLInputElement).value = '' }"
+              />
+            </label>
+            <p v-if="iconUploading" class="mt-1 text-xs text-slate-500">Subiendo...</p>
+            <p class="mt-1 text-xs text-gray-400">Cuadrado, mínimo 64×64px. Se usa como favicon del sitio.</p>
+          </div>
+        </div>
+      </div>
+
+      <p v-if="imageUploadError" class="mt-3 text-sm text-red-600">{{ imageUploadError }}</p>
+    </div>
+
+    <!-- Section 10: Protección de datos -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Protección de datos</h2>
+      <p class="mb-3 text-xs text-gray-400">
+        Texto mostrado al cliente antes de completar la reserva. Si se deja vacío, no se muestra el paso GDPR.
+      </p>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate" for="cfg-gdpr-text">
+          Texto de protección de datos
+        </label>
+        <textarea
+          id="cfg-gdpr-text"
+          v-model="form.texto_proteccion_datos"
+          rows="5"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          placeholder="Información sobre el tratamiento de datos personales..."
+        />
+      </div>
+    </div>
+
+    <!-- Section 11: Optimización de imágenes -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Optimización de imágenes</h2>
       <p class="mb-4 text-xs text-gray-400">
@@ -468,7 +1075,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 6: Correo saliente (SMTP) -->
+    <!-- Section 12: Correo saliente (SMTP) -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Correo saliente (SMTP)</h2>
       <p class="mb-4 text-xs text-gray-400">
@@ -558,339 +1165,6 @@ const checkboxClass = 'h-4 w-4 rounded'
           {{ smtpTesting ? 'Enviando...' : 'Enviar prueba' }}
         </button>
       </div>
-    </div>
-
-    <!-- Section 7: Protección de datos -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Protección de datos</h2>
-      <p class="mb-3 text-xs text-gray-400">
-        Texto mostrado al cliente antes de completar la reserva. Si se deja vacío, no se muestra el paso GDPR.
-      </p>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate" for="cfg-gdpr-text">
-          Texto de protección de datos
-        </label>
-        <textarea
-          id="cfg-gdpr-text"
-          v-model="form.texto_proteccion_datos"
-          rows="5"
-          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          placeholder="Información sobre el tratamiento de datos personales..."
-        />
-      </div>
-    </div>
-
-    <!-- Section 8: Reservas -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Reservas</h2>
-      <div>
-        <div class="mb-3">
-          <label class="inline-flex items-center gap-3 cursor-pointer">
-            <div class="relative">
-              <input v-model="form.modo_reserva" type="checkbox" true-value="verificada" false-value="automatica" class="sr-only peer" />
-              <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-terracotta peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-            </div>
-            <span class="text-sm font-medium text-slate">Requerir verificación SMS</span>
-          </label>
-        </div>
-        <p class="text-xs text-gray-400">
-          <template v-if="form.modo_reserva === 'verificada'">
-            El cliente recibe un código SMS que debe validar para completar la reserva.
-            La reserva queda en estado <strong>pendiente</strong> hasta que un administrador la confirme.
-          </template>
-          <template v-else>
-            La reserva se confirma al instante sin verificación SMS. El cliente recibe un email de confirmación.
-          </template>
-        </p>
-      </div>
-
-      <!-- Cliente elige zona -->
-      <div class="mt-5">
-        <span class="mb-2 block text-sm font-medium text-slate">El cliente puede elegir zona</span>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input
-              v-model="form.cliente_elige_zona"
-              type="radio"
-              value="none"
-              data-testid="cfg-elige-zona-none"
-              class="h-3 w-3 accent-terracotta"
-            />
-            <span class="text-sm text-slate">No</span>
-          </label>
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input
-              v-model="form.cliente_elige_zona"
-              type="radio"
-              value="zona"
-              data-testid="cfg-elige-zona-zona"
-              class="h-3 w-3 accent-terracotta"
-            />
-            <span class="text-sm text-slate">Solo zona</span>
-          </label>
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input
-              v-model="form.cliente_elige_zona"
-              type="radio"
-              value="zona_mesa"
-              data-testid="cfg-elige-zona-zona-mesa"
-              class="h-3 w-3 accent-terracotta"
-            />
-            <span class="text-sm text-slate">Zona y mesa</span>
-          </label>
-        </div>
-        <p class="mt-2 text-xs text-gray-400">
-          <strong>No:</strong> el cliente reserva sin elegir zona.<br />
-          <strong>Solo zona:</strong> el cliente elige la zona del restaurante.<br />
-          <strong>Zona y mesa:</strong> el cliente elige zona y mesa (requiere plano interactivo).
-        </p>
-      </div>
-
-      <!-- CAPTCHA -->
-      <div class="mt-5">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input v-model="form.captcha_habilitado" type="checkbox" class="h-4 w-4 accent-terracotta" />
-          <span class="text-sm font-medium text-slate">Protección anti-bots (Cloudflare Turnstile)</span>
-        </label>
-        <p class="mt-1 text-xs text-gray-400">
-          Muestra un CAPTCHA en el formulario de reservas para evitar spam. Requiere
-          configurar <code>NUXT_PUBLIC_TURNSTILE_SITE_KEY</code> y <code>NUXT_TURNSTILE_SECRET_KEY</code> en el servidor.
-        </p>
-      </div>
-    </div>
-
-    <!-- Section 9: Horarios (HOR-001, HOR-003) -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Horarios</h2>
-
-      <!-- Comida -->
-      <div class="mb-4">
-        <span class="mb-2 block text-sm font-medium text-slate">Comida</span>
-        <div class="flex items-center gap-2">
-          <input
-            v-model="form.horarios_config.comida_inicio"
-            type="time"
-            data-testid="cfg-comida-inicio"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <span class="text-gray-400">a</span>
-          <input
-            v-model="form.horarios_config.comida_fin"
-            type="time"
-            data-testid="cfg-comida-fin"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-
-      <!-- Cena -->
-      <div class="mb-4">
-        <span class="mb-2 block text-sm font-medium text-slate">Cena</span>
-        <div class="flex items-center gap-2">
-          <input
-            v-model="form.horarios_config.cena_inicio"
-            type="time"
-            data-testid="cfg-cena-inicio"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <span class="text-gray-400">a</span>
-          <input
-            v-model="form.horarios_config.cena_fin"
-            type="time"
-            data-testid="cfg-cena-fin"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-
-      <!-- Intervalo -->
-      <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium text-slate" for="cfg-intervalo">
-          Intervalo entre turnos
-        </label>
-        <select
-          id="cfg-intervalo"
-          v-model.number="form.horarios_config.intervalo_minutos"
-          data-testid="cfg-intervalo"
-          class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option :value="15">15 minutos</option>
-          <option :value="20">20 minutos</option>
-          <option :value="30">30 minutos</option>
-        </select>
-      </div>
-
-      <!-- Preview -->
-      <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
-        <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="slot in slotPreview"
-            :key="slot.hora"
-            class="rounded-md bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
-            data-testid="slot-preview"
-          >
-            {{ slot.hora }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 10: Zonas del restaurante (ZON-001, ZON-002, ZON-003) -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Zonas del restaurante</h2>
-
-      <!-- Total capacity -->
-      <p class="mb-4 text-sm text-gray-600">
-        Capacidad total: <strong data-testid="zona-capacidad-total">{{ totalCapacidadZonas }}</strong>
-      </p>
-
-      <!-- Zone rows -->
-      <div class="space-y-2">
-        <div
-          v-for="(zona, index) in form.zonas_config"
-          :key="zona.id"
-          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', zoneDragClasses(index)]"
-          draggable="true"
-          @dragstart="onZoneDragStart(index)"
-          @dragenter="onZoneDragEnter(index)"
-          @dragover="onZoneDragOver"
-          @dragleave="onZoneDragLeave"
-          @drop="onZoneDrop($event, index)"
-          @dragend="onZoneDragEnd"
-        >
-          <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
-          <input
-            v-model="zona.nombre"
-            type="text"
-            data-testid="zona-nombre"
-            class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="Nombre de la zona"
-          />
-          <input
-            v-model.number="zona.capacidad"
-            type="number"
-            min="0"
-            max="999"
-            data-testid="zona-capacidad"
-            class="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <label class="flex items-center gap-1 cursor-pointer text-sm">
-            <input
-              v-model="zona.enabled"
-              type="checkbox"
-              data-testid="zona-enabled"
-              class="h-4 w-4 rounded"
-            />
-            <span class="text-slate">Activo</span>
-          </label>
-          <button
-            type="button"
-            :disabled="form.zonas_config.length <= 1"
-            data-testid="zona-delete"
-            class="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50 disabled:opacity-30"
-            @click="removeZone(index)"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        data-testid="zona-add"
-        class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta"
-        @click="addZone"
-      >
-        + Añadir zona
-      </button>
-    </div>
-
-    <!-- Section 11: Días bloqueados (CFG-012, BLO-001, BLO-002) -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Días bloqueados</h2>
-
-      <!-- Add form -->
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="mb-1 block text-xs text-slate" for="cfg-dia-fecha">Fecha</label>
-          <input
-            id="cfg-dia-fecha"
-            v-model="newDiaFecha"
-            type="date"
-            data-testid="dia-fecha"
-            class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-xs text-slate" for="cfg-dia-fecha-fin">Fecha fin (rango)</label>
-          <input
-            id="cfg-dia-fecha-fin"
-            v-model="newDiaFechaFin"
-            type="date"
-            data-testid="dia-fecha-fin"
-            class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input
-              v-model="newDiaRecurrente"
-              type="checkbox"
-              data-testid="dia-recurrente"
-              class="h-4 w-4 rounded"
-            />
-            <span class="text-sm text-slate">Recurrente</span>
-          </label>
-        </div>
-        <div>
-          <label class="mb-1 block text-xs text-slate" for="cfg-dia-motivo">Motivo</label>
-          <input
-            id="cfg-dia-motivo"
-            v-model="newDiaMotivo"
-            type="text"
-            data-testid="dia-motivo"
-            class="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="Ej: Navidad, Fiesta local..."
-          />
-        </div>
-        <button
-          type="button"
-          data-testid="dia-add"
-          class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
-          @click="handleAddDiaBloqueado"
-        >
-          Añadir
-        </button>
-      </div>
-      <p v-if="diaBloqueadoError" class="mb-3 text-sm text-red-600">{{ diaBloqueadoError }}</p>
-
-      <!-- Existing blocked days list -->
-      <div v-if="props.existingDiasBloqueados && props.existingDiasBloqueados.length > 0" class="mt-4">
-        <p class="mb-2 text-xs font-medium text-gray-500">Días bloqueados actuales</p>
-        <div class="max-h-60 space-y-1 overflow-y-auto">
-          <div
-            v-for="dia in props.existingDiasBloqueados"
-            :key="dia.id"
-            class="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
-          >
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-slate">{{ dia.fecha }}</span>
-              <span v-if="dia.recurrente" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Cada año</span>
-              <span v-if="dia.motivo" class="text-xs text-gray-400">{{ dia.motivo }}</span>
-            </div>
-            <button
-              type="button"
-              data-testid="dia-delete"
-              class="rounded px-2 py-1 text-sm text-red-500 hover:bg-red-50"
-              @click="emit('deleteDiaBloqueado', dia.id)"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      </div>
-      <p v-else class="mt-4 text-xs text-gray-400">No hay días bloqueados configurados.</p>
     </div>
 
     <!-- Submit -->

@@ -258,6 +258,76 @@ const reasignarSaving = ref(false)
 const reasignarError = ref('')
 const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
+// ── Confirmar reserva pendiente ──
+const confirmarShow = ref(false)
+const confirmarReserva = ref<ReservaRow | null>(null)
+const confirmarMesaId = ref('')
+const confirmarMesaError = ref('')
+const confirmarSaving = ref(false)
+const confirmarResult = ref<{ notificacion: string; telefono: string | null; email: string | null } | null>(null)
+
+const mesasDisponibles = computed(() => {
+  return store.mesas
+    .filter((m) => m.id_fusion === null && m.mesa_padre_id === null)
+    .sort((a, b) => a.numero_mesa - b.numero_mesa)
+})
+
+const nombreZonaMesa = computed(() => {
+  if (!confirmarMesaId.value) return ''
+  const mesa = store.mesas.find((m) => m.id === confirmarMesaId.value)
+  if (!mesa) return ''
+  return `${mesa.zona} — Mesa ${mesa.numero_mesa} (${mesa.capacidad_actual} pax)`
+})
+
+function openConfirmar(reserva: ReservaRow) {
+  confirmarReserva.value = reserva
+  confirmarMesaId.value = ''
+  confirmarMesaError.value = ''
+  confirmarResult.value = null
+  confirmarSaving.value = false
+  confirmarShow.value = true
+}
+
+function closeConfirmar() {
+  confirmarShow.value = false
+  confirmarReserva.value = null
+  confirmarResult.value = null
+}
+
+async function handleConfirmar(conMesa: boolean) {
+  if (!confirmarReserva.value) return
+  confirmarMesaError.value = ''
+  confirmarSaving.value = true
+
+  const mesaId = conMesa ? confirmarMesaId.value : null
+
+  try {
+    const result = await $fetch<{ success: boolean; notificacion: string; telefono: string | null; email: string | null }>(
+      '/api/cocina/reservas/confirmar',
+      {
+        method: 'POST',
+        body: {
+          reserva_id: confirmarReserva.value.id,
+          mesa_id: mesaId || undefined,
+        },
+      },
+    )
+
+    confirmarResult.value = {
+      notificacion: result.notificacion,
+      telefono: result.telefono,
+      email: result.email,
+    }
+    toastReasignar.value = { message: 'Reserva confirmada correctamente', type: 'success' }
+    setTimeout(() => { toastReasignar.value = null }, 3000)
+    await loadReservas()
+  } catch (err: any) {
+    confirmarMesaError.value = err?.data?.message || err?.statusMessage || 'Error al confirmar'
+  } finally {
+    confirmarSaving.value = false
+  }
+}
+
 async function loadReservas() {
   try {
     const { data, error } = await client
@@ -440,14 +510,24 @@ onUnmounted(() => {
                 </span>
               </td>
               <td class="px-4 py-2 text-right">
-                <button
-                  type="button"
-                  data-testid="reasignar-btn"
-                  class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
-                  @click="openReasignar(reserva)"
-                >
-                  Reasignar
-                </button>
+                <div class="flex justify-end gap-2">
+                  <button
+                    v-if="reserva.estado === 'pendiente'"
+                    type="button"
+                    class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
+                    @click="openConfirmar(reserva)"
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="reasignar-btn"
+                    class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
+                    @click="openReasignar(reserva)"
+                  >
+                    Reasignar
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -542,6 +622,119 @@ onUnmounted(() => {
             >
               {{ reasignarSaving ? 'Guardando...' : 'Guardar' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Confirmar reserva modal -->
+    <Teleport to="body">
+      <div
+        v-if="confirmarShow"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        @click.self="closeConfirmar"
+      >
+        <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <h3 class="mb-4 text-lg font-bold text-slate">
+            {{ confirmarResult ? 'Reserva confirmada' : 'Confirmar reserva' }}
+          </h3>
+
+          <div v-if="!confirmarResult">
+            <div v-if="confirmarReserva" class="mb-4 space-y-1 text-sm text-slate">
+              <p><strong>Cliente:</strong> {{ (confirmarReserva.cliente as any)?.nombre || '—' }}</p>
+              <p><strong>Fecha:</strong> {{ new Date(confirmarReserva.fecha_hora).toLocaleString('es-ES') }}</p>
+              <p><strong>Comensales:</strong> {{ confirmarReserva.numero_comensales ?? '—' }}</p>
+              <p><strong>Zona:</strong> {{ confirmarReserva.zona_id || '—' }}</p>
+            </div>
+
+            <!-- Mesa selector -->
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-slate" for="confirmar-mesa">
+                Asignar mesa (opcional)
+              </label>
+              <select
+                id="confirmar-mesa"
+                v-model="confirmarMesaId"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">— Sin mesa —</option>
+                <option
+                  v-for="mesa in mesasDisponibles"
+                  :key="mesa.id"
+                  :value="mesa.id"
+                >
+                  {{ mesa.zona }} — Mesa {{ mesa.numero_mesa }} ({{ mesa.capacidad_actual }} pax)
+                </option>
+              </select>
+              <p v-if="confirmarMesaId && nombreZonaMesa" class="mt-1 text-xs text-green-600">
+                ✓ {{ nombreZonaMesa }}
+              </p>
+              <p v-if="confirmarMesaId" class="mt-1 text-xs text-gray-400">
+                La capacidad se restará automáticamente del aforo disponible.
+              </p>
+            </div>
+
+            <p v-if="confirmarMesaError" class="mb-3 text-sm text-red-600">{{ confirmarMesaError }}</p>
+
+            <div class="flex justify-end gap-3">
+              <button
+                type="button"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                @click="closeConfirmar"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                :disabled="confirmarSaving"
+                class="rounded-lg border border-gray-400 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                @click="handleConfirmar(false)"
+              >
+                {{ confirmarSaving ? 'Confirmando...' : 'Confirmar sin mesa' }}
+              </button>
+              <button
+                v-if="confirmarMesaId"
+                type="button"
+                :disabled="confirmarSaving"
+                class="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                @click="handleConfirmar(true)"
+              >
+                {{ confirmarSaving ? 'Confirmando...' : 'Confirmar con mesa' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Success result -->
+          <div v-else class="space-y-4">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+              <p class="font-medium">✅ Reserva confirmada</p>
+              <p class="mt-1 text-green-700">
+                Se enviará notificación por
+                <strong>{{
+                  confirmarResult.notificacion === 'email' ? 'email' :
+                  confirmarResult.notificacion === 'sms' ? 'SMS' :
+                  'email y SMS'
+                }}</strong>
+                <template v-if="confirmarResult.notificacion === 'ambos'">
+                  a {{ confirmarResult.email || '—' }} y {{ confirmarResult.telefono || '—' }}
+                </template>
+                <template v-else-if="confirmarResult.notificacion === 'email'">
+                  a {{ confirmarResult.email || '—' }}
+                </template>
+                <template v-else>
+                  al {{ confirmarResult.telefono || '—' }}
+                </template>
+              </p>
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+                @click="closeConfirmar"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       </div>
