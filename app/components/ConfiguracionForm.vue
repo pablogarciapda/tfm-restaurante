@@ -584,20 +584,23 @@ const checkboxClass = 'h-4 w-4 rounded'
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Reservas</h2>
       <div>
-        <span class="mb-1 block text-sm font-medium text-slate">Modo de reserva</span>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input v-model="form.modo_reserva" type="radio" value="automatica" class="h-3 w-3 accent-terracotta" />
-            <span class="text-sm text-slate">Automática</span>
-          </label>
-          <label class="flex items-center gap-1 cursor-pointer">
-            <input v-model="form.modo_reserva" type="radio" value="verificada" class="h-3 w-3 accent-terracotta" />
-            <span class="text-sm text-slate">Verificada (manual)</span>
+        <div class="mb-3">
+          <label class="inline-flex items-center gap-3 cursor-pointer">
+            <div class="relative">
+              <input v-model="form.modo_reserva" type="checkbox" true-value="verificada" false-value="automatica" class="sr-only peer" />
+              <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-terracotta peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+            </div>
+            <span class="text-sm font-medium text-slate">Requerir verificación SMS</span>
           </label>
         </div>
-        <p class="mt-2 text-xs text-gray-400">
-          <strong>Automática:</strong> la reserva se confirma al instante y se envía email.<br />
-          <strong>Verificada:</strong> la reserva queda pendiente hasta que un administrador la confirme.
+        <p class="text-xs text-gray-400">
+          <template v-if="form.modo_reserva === 'verificada'">
+            El cliente recibe un código SMS que debe validar para completar la reserva.
+            La reserva queda en estado <strong>pendiente</strong> hasta que un administrador la confirme.
+          </template>
+          <template v-else>
+            La reserva se confirma al instante sin verificación SMS. El cliente recibe un email de confirmación.
+          </template>
         </p>
       </div>
 
