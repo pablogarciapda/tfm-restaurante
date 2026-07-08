@@ -34,6 +34,7 @@ const publicConfig = ref<PublicConfig | null>(null)
 const horariosConfig = ref<HorarioConfig | null>(null)
 const zonas = ref<ZonaConfig[]>([])
 const clienteEligeZona = ref<'none' | 'zona' | 'zona_mesa'>('none')
+const captchaHabilitado = ref(false)
 const blockedDates = ref<string[]>([])
 
 onMounted(async () => {
@@ -44,6 +45,7 @@ onMounted(async () => {
     horariosConfig.value = data?.horarios || null
     zonas.value = data?.zonas || []
     clienteEligeZona.value = data?.cliente_elige_zona || 'none'
+    captchaHabilitado.value = data?.captcha_habilitado ?? false
     gdprText.value = data?.texto_proteccion_datos || null
   } catch {
     // If config API fails, use defaults
@@ -144,6 +146,7 @@ async function handleVerified() {
         numero_comensales: formData.value.numero_comensales,
         zona_id: formData.value.zona_id,
         sms_verified: true,
+        captcha_token: formData.value.captcha_token,
       },
     })
 
@@ -209,6 +212,7 @@ async function handleResend() {
           :zonas="zonas"
           :cliente-elige-zona="clienteEligeZona"
           :dias-bloqueados="blockedDates"
+          :captcha-habilitado="captchaHabilitado"
           @submit="handleFormSubmit"
         />
       </div>

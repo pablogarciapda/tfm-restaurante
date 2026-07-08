@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, cliente_elige_zona')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, cliente_elige_zona, captcha_habilitado')
     .limit(1)
     .single()
 
@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
       texto_proteccion_datos: null,
       modo_reserva: 'automatica',
       cliente_elige_zona: 'none',
+      captcha_habilitado: false,
     } satisfies PublicConfig
   }
 
@@ -37,6 +38,7 @@ export default defineEventHandler(async (event) => {
     texto_proteccion_datos: (data.texto_proteccion_datos as string) || null,
     modo_reserva: (data.modo_reserva as 'automatica' | 'verificada') || 'automatica',
     cliente_elige_zona: (data.cliente_elige_zona as 'none' | 'zona' | 'zona_mesa') || 'none',
+    captcha_habilitado: (data.captcha_habilitado as boolean) ?? false,
   }
 
   return publicConfig

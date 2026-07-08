@@ -22,6 +22,7 @@ export interface ReservationPayload {
   fecha_hora: string
   numero_comensales: number
   zona_id?: string
+  captcha_token?: string
 }
 
 const props = defineProps<{
@@ -29,6 +30,7 @@ const props = defineProps<{
   zonas?: ZonaConfig[]
   clienteEligeZona?: 'none' | 'zona' | 'zona_mesa'
   diasBloqueados?: string[]
+  captchaHabilitado?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -111,6 +113,9 @@ function selectSlot(hora: string) {
   slotDateError.value = ''
 }
 
+// ── Turnstile CAPTCHA ──
+const captchaToken = ref<string>()
+
 // ── Phone validation (same as before) ──
 function validatePhone(raw: string): string | null {
   const cleaned = raw.trim().replace(/[\s\-()]/g, '')
@@ -182,8 +187,20 @@ function validate(): boolean {
   return Object.keys(newErrors).length === 0 && !slotError.value && !zonaError.value
 }
 
+const captchaError = ref('')
+
+function validateAll(): boolean {
+  const base = validate()
+  if (props.captchaHabilitado && !captchaToken.value) {
+    captchaError.value = 'Debes completar la verificación de seguridad'
+    return false
+  }
+  captchaError.value = ''
+  return base
+}
+
 function handleSubmit() {
-  if (!validate()) return
+  if (!validateAll()) return
 
   const fecha_hora = `${selectedDate.value}T${selectedSlot.value}:00`
 
@@ -195,7 +212,11 @@ function handleSubmit() {
     fecha_hora,
     numero_comensales: numero_comensales.value!,
     zona_id: zonaSeleccionada.value || undefined,
+    captcha_token: captchaToken.value || undefined,
   })
+
+  // Reset token for next submission
+  captchaToken.value = undefined
 }
 </script>
 
@@ -373,6 +394,12 @@ function handleSubmit() {
       <p v-if="errors.numero_comensales" class="mt-1 text-sm text-red-600">
         {{ errors.numero_comensales }}
       </p>
+    </div>
+
+    <!-- Turnstile CAPTCHA (conditional) -->
+    <div v-if="captchaHabilitado" class="flex justify-center">
+      <NuxtTurnstile v-model="captchaToken" :options="{ theme: 'light' }" />
+      <p v-if="captchaError" class="mt-1 text-center text-sm text-red-600">{{ captchaError }}</p>
     </div>
 
     <!-- Submit -->

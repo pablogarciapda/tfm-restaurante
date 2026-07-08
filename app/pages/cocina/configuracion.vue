@@ -28,6 +28,7 @@ const defaultConfig: ConfigData = {
   smtp_port: null,
   smtp_user: '',
   smtp_from_email: '',
+  smtp_security: 'auto',
   texto_proteccion_datos: '',
   modo_reserva: 'automatica',
   horarios_config: { comida_inicio: '13:30', comida_fin: '15:30', cena_inicio: '21:00', cena_fin: '23:30', intervalo_minutos: 15 },
@@ -39,6 +40,7 @@ const defaultConfig: ConfigData = {
     { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true },
   ],
   cliente_elige_zona: 'none',
+  captcha_habilitado: false,
 }
 
 const config = ref<ConfigData>({ ...defaultConfig })

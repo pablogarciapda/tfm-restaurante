@@ -52,13 +52,14 @@ interface ConfigFormData {
   smtp_port: number | null
   smtp_user: string
   smtp_from_email: string
+  smtp_security: string
   smtp_password: string
   texto_proteccion_datos: string
   modo_reserva: ReservaModo
-  // New fields (configuracion-horarios-zonas)
   horarios_config: HorarioConfigForm
   zonas_config: ZoneConfigForm[]
   cliente_elige_zona: ClienteEligeZona
+  captcha_habilitado: boolean
 }
 
 const props = defineProps<{
@@ -93,6 +94,7 @@ const form = reactive<ConfigFormData>({
   smtp_port: props.currentConfig.smtp_port ?? null,
   smtp_user: props.currentConfig.smtp_user ?? '',
   smtp_from_email: props.currentConfig.smtp_from_email ?? '',
+  smtp_security: props.currentConfig.smtp_security ?? 'auto',
   smtp_password: '',
   texto_proteccion_datos: props.currentConfig.texto_proteccion_datos ?? '',
   modo_reserva: (props.currentConfig.modo_reserva as ReservaModo) ?? 'automatica',
@@ -111,10 +113,12 @@ const form = reactive<ConfigFormData>({
     { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true },
   ],
   cliente_elige_zona: (props.currentConfig.cliente_elige_zona as ClienteEligeZona) ?? 'none',
+  captcha_habilitado: props.currentConfig.captcha_habilitado ?? false,
 })
 
 const testEmail = ref('')
 const errors = ref<Record<string, string>>({})
+const showPassword = ref(false)
 
 // ── Horarios preview ──
 const horarioErrors = ref<Record<string, string>>({})
@@ -251,11 +255,13 @@ watch(
     if (cfg.smtp_port !== undefined) form.smtp_port = cfg.smtp_port ?? null
     if (cfg.smtp_user !== undefined) form.smtp_user = cfg.smtp_user ?? ''
     if (cfg.smtp_from_email !== undefined) form.smtp_from_email = cfg.smtp_from_email ?? ''
+    if (cfg.smtp_security !== undefined) form.smtp_security = cfg.smtp_security as string
     if (cfg.texto_proteccion_datos !== undefined) form.texto_proteccion_datos = cfg.texto_proteccion_datos ?? ''
     if (cfg.modo_reserva !== undefined) form.modo_reserva = cfg.modo_reserva as ReservaModo
     if (cfg.horarios_config !== undefined) form.horarios_config = (cfg.horarios_config as HorarioConfigForm) ?? form.horarios_config
     if (cfg.zonas_config !== undefined) form.zonas_config = (cfg.zonas_config as ZoneConfigForm[]) ?? form.zonas_config
     if (cfg.cliente_elige_zona !== undefined) form.cliente_elige_zona = (cfg.cliente_elige_zona as ClienteEligeZona) ?? 'none'
+    if (cfg.captcha_habilitado !== undefined) form.captcha_habilitado = cfg.captcha_habilitado as boolean
     // smtp_password is NEVER loaded — always empty on GET
   },
   { deep: true },
@@ -487,17 +493,42 @@ const checkboxClass = 'h-4 w-4 rounded'
           <input id="cfg-smtp-from" v-model="form.smtp_from_email" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="reservas@lazingara.es" />
         </div>
         <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-security">Tipo de conexión</label>
+          <select id="cfg-smtp-security" v-model="form.smtp_security" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            <option value="auto">Auto (por puerto)</option>
+            <option value="ssl">SSL / TLS</option>
+            <option value="starttls">STARTTLS</option>
+            <option value="none">Sin cifrado</option>
+          </select>
+        </div>
+        <div>
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-password">
             Contraseña SMTP
           </label>
-          <input
-            id="cfg-smtp-password"
-            v-model="form.smtp_password"
-            type="password"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="••••••••"
-            autocomplete="new-password"
-          />
+          <div class="relative">
+            <input
+              id="cfg-smtp-password"
+              v-model="form.smtp_password"
+              :type="showPassword ? 'text' : 'password'"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm"
+              placeholder="••••••••"
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            </button>
+          </div>
           <p class="mt-1 text-xs text-gray-400">
             Dejar en blanco para conservar la contraseña actual.
           </p>
@@ -609,6 +640,18 @@ const checkboxClass = 'h-4 w-4 rounded'
           <strong>No:</strong> el cliente reserva sin elegir zona.<br />
           <strong>Solo zona:</strong> el cliente elige la zona del restaurante.<br />
           <strong>Zona y mesa:</strong> el cliente elige zona y mesa (requiere plano interactivo).
+        </p>
+      </div>
+
+      <!-- CAPTCHA -->
+      <div class="mt-5">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input v-model="form.captcha_habilitado" type="checkbox" class="h-4 w-4 accent-terracotta" />
+          <span class="text-sm font-medium text-slate">Protección anti-bots (Cloudflare Turnstile)</span>
+        </label>
+        <p class="mt-1 text-xs text-gray-400">
+          Muestra un CAPTCHA en el formulario de reservas para evitar spam. Requiere
+          configurar <code>NUXT_PUBLIC_TURNSTILE_SITE_KEY</code> y <code>NUXT_TURNSTILE_SECRET_KEY</code> en el servidor.
         </p>
       </div>
     </div>

@@ -67,6 +67,7 @@ export interface PublicConfig {
   texto_proteccion_datos: string | null
   modo_reserva: 'automatica' | 'verificada'
   cliente_elige_zona: 'none' | 'zona' | 'zona_mesa'
+  captcha_habilitado: boolean
 }
 
 // ──────────────────────────── Admin ───────────────────────────────
@@ -91,6 +92,7 @@ export interface ReservationRequest {
   numero_comensales: number
   zona_id?: string // optional zone id from selector
   sms_verified?: boolean
+  captcha_token?: string // Cloudflare Turnstile token (required when captcha_habilitado=true)
 }
 
 /** Response from POST /api/reservas */
@@ -134,13 +136,15 @@ export interface ConfigData {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
+  smtp_security?: string | null
   texto_proteccion_datos?: string | null
   modo_reserva: 'automatica' | 'verificada'
-  // ───── New fields (configuracion-horarios-zonas) ─────
+  // ───── Config fields ─────
   horarios_config?: HorarioConfig | null
   zonas_config?: ZonaConfig[] | null
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
+  captcha_habilitado: boolean
 }
 
 /** Cliente data from the API */
@@ -186,12 +190,13 @@ export interface ConfigUpdatePayload {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
+  smtp_security?: string | null
   smtp_password?: string // write-only; empty or "••••••••" = preserve existing
   texto_proteccion_datos?: string | null
   modo_reserva?: 'automatica' | 'verificada'
-  // ───── New fields (configuracion-horarios-zonas) ─────
   horarios_config?: HorarioConfig | null
   zonas_config?: ZonaConfig[] | null
   public_config?: PublicConfig | null
   cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
+  captcha_habilitado?: boolean
 }
