@@ -103,7 +103,9 @@ export async function handleCreateReservation(
   }
 
   // 4c. Validate Turnstile token if captcha is enabled
-  if (captchaHabilitado) {
+  // Skip if sms_verified=true — SMS verification already proves humanity,
+  // and the Turnstile token likely expired during the SMS code entry.
+  if (captchaHabilitado && !b.sms_verified) {
     const cfToken = runtimeConfig?.turnstile?.secretKey || process.env.NUXT_TURNSTILE_SECRET_KEY
     if (!b.captcha_token) {
       return {
