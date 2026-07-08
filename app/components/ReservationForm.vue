@@ -202,7 +202,12 @@ function validateAll(): boolean {
 function handleSubmit() {
   if (!validateAll()) return
 
-  const fecha_hora = `${selectedDate.value}T${selectedSlot.value}:00`
+  // Include timezone offset so PostgreSQL interprets the time correctly
+  const tzOffset = -new Date().getTimezoneOffset()
+  const tzSign = tzOffset >= 0 ? '+' : '-'
+  const tzPad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, '0')
+  const tz = `${tzSign}${tzPad(tzOffset / 60)}:${tzPad(tzOffset % 60)}`
+  const fecha_hora = `${selectedDate.value}T${selectedSlot.value}:00${tz}`
 
   emit('submit', {
     nombre: nombre.value.trim(),

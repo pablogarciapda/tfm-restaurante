@@ -25,6 +25,8 @@ interface ConfirmationParams {
   comensales: number
   id: string
   referencia?: string
+  mesa_numero?: number | null
+  mesa_zona?: string | null
 }
 
 /**
@@ -228,6 +230,11 @@ export function buildConfirmationHtml(
             <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Comensales</td>
             <td style="padding: 6px 0; color: #333; font-size: 14px;">${params.comensales}</td>
           </tr>
+          ${params.mesa_numero ? `
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Mesa</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${params.mesa_zona ? `${params.mesa_zona} — ` : ''}Mesa ${params.mesa_numero}</td>
+          </tr>` : ''}
           <tr>
             <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Referencia</td>
             <td style="padding: 6px 0; color: #c25b3c; font-size: 14px; font-weight: bold;">${params.referencia ?? params.id}</td>
@@ -284,16 +291,13 @@ export async function sendConfirmationEmail(
         fecha_hora: params.fecha_hora,
         comensales: params.comensales,
         id: params.id,
+        referencia: params.referencia,
       },
       restaurantInfo,
     )
 
-    const result = await sendEmail(
-      config,
-      params.email,
-      'Confirmación de reserva — La Zíngara',
-      html,
-    )
+    const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`
+    const result = await sendEmail(config, params.email, asunto, html)
 
     if (!result.success) {
       console.warn('[email] Failed to send confirmation:', result.message)

@@ -71,9 +71,19 @@ describe('buildConfirmationHtml', () => {
     expect(html).toContain('4')
   })
 
-  it('includes the reservation reference ID', () => {
+  it('includes the reservation reference ID (falls back to UUID)', () => {
     const html = buildConfirmationHtml(baseParams, defaultRestaurant)
     expect(html).toContain('test-reserva-uuid')
+    expect(html).not.toContain('LN4F')
+  })
+
+  it('uses human-readable referencia when provided', () => {
+    const html = buildConfirmationHtml(
+      { ...baseParams, referencia: 'LN4F-28JUN' },
+      defaultRestaurant,
+    )
+    expect(html).toContain('LN4F-28JUN')
+    expect(html).not.toContain('test-reserva-uuid')
   })
 
   it('includes La Zíngara branding', () => {
@@ -116,5 +126,23 @@ describe('buildConfirmationHtml', () => {
       defaultRestaurant,
     )
     expect(html).toContain('Ana')
+  })
+
+  it('includes mesa info when mesa_numero is provided', () => {
+    const html = buildConfirmationHtml(
+      {
+        ...baseParams,
+        mesa_numero: 7,
+        mesa_zona: 'Principal',
+      },
+      defaultRestaurant,
+    )
+    expect(html).toContain('Mesa 7')
+    expect(html).toContain('Principal')
+  })
+
+  it('omits mesa section when mesa_numero is not provided', () => {
+    const html = buildConfirmationHtml(baseParams, defaultRestaurant)
+    expect(html).not.toContain('Mesa ')
   })
 })

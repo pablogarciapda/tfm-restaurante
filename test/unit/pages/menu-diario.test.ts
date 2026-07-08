@@ -96,11 +96,11 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     await flushPromises()
 
     const text = wrapper.text()
-    expect(text).toContain('Primer Plato')
-    expect(text).toContain('Segundo Plato')
+    expect(text).toContain('Primer plato')
+    expect(text).toContain('Segundo plato')
     expect(text).toContain('Postre')
     expect(text).toContain('Bebida')
-    expect(text).toContain('Pan y Cubiertos')
+    expect(text).toContain('Pan y cubiertos')
   })
 
   it('shows "Hoy no disponemos de menú" when no active config', async () => {
