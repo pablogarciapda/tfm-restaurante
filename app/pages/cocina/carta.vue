@@ -26,6 +26,7 @@ interface Plato {
   calorias?: number
   alergenos?: string[]
   recomendado?: boolean
+  familia_id?: string | null
 }
 
 const platos = ref<Plato[]>([])

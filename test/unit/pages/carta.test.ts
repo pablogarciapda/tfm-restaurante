@@ -30,12 +30,14 @@ g.useSupabaseClient = () => ({
 g.useSupabaseUser = () => ref({ id: '1', email: 'test@test.com' })
 const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' })
 const mockCategoriasRef = ref([
-  { nombre: 'CARNES', puesto: 10 },
-  { nombre: 'PESCADOS', puesto: 20 },
-  { nombre: 'ENTRANTES', puesto: 30 },
+  { id: 'cat-1', nombre: 'CARNES', puesto: 10 },
+  { id: 'cat-2', nombre: 'PESCADOS', puesto: 20 },
+  { id: 'cat-3', nombre: 'ENTRANTES', puesto: 30 },
 ])
+const mockFamiliasRef = ref<{ id: string; nombre: string; categoria_id: string; puesto: number }[]>([])
 g.useAsyncData = vi.fn((key: string) => {
   if (key === 'carta-categorias') return { data: mockCategoriasRef }
+  if (key === 'carta-familias') return { data: mockFamiliasRef }
   return { data: mockConfigRef }
 })
 
@@ -58,6 +60,7 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
           },
           ProductGrid: { template: '<div class="product-grid">{{ categories.length }} categoría(s)</div>', props: ['categories'] },
           PageHero: { template: '<div class="page-hero">{{ title }} — {{ subtitle }}</div>', props: ['title', 'subtitle'] },
+          FamilySelector: { template: '<div class="family-selector" />', props: ['families', 'modelValue'] },
         },
       },
     })
