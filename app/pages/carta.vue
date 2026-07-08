@@ -44,6 +44,7 @@ interface PlatoDisplay {
   imagen_url?: string
   alergenos?: string[]
   calorias?: number
+  subcategoria?: string
 }
 
 interface CategoryGroup {
@@ -203,6 +204,7 @@ const categories = computed<CategoryGroup[]>(() => {
       imagen_url: p.imagen_url,
       alergenos: p.alergenos,
       calorias: p.calorias,
+      subcategoria: p.familia_id ? (familiaMap.value[p.familia_id] ?? undefined) : undefined,
     }
 
     if (!groups.has(p.categoria)) {
@@ -240,6 +242,17 @@ const filteredCategories = computed(() =>
 
 // Family names for the second scroll
 const familyNames = computed(() => familiesForActive.value.map((f) => f.nombre))
+
+// Map familia_id → nombre for subcategory labels (e.g. "TINTOS D.O. LEÓN")
+const familiaMap = computed(() => {
+  const map: Record<string, string> = {}
+  if (familiasRows.value) {
+    for (const f of familiasRows.value) {
+      map[f.id] = f.nombre
+    }
+  }
+  return map
+})
 </script>
 
 <template>
