@@ -127,4 +127,22 @@ describe('buildConfirmationHtml', () => {
     )
     expect(html).toContain('Ana')
   })
+
+  it('includes mesa info when mesa_numero is provided', () => {
+    const html = buildConfirmationHtml(
+      {
+        ...baseParams,
+        mesa_numero: 7,
+        mesa_zona: 'Principal',
+      },
+      defaultRestaurant,
+    )
+    expect(html).toContain('Mesa 7')
+    expect(html).toContain('Principal')
+  })
+
+  it('omits mesa section when mesa_numero is not provided', () => {
+    const html = buildConfirmationHtml(baseParams, defaultRestaurant)
+    expect(html).not.toContain('Mesa ')
+  })
 })

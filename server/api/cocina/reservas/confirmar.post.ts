@@ -59,6 +59,21 @@ export default defineEventHandler(async (event) => {
 
   const metodo = (config?.notificacion_reserva as string) || 'email'
 
+  // Fetch mesa info if mesa was assigned
+  let mesaNumero: number | null = null
+  let mesaZona: string | null = null
+  if (updated.mesa_id) {
+    const { data: mesa } = await supabase
+      .from('mesas')
+      .select('numero_mesa, zona')
+      .eq('id', updated.mesa_id)
+      .single()
+    if (mesa) {
+      mesaNumero = mesa.numero_mesa
+      mesaZona = mesa.zona
+    }
+  }
+
   // Send notifications based on configured method
   if (cliente) {
     const sendEmail = metodo === 'email' || metodo === 'ambos'
@@ -75,6 +90,8 @@ export default defineEventHandler(async (event) => {
           comensales: updated.numero_comensales ?? 0,
           id: updated.id,
           referencia: ref,
+          mesa_numero: mesaNumero,
+          mesa_zona: mesaZona,
         },
         supabase,
         runtimeConfig,
