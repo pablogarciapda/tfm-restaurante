@@ -23,6 +23,19 @@
               rel="noopener noreferrer"
               class="transition-colors hover:text-white"
             >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                class="me-1 inline-block h-4 w-4 align-text-bottom"
+                aria-hidden="true"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M9.69 18.933l.001.001C9.89 19.11 10 19.206 10 19.206s.11-.095.31-.272l.001-.001c.214-.19.521-.469.864-.82.685-.703 1.568-1.702 2.468-2.938C15.508 13.363 18 9.62 18 7a8 8 0 00-16 0c0 2.62 2.492 6.364 4.357 8.176.9 1.236 1.783 2.235 2.468 2.938.343.35.65.63.864.82zM10 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"
+                  clip-rule="evenodd"
+                />
+              </svg>
               Avda. del Páramo, 11<br />
               24240 Santa María del Páramo<br />
               León, España
