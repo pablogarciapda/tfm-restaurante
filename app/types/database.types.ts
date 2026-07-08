@@ -1,3 +1,607 @@
-npm warn exec The following package was not found and will be installed: supabase@2.109.1
-[31mInvalid project ref format. Must be like `abcdefghijklmnopqrst`.[39m
-Try rerunning the command with --debug to troubleshoot the error.
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  public: {
+    Tables: {
+      categorias: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          puesto: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          puesto?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          puesto?: number
+        }
+        Relationships: []
+      }
+      categorias_eventos: {
+        Row: {
+          created_at: string | null
+          id: string
+          nombre: string
+          puesto: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nombre: string
+          puesto?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nombre?: string
+          puesto?: number
+        }
+        Relationships: []
+      }
+      clientes: {
+        Row: {
+          apellidos: string | null
+          created_at: string | null
+          email: string | null
+          gdpr_aceptado: boolean
+          gdpr_aceptado_at: string | null
+          id: string
+          nombre: string
+          telefono: string
+          updated_at: string | null
+        }
+        Insert: {
+          apellidos?: string | null
+          created_at?: string | null
+          email?: string | null
+          gdpr_aceptado?: boolean
+          gdpr_aceptado_at?: string | null
+          id?: string
+          nombre: string
+          telefono: string
+          updated_at?: string | null
+        }
+        Update: {
+          apellidos?: string | null
+          created_at?: string | null
+          email?: string | null
+          gdpr_aceptado?: boolean
+          gdpr_aceptado_at?: string | null
+          id?: string
+          nombre?: string
+          telefono?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      configuracion: {
+        Row: {
+          auto_comprimir_imagen: boolean
+          calidad_imagen: number
+          capacidad_total_local: number | null
+          captcha_habilitado: boolean
+          cliente_elige_mesa: boolean | null
+          cliente_elige_zona: string
+          created_at: string
+          horarios_config: Json
+          id: string
+          max_ancho_imagen: number
+          max_peso_imagen: number
+          modo_ocupacion: string
+          modo_reserva: string | null
+          mostrar_recomendados: boolean | null
+          notificacion_reserva: string
+          ocupacion_manual: number
+          precio_menu_diario: number | null
+          precio_menu_sabado: number | null
+          public_config: Json
+          restaurant_direccion: string
+          restaurant_icon_url: string | null
+          restaurant_logo_url: string | null
+          restaurant_maps_url: string
+          restaurant_nombre: string
+          restaurant_telefono: string
+          sms_verificacion: boolean
+          smtp_from_email: string | null
+          smtp_from_name: string | null
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+          smtp_security: string
+          smtp_user: string | null
+          texto_proteccion_datos: string | null
+          titulo_recomendados: string | null
+          updated_at: string
+          zonas_config: Json
+        }
+        Insert: {
+          auto_comprimir_imagen?: boolean
+          calidad_imagen?: number
+          capacidad_total_local?: number | null
+          captcha_habilitado?: boolean
+          cliente_elige_mesa?: boolean | null
+          cliente_elige_zona?: string
+          created_at?: string
+          horarios_config?: Json
+          id?: string
+          max_ancho_imagen?: number
+          max_peso_imagen?: number
+          modo_ocupacion?: string
+          modo_reserva?: string | null
+          mostrar_recomendados?: boolean | null
+          notificacion_reserva?: string
+          ocupacion_manual?: number
+          precio_menu_diario?: number | null
+          precio_menu_sabado?: number | null
+          public_config?: Json
+          restaurant_direccion?: string
+          restaurant_icon_url?: string | null
+          restaurant_logo_url?: string | null
+          restaurant_maps_url?: string
+          restaurant_nombre?: string
+          restaurant_telefono?: string
+          sms_verificacion?: boolean
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_security?: string
+          smtp_user?: string | null
+          texto_proteccion_datos?: string | null
+          titulo_recomendados?: string | null
+          updated_at?: string
+          zonas_config?: Json
+        }
+        Update: {
+          auto_comprimir_imagen?: boolean
+          calidad_imagen?: number
+          capacidad_total_local?: number | null
+          captcha_habilitado?: boolean
+          cliente_elige_mesa?: boolean | null
+          cliente_elige_zona?: string
+          created_at?: string
+          horarios_config?: Json
+          id?: string
+          max_ancho_imagen?: number
+          max_peso_imagen?: number
+          modo_ocupacion?: string
+          modo_reserva?: string | null
+          mostrar_recomendados?: boolean | null
+          notificacion_reserva?: string
+          ocupacion_manual?: number
+          precio_menu_diario?: number | null
+          precio_menu_sabado?: number | null
+          public_config?: Json
+          restaurant_direccion?: string
+          restaurant_icon_url?: string | null
+          restaurant_logo_url?: string | null
+          restaurant_maps_url?: string
+          restaurant_nombre?: string
+          restaurant_telefono?: string
+          sms_verificacion?: boolean
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_security?: string
+          smtp_user?: string | null
+          texto_proteccion_datos?: string | null
+          titulo_recomendados?: string | null
+          updated_at?: string
+          zonas_config?: Json
+        }
+        Relationships: []
+      }
+      dias_bloqueados: {
+        Row: {
+          created_at: string
+          fecha: string
+          fecha_fin: string | null
+          id: string
+          motivo: string | null
+          recurrente: boolean
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          fecha_fin?: string | null
+          id?: string
+          motivo?: string | null
+          recurrente?: boolean
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          fecha_fin?: string | null
+          id?: string
+          motivo?: string | null
+          recurrente?: boolean
+        }
+        Relationships: []
+      }
+      eventos: {
+        Row: {
+          activo: boolean | null
+          capacidad: number | null
+          categoria_id: string | null
+          created_at: string
+          crop_focus_x: number
+          crop_focus_y: number
+          descripcion: string | null
+          estado: string | null
+          fecha: string
+          id: string
+          imagen_url: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean | null
+          capacidad?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          crop_focus_x?: number
+          crop_focus_y?: number
+          descripcion?: string | null
+          estado?: string | null
+          fecha: string
+          id?: string
+          imagen_url?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean | null
+          capacidad?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          crop_focus_x?: number
+          crop_focus_y?: number
+          descripcion?: string | null
+          estado?: string | null
+          fecha?: string
+          id?: string
+          imagen_url?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_eventos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      familias: {
+        Row: {
+          categoria_id: string
+          created_at: string | null
+          id: string
+          nombre: string
+          puesto: number | null
+        }
+        Insert: {
+          categoria_id: string
+          created_at?: string | null
+          id?: string
+          nombre: string
+          puesto?: number | null
+        }
+        Update: {
+          categoria_id?: string
+          created_at?: string | null
+          id?: string
+          nombre?: string
+          puesto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familias_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"],
+          },
+        ]
+      }
+      menu_diario_config: {
+        Row: {
+          activo: boolean | null
+          created_at: string
+          day_of_week: number
+          fecha: string | null
+          id: string
+          precio: string
+          secciones_config: Json | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string
+          day_of_week: number
+          fecha?: string | null
+          id?: string
+          precio: string
+          secciones_config?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string
+          day_of_week?: number
+          fecha?: string | null
+          id?: string
+          precio?: string
+          secciones_config?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      menu_diario_items: {
+        Row: {
+          config_id: string
+          descripcion: string | null
+          id: string
+          plato_nombre: string
+          puesto: number | null
+          seccion: string
+        }
+        Insert: {
+          config_id: string
+          descripcion?: string | null
+          id?: string
+          plato_nombre: string
+          puesto?: number | null
+          seccion: string
+        }
+        Update: {
+          config_id?: string
+          descripcion?: string | null
+          id?: string
+          plato_nombre?: string
+          puesto?: number | null
+          seccion?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_diario_items_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "menu_diario_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mesas: {
+        Row: {
+          alto: number | null
+          ancho: number | null
+          capacidad_actual: number
+          capacidad_base: number
+          created_at: string
+          id: string
+          id_fusion: string | null
+          mesa_padre_id: string | null
+          numero_mesa: number
+          posicion_x: number | null
+          posicion_y: number | null
+          rotacion: number | null
+          updated_at: string
+          zona: string
+          zona_nombre: string | null
+        }
+        Insert: {
+          alto?: number | null
+          ancho?: number | null
+          capacidad_actual?: number
+          capacidad_base: number
+          created_at?: string
+          id?: string
+          id_fusion?: string | null
+          mesa_padre_id?: string | null
+          numero_mesa: number
+          posicion_x?: number | null
+          posicion_y?: number | null
+          rotacion?: number | null
+          updated_at?: string
+          zona: string
+          zona_nombre?: string | null
+        }
+        Update: {
+          alto?: number | null
+          ancho?: number | null
+          capacidad_actual?: number
+          capacidad_base?: number
+          created_at?: string
+          id?: string
+          id_fusion?: string | null
+          mesa_padre_id?: string | null
+          numero_mesa?: number
+          posicion_x?: number | null
+          posicion_y?: number | null
+          rotacion?: number | null
+          updated_at?: string
+          zona?: string
+          zona_nombre?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mesas_mesa_padre_id_fkey"
+            columns: ["mesa_padre_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platos: {
+        Row: {
+          alergenos: string[] | null
+          calorias: number | null
+          categoria: string
+          created_at: string
+          descripcion: string | null
+          disponible: boolean | null
+          familia_id: string | null
+          id: string
+          imagen_url: string | null
+          nombre: string
+          precio: number
+          puesto: number | null
+          recomendado: boolean
+          tipo_menu: string | null
+          updated_at: string
+        }
+        Insert: {
+          alergenos?: string[] | null
+          calorias?: number | null
+          categoria: string
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean | null
+          familia_id?: string | null
+          id?: string
+          imagen_url?: string | null
+          nombre: string
+          precio: number
+          puesto?: number | null
+          recomendado?: boolean
+          tipo_menu?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alergenos?: string[] | null
+          calorias?: number | null
+          categoria?: string
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean | null
+          familia_id?: string | null
+          id?: string
+          imagen_url?: string | null
+          nombre?: string
+          precio?: number
+          puesto?: number | null
+          recomendado?: boolean
+          tipo_menu?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platos_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "familias"
+            referencedColumns: ["id"],
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          permissions: Json
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id: string
+          permissions?: Json
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          permissions?: Json
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reservas: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          estado: string | null
+          fecha_hora: string
+          id: string
+          mesa_id: string | null
+          numero_comensales: number | null
+          zona_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          estado?: string | null
+          fecha_hora: string
+          id?: string
+          mesa_id?: string | null
+          numero_comensales?: number | null
+          zona_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          estado?: string | null
+          fecha_hora?: string
+          id?: string
+          mesa_id?: string | null
+          numero_comensales?: number | null
+          zona_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      can_write: { Args: { resource: string }; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}

@@ -21,6 +21,7 @@ defineProps<{
       imagen_url?: string
       alergenos?: string[]
       calorias?: number
+      subcategoria?: string
     }[]
   }[]
 }>()

@@ -23,11 +23,19 @@ interface PlatoFormData {
   alergenos: string
   puesto: number | null
   recomendado: boolean
+  familia_id: string | null
 }
 
 interface Category {
   id: string
   nombre: string
+  puesto: number
+}
+
+interface Familia {
+  id: string
+  nombre: string
+  categoria_id: string
   puesto: number
 }
 
@@ -59,6 +67,58 @@ const form = reactive<PlatoFormData>({
   alergenos: (props.initialPlato?.alergenos as string[])?.join(', ') ?? '',
   puesto: (props.initialPlato?.puesto as number) ?? null,
   recomendado: (props.initialPlato?.recomendado as boolean) ?? false,
+  familia_id: (props.initialPlato?.familia_id as string) ?? null,
+})
+
+// Load familias filtered by selected categoria
+const familias = ref<Familia[]>([])
+const loadingFamilias = ref(false)
+
+async function loadFamilias(categoriaNombre: string) {
+  if (!categoriaNombre) {
+    familias.value = []
+    form.familia_id = null
+    return
+  }
+
+  loadingFamilias.value = true
+  try {
+    const client = useSupabaseClient()
+    // First find categoria id
+    const { data: catData } = await client
+      .from('categorias')
+      .select('id')
+      .eq('nombre', categoriaNombre)
+      .maybeSingle()
+
+    if (catData) {
+      const { data: famData } = await client
+        .from('familias')
+        .select('*')
+        .eq('categoria_id', catData.id)
+        .order('puesto')
+      familias.value = (famData ?? []) as Familia[]
+    } else {
+      familias.value = []
+    }
+  } catch {
+    familias.value = []
+  }
+  loadingFamilias.value = false
+}
+
+// Watch categoria changes to load familias
+watch(() => form.categoria, (newCat) => {
+  // Reset familia when category changes
+  form.familia_id = null
+  loadFamilias(newCat)
+})
+
+// Load familias on mount if editing an existing plato
+onMounted(async () => {
+  if (form.categoria) {
+    await loadFamilias(form.categoria)
+  }
 })
 
 const errors = ref<Record<string, string>>({})
@@ -247,6 +307,27 @@ const TIPO_MENU_OPTIONS = ['carta', 'menu_diario', 'ambos']
           {{ cat.nombre }}
         </option>
       </select>
+    </div>
+
+    <!-- Familia (only shown when categoria has familias) -->
+    <div v-if="familias.length > 0">
+      <label class="mb-1 block text-sm font-medium text-slate" for="plato-familia">Familia</label>
+      <select
+        id="plato-familia"
+        v-model="form.familia_id"
+        data-testid="plato-familia"
+        class="w-full rounded-lg border border-gray-300 px-3 py-2"
+      >
+        <option :value="null">Sin familia</option>
+        <option
+          v-for="fam in familias"
+          :key="fam.id"
+          :value="fam.id"
+        >
+          {{ fam.nombre }}
+        </option>
+      </select>
+      <p v-if="loadingFamilias" class="mt-1 text-xs text-gray-400">Cargando familias...</p>
     </div>
 
     <!-- Tipo de menu -->

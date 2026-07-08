@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 /**
  * Carta page — Category-based browsing with Supabase data (CN-006)
@@ -8,9 +8,16 @@ import { computed, ref, watch } from 'vue'
  * Platos grouped by categoria, sorted by puesto.
  * Only one category visible at a time, selected via CategorySelector.
  *
+ * Categories with families (e.g. VINOS → 13 D.O. families, POSTRES → HELADOS/CASEROS)
+ * display a second horizontal scroll for family filtering.
+ *
  * A synthetic "Recomendados" section is built from platos with
  * recomendado=true. Its title and visibility are configurable
  * from the admin Configuracion page.
+ *
+ * BUG FIX (2026-07-09): categoryNames must use ALL categories from DB,
+ * NOT the filtered categories list, so family filtering in VINOS/POSTRES
+ * doesn't hide main category navigation.
  */
 
 interface PlatoSupabase {
@@ -26,6 +33,7 @@ interface PlatoSupabase {
   alergenos?: string[]
   puesto?: number
   recomendado?: boolean
+  familia_id?: string | null
 }
 
 interface PlatoDisplay {
@@ -36,6 +44,7 @@ interface PlatoDisplay {
   imagen_url?: string
   alergenos?: string[]
   calorias?: number
+  subcategoria?: string
 }
 
 interface CategoryGroup {
@@ -46,9 +55,21 @@ interface CategoryGroup {
   platos: PlatoDisplay[]
 }
 
+interface FamiliaRow {
+  id: string
+  nombre: string
+  categoria_id: string
+  puesto: number
+}
+
 interface RecomendadosConfig {
   mostrar_recomendados: boolean
   titulo_recomendados: string
+}
+
+interface CategoriaRow {
+  nombre: string
+  puesto: number
 }
 
 const client = useSupabaseClient()
@@ -65,10 +86,20 @@ const { data: sysConfig } = useAsyncData('carta-config', async () => {
 
 // Load categorias for display order (puesto from DB, not from platos)
 const { data: categoriasRows } = useAsyncData('carta-categorias', async () => {
-  const { data } = await client.from('categorias').select('nombre, puesto').order('puesto')
+  const { data } = await client.from('categorias').select('id, nombre, puesto').order('puesto')
   return data ?? []
 })
 
+// Load familias for sub-category filtering (e.g. wine types)
+const { data: familiasRows } = useAsyncData('carta-familias', async () => {
+  const { data } = await client
+    .from('familias')
+    .select('id, nombre, categoria_id, puesto')
+    .order('puesto')
+  return (data ?? []) as FamiliaRow[]
+})
+
+// Map categoria nombre → puesto
 const categoriaPuesto = computed(() => {
   const map: Record<string, number> = {}
   if (categoriasRows.value) {
@@ -79,10 +110,83 @@ const categoriaPuesto = computed(() => {
   return map
 })
 
+// Build a map: categoria_nombre → familias[] (from categoria_id FK)
+const familiasPorCategoria = computed(() => {
+  const map = new Map<string, FamiliaRow[]>()
+  if (!familiasRows.value?.length || !categoriasRows.value?.length) return map
+
+  // Build categoria nombre → id lookup
+  const catNombreToId = new Map<string, string>()
+  for (const c of categoriasRows.value) {
+    const row = c as CategoriaRow & { id?: string }
+    if (row.id) catNombreToId.set(row.nombre, row.id)
+  }
+
+  // Invert: categoria_id → categoria nombre
+  const catIdToNombre = new Map<string, string>()
+  for (const [nombre, id] of catNombreToId) {
+    catIdToNombre.set(id, nombre)
+  }
+
+  // Group familias by their category name
+  for (const f of familiasRows.value) {
+    const catName = catIdToNombre.get(f.categoria_id)
+    if (catName) {
+      if (!map.has(catName)) map.set(catName, [])
+      map.get(catName)!.push(f)
+    }
+  }
+  return map
+})
+
 const recTitle = computed(() => sysConfig.value?.titulo_recomendados ?? 'NUESTRAS RECOMENDACIONES')
 const showRec = computed(() => sysConfig.value?.mostrar_recomendados ?? true)
 
-// Map Supabase rows → display format grouped by categoria
+// Active category & family
+const activeCategory = ref('')
+const activeFamily = ref<string | null>(null)
+
+// Category names for the first scroll — always ALL categories from DB (never filtered)
+const categoryNames = computed(() => {
+  const names: string[] = []
+  if (categoriasRows.value) {
+    for (const c of categoriasRows.value) {
+      names.push(c.nombre)
+    }
+  }
+  // Synthetic Recomendados at the front
+  if (showRec.value) {
+    names.unshift(recTitle.value)
+  }
+  return names
+})
+
+// Computed display category: fallback to first category w/ platos when none selected
+const displayCategory = computed({
+  get: () => {
+    if (activeCategory.value) return activeCategory.value
+    // First category from the full list that actually has platos
+    const firstWithContent = categories.value.find((c) => c.platos.length > 0)
+    return firstWithContent?.categoria || categoryNames.value[0] || ''
+  },
+  set: (val: string) => {
+    // If clicking the same category, toggle family off; if switching, reset family
+    if (val !== activeCategory.value) {
+      activeFamily.value = null
+    }
+    activeCategory.value = val
+  },
+})
+
+// Families for the currently selected category (second scroll)
+const familiesForActive = computed(() => {
+  return familiasPorCategoria.value.get(displayCategory.value) ?? []
+})
+
+// Whether to show the second family scroll
+const showFamilyScroll = computed(() => familiesForActive.value.length > 0)
+
+// Map Supabase rows → display format grouped by categoria AND optionally filtered by familia
 const categories = computed<CategoryGroup[]>(() => {
   const raw = platos.value as PlatoSupabase[] | null
   if (!raw || raw.length === 0) return []
@@ -92,8 +196,10 @@ const categories = computed<CategoryGroup[]>(() => {
   const recName = recTitle.value
 
   for (const p of raw) {
-    // Skip non-disponible platos
     if (!p.disponible) continue
+
+    // If a family filter is active, skip platos that don't match
+    if (activeFamily.value && p.familia_id !== activeFamily.value) continue
 
     const display: PlatoDisplay = {
       plato: p.nombre,
@@ -103,9 +209,9 @@ const categories = computed<CategoryGroup[]>(() => {
       imagen_url: p.imagen_url,
       alergenos: p.alergenos,
       calorias: p.calorias,
+      subcategoria: p.familia_id ? (familiaMap.value[p.familia_id] ?? undefined) : undefined,
     }
 
-    // Add to its category group
     if (!groups.has(p.categoria)) {
       groups.set(p.categoria, { platos: [], minPuesto: p.puesto ?? 99 })
     }
@@ -115,7 +221,6 @@ const categories = computed<CategoryGroup[]>(() => {
       group.minPuesto = p.puesto ?? 99
     }
 
-    // Also add to the synthetic recomendados section if marked as recomendado
     if (useRec && p.recomendado) {
       if (!groups.has(recName)) {
         groups.set(recName, { platos: [], minPuesto: -1 })
@@ -129,30 +234,30 @@ const categories = computed<CategoryGroup[]>(() => {
   return Array.from(groups.entries()).map(([cat, g]) => ({
     id: cat.toLowerCase().replace(/\s+/g, '-'),
     categoria: cat,
-    // Synthetic group (puesto -1) always first; real categories use DB puesto
     puesto: cat === recName ? -1 : (catOrderMap[cat] ?? 999),
     open: true,
     platos: g.platos,
   })).sort((a, b) => a.puesto - b.puesto)
 })
 
-const categoryNames = computed(() => categories.value.map((c) => c.categoria))
-
-// Active category: uses a writable computed that falls back to the first
-// category when the user hasn't selected one. This avoids hydration mismatches
-// because both SSR and client derive the default from the SAME computed data.
-// Suspense resolves all async data before SSR rendering, so categoryNames
-// is already populated when the template evaluates.
-const activeCategory = ref('')
-const displayCategory = computed({
-  get: () => activeCategory.value || categoryNames.value[0] || '',
-  set: (val: string) => { activeCategory.value = val },
-})
-
-// Only show the selected category
+// Show only the selected category
 const filteredCategories = computed(() =>
   categories.value.filter((c) => c.categoria === displayCategory.value),
 )
+
+// Family names for the second scroll
+const familyNames = computed(() => familiesForActive.value.map((f) => f.nombre))
+
+// Map familia_id → nombre for subcategory labels (e.g. "TINTOS D.O. LEÓN")
+const familiaMap = computed(() => {
+  const map: Record<string, string> = {}
+  if (familiasRows.value) {
+    for (const f of familiasRows.value) {
+      map[f.id] = f.nombre
+    }
+  }
+  return map
+})
 </script>
 
 <template>
@@ -178,12 +283,21 @@ const filteredCategories = computed(() =>
       <p class="text-lg">Carta no disponible</p>
     </div>
 
-    <!-- Categories (div wrapper avoids Suspense fragment issues) -->
+    <!-- Categories -->
     <div v-else>
+      <!-- First scroll: categories -->
       <CategorySelector
         v-model="displayCategory"
         :categories="categoryNames"
       />
+
+      <!-- Second scroll: families (only when active category has families) -->
+      <FamilySelector
+        v-if="showFamilyScroll"
+        v-model="activeFamily"
+        :families="familiesForActive"
+      />
+
       <ProductGrid :categories="filteredCategories" />
     </div>
   </div>

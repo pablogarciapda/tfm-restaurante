@@ -18,6 +18,7 @@ defineProps<{
     imagen_url?: string
     alergenos?: string[]
     calorias?: number
+    subcategoria?: string
   }
 }>()
 
@@ -56,6 +57,10 @@ function onImageError() {
       <h3 class="text-base font-bold text-slate sm:text-lg">
         {{ plato.plato }}
       </h3>
+      <!-- Subcategoria (e.g. Denominación de Origen for wines) -->
+      <p v-if="plato.subcategoria" class="mt-0.5 text-xs text-gray-500">
+        {{ plato.subcategoria }}
+      </p>
 
       <!-- Description (line-clamp-2) -->
       <p
