@@ -14,8 +14,8 @@ export default defineNuxtConfig({
     },
   },
 
-  // ESLint flat config (v1.x) + font loading + Supabase
-  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase', '@pinia/nuxt'],
+  // ESLint flat config (v1.x) + font loading + Supabase + Turnstile CAPTCHA
+  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/supabase', '@pinia/nuxt', '@nuxtjs/turnstile'],
 
   // @nuxtjs/supabase — disable auto-redirect (we handle auth manually via middleware on /cocina/** only)
   supabase: {
@@ -53,6 +53,12 @@ export default defineNuxtConfig({
       'shared/contracts',
       'shared/utils',
     ],
+  },
+
+  // @nuxtjs/turnstile — Cloudflare Turnstile CAPTCHA (toggle in /cocina/configuracion)
+  // Set NUXT_PUBLIC_TURNSTILE_SITE_KEY and NUXT_TURNSTILE_SECRET_KEY in .env
+  turnstile: {
+    siteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA', // invisible mode
   },
 
   // Tailwind v4 CSS-first

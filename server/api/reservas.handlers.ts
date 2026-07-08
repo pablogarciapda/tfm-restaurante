@@ -26,6 +26,7 @@ interface ReservationBody {
   numero_comensales: number
   zona_id?: string
   sms_verified?: boolean
+  captcha_token?: string
 }
 
 function validateBody(body: ReservationBody): string[] {
@@ -90,14 +91,46 @@ export async function handleCreateReservation(
     }
   }
 
-  // 4. Read config → modo_reserva, horarios_config, zonas_config
+  // 4. Read config → modo_reserva, horarios_config, zonas_config, captcha_habilitado
   const { data: config } = await supabase
     .from('configuracion')
-    .select('modo_reserva, horarios_config, zonas_config')
+    .select('modo_reserva, horarios_config, zonas_config, captcha_habilitado')
     .limit(1)
     .single()
   const modo = config?.modo_reserva ?? 'automatica'
   const horariosConfig = config?.horarios_config as HorarioConfig | null
+  const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
+
+  // 4a. Validate Turnstile token if captcha is enabled
+  if (captchaHabilitado) {
+    const cfToken = runtimeConfig?.turnstile?.secretKey || process.env.NUXT_TURNSTILE_SECRET_KEY
+    if (!b.captcha_token) {
+      return {
+        status: 403,
+        body: { error: 'CAPTCHA no superado' },
+      }
+    }
+    try {
+      const verify = await $fetch<{ success: boolean }>('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        body: new URLSearchParams({
+          secret: cfToken || '',
+          response: b.captcha_token,
+        }),
+      })
+      if (!verify.success) {
+        return {
+          status: 403,
+          body: { error: 'CAPTCHA no válido' },
+        }
+      }
+    } catch {
+      return {
+        status: 503,
+        body: { error: 'Error al verificar CAPTCHA, inténtalo de nuevo' },
+      }
+    }
+  }
 
   // 4b. Validate blocked days
   const fechaDate = b.fecha_hora.split('T')[0]

@@ -15,6 +15,7 @@ interface EmailConfig {
   user: string
   password: string
   fromEmail: string
+  security: 'auto' | 'ssl' | 'starttls' | 'none'
 }
 
 interface ConfirmationParams {
@@ -36,7 +37,7 @@ export async function getEmailConfig(
 ): Promise<EmailConfig | null> {
   const { data } = await supabase
     .from('configuracion')
-    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email')
+    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_security')
     .limit(1)
     .single()
 
@@ -47,28 +48,52 @@ export async function getEmailConfig(
 
   if (!password) return null
 
+  const securityRaw = (data.smtp_security as string) || 'auto'
+
   return {
     host: data.smtp_host,
     port: data.smtp_port ?? 587,
     user: data.smtp_user ?? '',
     password,
     fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@lazingara.es',
+    security: ['auto', 'ssl', 'starttls', 'none'].includes(securityRaw)
+      ? (securityRaw as EmailConfig['security'])
+      : 'auto',
   }
 }
 
 /**
- * Create a nodemailer transporter with port-based TLS detection.
- * - 465 → SSL (secure: true)
- * - 587 → STARTTLS (secure: false)
- * - other → no TLS enforcement
+ * Create a nodemailer transporter respecting security preference.
+ * - auto → port-based detection (465=SSL, rest=STARTTLS)
+ * - ssl  → explicit SSL/TLS (secure: true)
+ * - starttls → explicit STARTTLS (secure: false)
+ * - none → no encryption (ignoreTLS: true)
  */
 function createTransporter(config: EmailConfig): nodemailer.Transporter {
-  const secure = config.port === 465
+  let secure = false
+  let ignoreTLS = false
+
+  switch (config.security) {
+    case 'ssl':
+      secure = true
+      break
+    case 'none':
+      ignoreTLS = true
+      break
+    case 'starttls':
+      secure = false
+      break
+    case 'auto':
+    default:
+      secure = config.port === 465
+      break
+  }
 
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure,
+    ignoreTLS,
     auth: config.user
       ? {
           user: config.user,
