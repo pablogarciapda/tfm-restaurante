@@ -8,12 +8,16 @@ import { computed, ref } from 'vue'
  * Platos grouped by categoria, sorted by puesto.
  * Only one category visible at a time, selected via CategorySelector.
  *
- * Categories with families (e.g. VINOS → TINTOS/BLANCOS/ROSADOS/CAVAS)
+ * Categories with families (e.g. VINOS → 13 D.O. families, POSTRES → HELADOS/CASEROS)
  * display a second horizontal scroll for family filtering.
  *
  * A synthetic "Recomendados" section is built from platos with
  * recomendado=true. Its title and visibility are configurable
  * from the admin Configuracion page.
+ *
+ * BUG FIX (2026-07-09): categoryNames must use ALL categories from DB,
+ * NOT the filtered categories list, so family filtering in VINOS/POSTRES
+ * doesn't hide main category navigation.
  */
 
 interface PlatoSupabase {
@@ -141,8 +145,20 @@ const showRec = computed(() => sysConfig.value?.mostrar_recomendados ?? true)
 const activeCategory = ref('')
 const activeFamily = ref<string | null>(null)
 
-// Category names for the first scroll
-const categoryNames = computed(() => categories.value.map((c) => c.categoria))
+// Category names for the first scroll — always ALL categories from DB (never filtered)
+const categoryNames = computed(() => {
+  const names: string[] = []
+  if (categoriasRows.value) {
+    for (const c of categoriasRows.value) {
+      names.push(c.nombre)
+    }
+  }
+  // Synthetic Recomendados at the front
+  if (showRec.value) {
+    names.unshift(recTitle.value)
+  }
+  return names
+})
 
 // Computed display category: fallback to first category when none selected
 const displayCategory = computed({
