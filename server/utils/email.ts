@@ -15,7 +15,6 @@ interface EmailConfig {
   user: string
   password: string
   fromEmail: string
-  fromName: string
   security: 'auto' | 'ssl' | 'starttls' | 'none'
 }
 
@@ -38,7 +37,7 @@ export async function getEmailConfig(
 ): Promise<EmailConfig | null> {
   const { data } = await supabase
     .from('configuracion')
-    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_from_name, smtp_security')
+    .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_security')
     .limit(1)
     .single()
 
@@ -57,7 +56,6 @@ export async function getEmailConfig(
     user: data.smtp_user ?? '',
     password,
     fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@lazingara.es',
-    fromName: (data.smtp_from_name as string) || 'Restaurante La Zíngara',
     security: ['auto', 'ssl', 'starttls', 'none'].includes(securityRaw)
       ? (securityRaw as EmailConfig['security'])
       : 'auto',
@@ -118,7 +116,7 @@ export async function sendEmail(
   try {
     const transporter = createTransporter(config)
     await transporter.sendMail({
-      from: `"${config.fromName}" <${config.fromEmail}>`,
+      from: `"La Zíngara" <${config.fromEmail}>`,
       to,
       subject,
       html,

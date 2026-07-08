@@ -119,12 +119,7 @@ describe('handleCreateReservation', () => {
   })
 
   it('requires sms_verified flag — returns 403 if missing', async () => {
-    const mockSupabase = createMockSupabase({
-      configSelect: vi.fn().mockResolvedValue({
-        data: { modo_reserva: 'verificada' },
-        error: null,
-      }),
-    })
+    const mockSupabase = createMockSupabase({})
     const result = await handleCreateReservation(mockSupabase as any, {
       nombre: 'Test',
       telefono: '600123456',

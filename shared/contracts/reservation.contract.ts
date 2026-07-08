@@ -136,7 +136,6 @@ export interface ConfigData {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
-  smtp_from_name?: string | null
   smtp_security?: string | null
   texto_proteccion_datos?: string | null
   modo_reserva: 'automatica' | 'verificada'
@@ -191,7 +190,6 @@ export interface ConfigUpdatePayload {
   smtp_port?: number | null
   smtp_user?: string | null
   smtp_from_email?: string | null
-  smtp_from_name?: string | null
   smtp_security?: string | null
   smtp_password?: string // write-only; empty or "••••••••" = preserve existing
   texto_proteccion_datos?: string | null
