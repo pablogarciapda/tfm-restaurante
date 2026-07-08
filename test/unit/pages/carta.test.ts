@@ -78,9 +78,9 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
 
   it('passes only the active category to ProductGrid', async () => {
     mockPlatosRef.value = [
-      { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'Entrantes', puesto: 1, disponible: true },
-      { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'Ensaladas', puesto: 2, disponible: true },
-      { id: '3', nombre: 'Jamón', precio: 12.0, categoria: 'Entrantes', puesto: 1, disponible: true },
+      { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'ENTRANTES', puesto: 1, disponible: true },
+      { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'ENTRANTES', puesto: 2, disponible: true },
+      { id: '3', nombre: 'Jamón', precio: 12.0, categoria: 'ENTRANTES', puesto: 3, disponible: true },
     ]
 
     const wrapper = await mountCarta()
@@ -89,41 +89,41 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const grid = wrapper.findComponent({ name: 'ProductGrid' })
     expect(grid.exists()).toBe(true)
 
-    // Only one category should be passed (the active one, first by puesto)
+    // ENTRANTES is first category with platos → displayCategory fallback → 1 cat
     const categories = grid.props('categories') as Array<{ categoria: string; platos: unknown[] }>
     expect(categories).toHaveLength(1)
   })
 
   it('switches category when clicking a different category button', async () => {
     mockPlatosRef.value = [
-      { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'Entrantes', puesto: 1, disponible: true },
-      { id: '2', nombre: 'Ensalada', precio: 8.0, categoria: 'Ensaladas', puesto: 2, disponible: true },
+      { id: '1', nombre: 'Croquetas', precio: 9.5, categoria: 'ENTRANTES', puesto: 1, disponible: true },
+      { id: '2', nombre: 'Ternera', precio: 14.0, categoria: 'CARNES', puesto: 2, disponible: true },
     ]
 
     const wrapper = await mountCarta()
     await flushPromises()
 
-    // Initially should show first category (Entrantes)
+    // Initially should show first category with platos (CARNES has puesto 10 < ENTRANTES 30)
     let grid = wrapper.findComponent({ name: 'ProductGrid' })
     let cats = grid.props('categories') as Array<{ categoria: string }>
-    expect(cats[0].categoria).toBe('Entrantes')
+    expect(cats[0].categoria).toBe('CARNES')
 
-    // Click second category button
+    // Click ENTRANTES button (third DB category: REC, CARNES, PESCADOS, ENTRANTES)
     const buttons = wrapper.findAll('[data-testid="cat-btn"]')
-    expect(buttons.length).toBeGreaterThanOrEqual(2)
-    await buttons[1].trigger('click')
+    expect(buttons.length).toBeGreaterThanOrEqual(4)
+    await buttons[3].trigger('click') // third cat button = ENTRANTES
     await flushPromises()
 
-    // Now should show only Ensaladas
+    // Now should show only ENTRANTES
     grid = wrapper.findComponent({ name: 'ProductGrid' })
     cats = grid.props('categories') as Array<{ categoria: string }>
     expect(cats).toHaveLength(1)
-    expect(cats[0].categoria).toBe('Ensaladas')
+    expect(cats[0].categoria).toBe('ENTRANTES')
   })
 
   it('maps Supabase fields to ProductCard contract (nombre→plato, precio→string)', async () => {
     mockPlatosRef.value = [
-      { id: '1', nombre: 'Paella', precio: 15.0, descripcion: 'Arroz del senyoret', categoria: 'Arroces', puesto: 1, disponible: true, imagen_url: '/img/paella.jpg', alergenos: ['Mariscos'], calorias: 450 },
+      { id: '1', nombre: 'Paella', precio: 15.0, descripcion: 'Arroz del senyoret', categoria: 'CARNES', puesto: 1, disponible: true, imagen_url: '/img/paella.jpg', alergenos: ['Mariscos'], calorias: 450 },
     ]
 
     const wrapper = await mountCarta()
@@ -133,11 +133,11 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const cats = grid.props('categories') as Array<{ categoria: string; platos: Array<{ plato: string; precio: string }> }>
     expect(cats).toBeTruthy()
 
-    const arroces = cats.find((c) => c.categoria === 'Arroces')
-    expect(arroces).toBeTruthy()
-    expect(arroces!.platos).toHaveLength(1)
-    expect(arroces!.platos[0].plato).toBe('Paella')
-    expect(arroces!.platos[0].precio).toContain('15')
+    const carnes = cats.find((c) => c.categoria === 'CARNES')
+    expect(carnes).toBeTruthy()
+    expect(carnes!.platos).toHaveLength(1)
+    expect(carnes!.platos[0].plato).toBe('Paella')
+    expect(carnes!.platos[0].precio).toContain('15')
   })
 
   it('shows "Carta no disponible" when platos array is empty', async () => {

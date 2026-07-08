@@ -161,9 +161,14 @@ const categoryNames = computed(() => {
   return names
 })
 
-// Computed display category: fallback to first category when none selected
+// Computed display category: fallback to first category w/ platos when none selected
 const displayCategory = computed({
-  get: () => activeCategory.value || categoryNames.value[0] || '',
+  get: () => {
+    if (activeCategory.value) return activeCategory.value
+    // First category from the full list that actually has platos
+    const firstWithContent = categories.value.find((c) => c.platos.length > 0)
+    return firstWithContent?.categoria || categoryNames.value[0] || ''
+  },
   set: (val: string) => {
     // If clicking the same category, toggle family off; if switching, reset family
     if (val !== activeCategory.value) {
