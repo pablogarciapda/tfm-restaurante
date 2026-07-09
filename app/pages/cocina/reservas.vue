@@ -119,7 +119,7 @@ const aforoInfo = computed<AforoInfo>(() => {
 
 // ── Toolbar event handlers ──
 
-async function handleAddMesa() {
+async function handleAddMesa(forma?: string) {
   const nextNumero = store.mesas.length > 0
     ? Math.max(...store.mesas.map((m) => m.numero_mesa)) + 1
     : 1
@@ -133,6 +133,7 @@ async function handleAddMesa() {
     alto: 100,
     rotacion: 0,
     zona: 'Principal',
+    forma: (forma as Mesa['forma']) ?? 'rectangular',
   })
 }
 
@@ -437,7 +438,7 @@ onUnmounted(() => {
       :aforo-info="aforoInfo"
       :can-fuse="canFuse"
       :can-unfuse="canUnfuse"
-      @add="handleAddMesa"
+      @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
       @fuse="handleFuse"

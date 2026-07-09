@@ -1,11 +1,12 @@
 <!--
-  TableToolbar.vue — Canvas toolbar (MCA-003, Slice 4: fusion buttons)
+  TableToolbar.vue — Canvas toolbar (MCA-003, Slice 4: fusion buttons, AD-14: shape selector)
 
   Props: selectedMesa, aforoInfo, fusionMode, canFuse, canUnfuse
-  Emits: add, delete, save, fuse, unfuse
+  Emits: add(shape), delete, save, fuse, unfuse
 -->
 <script setup lang="ts">
-import type { Mesa, AforoInfo } from '#shared/contracts/mesas.contract'
+import { ref } from 'vue'
+import type { Mesa, AforoInfo, FormaMesa } from '#shared/contracts/mesas.contract'
 import AforoIndicator from './AforoIndicator.vue'
 
 defineProps<{
@@ -17,12 +18,14 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  add: []
+  add: [shape: FormaMesa]
   delete: []
   save: []
   fuse: []
   unfuse: []
 }>()
+
+const selectedForma = ref<FormaMesa>('rectangular')
 </script>
 
 <template>
@@ -31,12 +34,25 @@ const emit = defineEmits<{
   >
     <!-- Left: action buttons -->
     <div class="flex items-center gap-2">
-      <button
-        class="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-        @click="emit('add')"
-      >
-        + Nueva Mesa
-      </button>
+      <!-- Shape selector dropdown + add button -->
+      <div class="flex items-center gap-1">
+        <select
+          v-model="selectedForma"
+          class="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          title="Forma de la mesa"
+        >
+          <option value="rectangular">Rectangular</option>
+          <option value="cuadrada">Cuadrada</option>
+          <option value="redonda">Redonda</option>
+          <option value="ovalada">Ovalada</option>
+        </select>
+        <button
+          class="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          @click="emit('add', selectedForma)"
+        >
+          + Nueva Mesa
+        </button>
+      </div>
 
       <!-- Fusion buttons (Slice 4) -->
       <button

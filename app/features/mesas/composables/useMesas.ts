@@ -21,6 +21,7 @@ export interface MesaCreateData {
   alto: number
   rotacion: number
   zona: Mesa['zona']
+  forma: Mesa['forma']
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +61,7 @@ export function useMesas() {
         alto: data.alto,
         rotacion: data.rotacion,
         zona: data.zona,
+        forma: data.forma ?? 'rectangular',
         capacidad_actual: data.capacidad_base,
       })
       .select()

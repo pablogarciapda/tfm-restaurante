@@ -43,6 +43,7 @@ function makeMesa(overrides?: Partial<Mesa>): Mesa {
     alto: 100,
     rotacion: 0,
     zona: 'Principal',
+    forma: 'rectangular',
     mesa_padre_id: null,
     id_fusion: null,
     capacidad_actual: 4,
@@ -192,7 +193,45 @@ describe('TableToolbar', () => {
 
   // ── Emits ──
 
-  it('emits add when "Nueva Mesa" is clicked', async () => {
+  // ── Shape selector (AD-14) ──
+
+  it('renders a shape selector dropdown with 4 options', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    const select = wrapper.find('select')
+    expect(select.exists()).toBe(true)
+    const options = select.findAll('option')
+    expect(options).toHaveLength(4)
+    expect(options[0].text()).toBe('Rectangular')
+    expect(options[1].text()).toBe('Cuadrada')
+    expect(options[2].text()).toBe('Redonda')
+    expect(options[3].text()).toBe('Ovalada')
+  })
+
+  it('defaults shape selector to rectangular', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    const select = wrapper.find('select')
+    expect((select.element as HTMLSelectElement).value).toBe('rectangular')
+  })
+
+  it('emits add with shape when "Nueva Mesa" is clicked', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
@@ -205,6 +244,25 @@ describe('TableToolbar', () => {
 
     await findButton(wrapper, 'Nueva Mesa').trigger('click')
     expect(wrapper.emitted('add')).toBeTruthy()
+    // Default shape is 'rectangular'
+    expect(wrapper.emitted('add')![0]).toEqual(['rectangular'])
+  })
+
+  it('emits add with selected shape when changed', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+      },
+    })
+
+    const select = wrapper.find('select')
+    await select.setValue('redonda')
+    await findButton(wrapper, 'Nueva Mesa').trigger('click')
+    expect(wrapper.emitted('add')![0]).toEqual(['redonda'])
   })
 
   it('emits fuse when "Fusionar" is clicked and enabled', async () => {

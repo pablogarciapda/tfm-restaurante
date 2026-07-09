@@ -29,6 +29,33 @@ vi.mock('vue-konva', () => ({
         'data-shadowblur': String(props.config?.shadowBlur ?? ''),
         'data-perfectdraw': String(props.config?.perfectDrawEnabled ?? ''),
         'data-strokedash': String(props.config?.strokeDash ?? ''),
+        'data-width': String(props.config?.width ?? ''),
+        'data-height': String(props.config?.height ?? ''),
+      })
+    },
+  }),
+  Circle: defineComponent({
+    props: ['config'],
+    setup(props) {
+      return () => h('div', {
+        'data-testid': 'v-circle',
+        'data-radius': String(props.config?.radius ?? ''),
+        'data-fill': String(props.config?.fill ?? ''),
+        'data-stroke': String(props.config?.stroke ?? ''),
+        'data-strokedash': String(props.config?.strokeDash ?? ''),
+      })
+    },
+  }),
+  Ellipse: defineComponent({
+    props: ['config'],
+    setup(props) {
+      return () => h('div', {
+        'data-testid': 'v-ellipse',
+        'data-radiusx': String(props.config?.radiusX ?? ''),
+        'data-radiusy': String(props.config?.radiusY ?? ''),
+        'data-fill': String(props.config?.fill ?? ''),
+        'data-stroke': String(props.config?.stroke ?? ''),
+        'data-strokedash': String(props.config?.strokeDash ?? ''),
       })
     },
   }),
@@ -81,6 +108,7 @@ function makeMesa(overrides: Partial<Mesa> & { id: string }): Mesa {
     alto: 80,
     rotacion: 0,
     zona: 'Principal',
+    forma: 'rectangular',
     mesa_padre_id: null,
     id_fusion: null,
     capacidad_actual: 4,
@@ -224,6 +252,50 @@ describe('TableNode — renders group with rect + 2 texts', () => {
       const wrapper = await mountNode()
       await wrapper.find('[data-testid="v-group"]').trigger('click')
       expect(wrapper.emitted('click')).toHaveLength(1)
+    })
+  })
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Shape rendering (AD-14)
+  // ══════════════════════════════════════════════════════════════════════
+
+  describe('shape rendering — forma (AD-14)', () => {
+    it('renders v-rect for rectangular forma (default)', async () => {
+      const wrapper = await mountNode()
+      expect(wrapper.find('[data-testid="v-rect"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="v-circle"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="v-ellipse"]').exists()).toBe(false)
+    })
+
+    it('renders v-rect for cuadrada forma', async () => {
+      const mesa = makeMesa({ id: 'sq', forma: 'cuadrada' })
+      const wrapper = await mountNode({ mesa })
+      expect(wrapper.find('[data-testid="v-rect"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="v-circle"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="v-ellipse"]').exists()).toBe(false)
+    })
+
+    it('renders v-circle for redonda forma with radius = ancho/2', async () => {
+      const mesa = makeMesa({ id: 'round', forma: 'redonda', ancho: 120, alto: 120 })
+      const wrapper = await mountNode({ mesa })
+      const circle = wrapper.find('[data-testid="v-circle"]')
+      expect(circle.exists()).toBe(true)
+      expect(circle.attributes('data-radius')).toBe('60')
+    })
+
+    it('renders v-ellipse for ovalada forma with radiusX and radiusY', async () => {
+      const mesa = makeMesa({ id: 'oval', forma: 'ovalada', ancho: 160, alto: 100 })
+      const wrapper = await mountNode({ mesa })
+      const ellipse = wrapper.find('[data-testid="v-ellipse"]')
+      expect(ellipse.exists()).toBe(true)
+      expect(ellipse.attributes('data-radiusx')).toBe('80')
+      expect(ellipse.attributes('data-radiusy')).toBe('50')
+    })
+
+    it('applies strokeDash to all shapes when fused', async () => {
+      const mesa = makeMesa({ id: 'fused-round', forma: 'redonda', id_fusion: 'g1', mesa_padre_id: 'parent' })
+      const wrapper = await mountNode({ mesa })
+      expect(wrapper.find('[data-testid="v-circle"]').attributes('data-strokedash')).toBe('5,5')
     })
   })
 })

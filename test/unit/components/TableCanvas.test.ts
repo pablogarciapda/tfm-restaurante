@@ -87,6 +87,7 @@ function makeMesa(overrides: Partial<Mesa> & { id: string }): Mesa {
     alto: 80,
     rotacion: 0,
     zona: 'Principal',
+    forma: 'rectangular',
     mesa_padre_id: null,
     id_fusion: null,
     capacidad_actual: 4,

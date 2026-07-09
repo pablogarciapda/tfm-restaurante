@@ -13,6 +13,9 @@ export type Zona = string
 /** Table occupancy state derived from reservas (MCA-005) */
 export type MesaEstado = 'libre' | 'ocupada' | 'reservada'
 
+/** Table shape (SCH-011, AD-14) */
+export type FormaMesa = 'rectangular' | 'cuadrada' | 'redonda' | 'ovalada'
+
 /** Single table row matching the mesas DB table (SCH-006) */
 export interface Mesa {
   id: string
@@ -24,6 +27,7 @@ export interface Mesa {
   alto: number
   rotacion: number
   zona: Zona
+  forma: FormaMesa
   mesa_padre_id: string | null
   id_fusion: string | null
   capacidad_actual: number

@@ -397,6 +397,7 @@ export type Database = {
           capacidad_actual: number
           capacidad_base: number
           created_at: string
+          forma: string
           id: string
           id_fusion: string | null
           mesa_padre_id: string | null
@@ -414,6 +415,7 @@ export type Database = {
           capacidad_actual?: number
           capacidad_base: number
           created_at?: string
+          forma?: string
           id?: string
           id_fusion?: string | null
           mesa_padre_id?: string | null
@@ -431,6 +433,7 @@ export type Database = {
           capacidad_actual?: number
           capacidad_base?: number
           created_at?: string
+          forma?: string
           id?: string
           id_fusion?: string | null
           mesa_padre_id?: string | null

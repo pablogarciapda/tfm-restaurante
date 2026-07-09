@@ -86,6 +86,7 @@ export async function handleCreateMesa(
     capacidad_base: capacidad_base as number,
     capacidad_actual: capacidad_base as number,
     zona,
+    forma: (body.forma as string) ?? 'rectangular',
     posicion_x: (body.posicion_x as number) ?? 0,
     posicion_y: (body.posicion_y as number) ?? 0,
     ancho: (body.ancho as number) ?? 100,
@@ -140,7 +141,7 @@ export async function handleUpdateMesa(
   // Build update payload (only include fields present in body)
   const allowedFields = [
     'posicion_x', 'posicion_y', 'ancho', 'alto', 'rotacion',
-    'capacidad_actual', 'zona', 'numero_mesa', 'capacidad_base',
+    'capacidad_actual', 'zona', 'numero_mesa', 'capacidad_base', 'forma',
   ]
   const updateData: Record<string, unknown> = {}
 
