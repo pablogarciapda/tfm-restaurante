@@ -118,29 +118,39 @@ function formatHora(iso: string): string {
 
       <!-- Info + Confirm -->
       <div v-else-if="info" class="rounded-lg border border-gray-200 bg-white p-8">
-        <h2 class="mb-6 text-xl font-semibold text-slate">
-          ¿Estás seguro de que quieres cancelar esta reserva?
-        </h2>
-
-        <!-- Reservation details -->
-        <div class="mb-6 rounded-lg bg-gray-50 p-4 text-sm">
-          <div class="flex justify-between py-1">
-            <span class="text-gray-500">Fecha</span>
-            <span class="font-medium text-slate">{{ formatFecha(info.fecha_hora) }}</span>
-          </div>
-          <div class="flex justify-between py-1">
-            <span class="text-gray-500">Hora</span>
-            <span class="font-medium text-slate">{{ formatHora(info.fecha_hora) }}</span>
-          </div>
-          <div v-if="info.numero_comensales" class="flex justify-between py-1">
-            <span class="text-gray-500">Comensales</span>
-            <span class="font-medium text-slate">{{ info.numero_comensales }}</span>
-          </div>
-          <div v-if="info.referencia" class="flex justify-between py-1">
-            <span class="text-gray-500">Referencia</span>
-            <span class="font-medium text-terracotta">{{ info.referencia }}</span>
+        <!-- Reservation details (prominent, first thing you see) -->
+        <div class="mb-2 rounded-lg bg-cream p-5 text-center">
+          <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Detalles de la reserva</p>
+          <div class="mt-3 space-y-1.5">
+            <p class="text-lg font-semibold text-slate">
+              {{ formatFecha(info.fecha_hora) }}
+            </p>
+            <p class="text-3xl font-bold text-slate">
+              {{ formatHora(info.fecha_hora) }}
+            </p>
+            <p v-if="info.numero_comensales" class="text-base text-slate">
+              {{ info.numero_comensales }} {{ info.numero_comensales === 1 ? 'comensal' : 'comensales' }}
+            </p>
+            <p v-if="info.referencia" class="text-sm text-terracotta">
+              Ref: {{ info.referencia }}
+            </p>
           </div>
         </div>
+
+        <!-- Separator -->
+        <div class="my-6 flex items-center gap-3">
+          <div class="flex-1 border-t border-gray-200" />
+          <span class="text-xs text-gray-300">···</span>
+          <div class="flex-1 border-t border-gray-200" />
+        </div>
+
+        <!-- Question -->
+        <h2 class="mb-2 text-center text-lg font-semibold text-slate">
+          ¿Quieres cancelar esta reserva?
+        </h2>
+        <p class="mb-6 text-center text-sm text-gray-500">
+          Esta acción no se puede deshacer. Recibirás un email de confirmación.
+        </p>
 
         <!-- Error on submit -->
         <div v-if="error" class="mb-4 rounded-lg bg-red-50 p-3 text-center text-sm text-red-700">
@@ -156,10 +166,6 @@ function formatHora(iso: string): string {
         >
           {{ cancelling ? 'Cancelando...' : 'Cancelar mi reserva' }}
         </button>
-
-        <p class="mt-4 text-center text-xs text-gray-400">
-          Esta acción no se puede deshacer.
-        </p>
       </div>
     </section>
   </div>
