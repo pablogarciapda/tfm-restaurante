@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, poblacion')
     .limit(1)
     .single()
 
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
     email: (data.restaurant_email as string) || DEFAULT_RESTAURANT.email,
     instagram_url: (data.restaurant_instagram_url as string) || DEFAULT_RESTAURANT.instagram_url,
     facebook_url: (data.restaurant_facebook_url as string) || DEFAULT_RESTAURANT.facebook_url,
-    poblacion: (data.restaurant_poblacion as string) || DEFAULT_RESTAURANT.poblacion,
+    poblacion: (data.poblacion as string) || DEFAULT_RESTAURANT.poblacion,
   }
 
   const publicConfig: PublicConfig = {
