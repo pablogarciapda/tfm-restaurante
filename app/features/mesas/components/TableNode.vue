@@ -1,8 +1,17 @@
 <!--
-  TableNode.vue — Single interactive table shape (MCA-005, AD-11)
+  TableNode.vue — Single interactive table shape with multi-line text overlay
 
-  Props: mesa (Mesa), estado (MesaEstado), selected (boolean)
+  Props:
+    mesa (Mesa), estado (MesaEstado), selected (boolean)
+    reservasMap (optional) — mesa_id → client name for reserved tables
+    fusionLabel (optional) — combined table numbers for fused groups
+
   Emits: click, dragend, transformend
+
+  Text overlay layout:
+    Top line: numero_mesa (bold, fontSize 16) — or fusionLabel if fused
+    Bottom line: capacidad_base formatted as "4p" — or client name if reserved
+    Small tables (ancho < 60 or alto < 60): only show numero_mesa
 
   Status colors:
     libre=#22C55E, ocupada=#EF4444, reservada=#F59E0B
@@ -18,12 +27,14 @@ import {
   Text as VText,
   Group as VGroup,
 } from 'vue-konva'
-import type { Mesa, MesaEstado, FormaMesa } from '#shared/contracts/mesas.contract'
+import type { Mesa, MesaEstado } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
   mesa: Mesa
   estado: MesaEstado
   selected: boolean
+  reservasMap?: Record<string, string>
+  fusionLabel?: string
 }>()
 
 defineEmits<{
@@ -31,6 +42,8 @@ defineEmits<{
   dragstart: []
   dragend: []
   transformend: []
+  hover: []
+  unhover: []
 }>()
 
 const STATUS_COLORS: Record<MesaEstado, string> = {
@@ -45,6 +58,7 @@ const fillColor = computed(() => {
 })
 
 const isFused = computed(() => props.mesa.id_fusion !== null)
+const isSmall = computed(() => props.mesa.ancho < 60 || props.mesa.alto < 60)
 
 // Shape-specific configs
 const shapeConfig = computed(() => {
@@ -83,9 +97,7 @@ const shapeConfig = computed(() => {
   }
 })
 
-// Centered text positions (relative to group origin)
-const fontSizeNumero = 14
-const fontSizePax = 11
+// ── Text overlay positioning ──
 
 // Text width depends on shape: for circle/ellipse use smaller max width
 const textWidth = computed(() => {
@@ -95,19 +107,36 @@ const textWidth = computed(() => {
   return props.mesa.ancho
 })
 
-// Text Y offset for vertical centering within the shape
-const textOffsetY = computed(() => {
-  if (props.mesa.forma === 'redonda') {
-    return props.mesa.ancho / 2 - 14
-  }
-  if (props.mesa.forma === 'ovalada') {
-    return props.mesa.alto / 2 - 14
-  }
-  return props.mesa.alto / 2 - 14
+// Vertical center of the shape (accounts for shape type)
+const centerY = computed(() => {
+  if (props.mesa.forma === 'redonda') return props.mesa.ancho / 2
+  if (props.mesa.forma === 'ovalada' || props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
+  return props.mesa.alto / 2
 })
 
-const textPaxOffsetY = computed(() => {
-  return textOffsetY.value + 16
+// Top text Y offset: center two-line block or single line for small tables
+const textOffsetY = computed(() => {
+  if (isSmall.value) {
+    return centerY.value - 8  // single 16px line centered vertically
+  }
+  const blockHeight = 16 + 2 + 11  // fontSizeNumero + gap + fontSizePax
+  return centerY.value - blockHeight / 2
+})
+
+// Bottom text Y offset (only used when !isSmall)
+const paxOffsetY = computed(() => textOffsetY.value + 16 + 2)  // after number + gap
+
+// ── Text content ──
+
+// Show fusion label (e.g. "1/2") for fused tables, else just the table number
+const displayNumber = computed(() => props.fusionLabel || String(props.mesa.numero_mesa))
+
+// Show client name when reserved, else capacity formatted as "4p"
+const bottomText = computed(() => {
+  if (props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]) {
+    return props.reservasMap[props.mesa.id]
+  }
+  return `${props.mesa.capacidad_base}p`
 })
 </script>
 
@@ -124,6 +153,8 @@ const textPaxOffsetY = computed(() => {
     @dragstart="$emit('dragstart')"
     @dragend="$emit('dragend')"
     @transformend="$emit('transformend')"
+    @mouseenter="$emit('hover')"
+    @mouseleave="$emit('unhover')"
   >
     <!-- Table shape: conditional rendering -->
     <v-circle
@@ -139,7 +170,7 @@ const textPaxOffsetY = computed(() => {
       :config="shapeConfig"
     />
 
-    <!-- Mesa number -->
+    <!-- Mesa number — bold, centered, larger font -->
     <v-text
       :config="{
         x: 0,
@@ -147,24 +178,26 @@ const textPaxOffsetY = computed(() => {
         width: textWidth,
         align: 'center',
         verticalAlign: 'middle',
-        text: `Mesa ${mesa.numero_mesa}`,
-        fontSize: fontSizeNumero,
+        text: displayNumber,
+        fontSize: 16,
+        fontStyle: 'bold',
         fontFamily: 'Inter, sans-serif',
         fill: '#2D3748',
         listening: false,
       }"
     />
 
-    <!-- Capacidad -->
+    <!-- Capacity or client name (hidden for small tables) -->
     <v-text
+      v-if="!isSmall"
       :config="{
         x: 0,
-        y: textPaxOffsetY,
+        y: paxOffsetY,
         width: textWidth,
         align: 'center',
         verticalAlign: 'middle',
-        text: `${mesa.capacidad_actual} pax`,
-        fontSize: fontSizePax,
+        text: bottomText,
+        fontSize: 11,
         fontFamily: 'Inter, sans-serif',
         fill: '#4A5568',
         listening: false,

@@ -22,11 +22,22 @@ import { useCanvasStore } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
+import TableTooltip from './TableTooltip.vue'
+import type { TooltipData } from './TableTooltip.vue'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 import { getMesaEstado } from '#shared/utils/fusion-math'
 
+export interface ReservaDetail {
+  nombre_cliente: string
+  fecha_hora: string
+  numero_comensales: number
+}
+
 const props = defineProps<{
   reservas?: { mesa_id: string | null; estado: string; fecha_hora: string }[]
+  reservasMap?: Record<string, string>
+  fusionLabels?: Record<string, string>
+  reservasDetailMap?: Record<string, ReservaDetail>
 }>()
 
 const ZONES: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
@@ -62,6 +73,107 @@ const dragLayerRef = ref()
 // Defaults to 'libre' when no reservas data is loaded
 function mesaEstado(mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
   return getMesaEstado(mesa, props.reservas ?? [])
+}
+
+// ── Tooltip state (MCA-009) ──
+
+const hoveredMesaId = ref<string | null>(null)
+const TOOLTIP_WIDTH = 260
+const TOOLTIP_GAP = 12
+let hoverTimeout: ReturnType<typeof setTimeout> | null = null
+
+/** Derive full tooltip data from hovered mesa + related data */
+const tooltipData = computed<TooltipData | null>(() => {
+  if (!hoveredMesaId.value) return null
+  const mesa = store.mesas.find((m) => m.id === hoveredMesaId.value)
+  if (!mesa) return null
+
+  const estado = mesaEstado(mesa)
+
+  // Lookup reservation details for reserved tables
+  let reserva: TooltipData['reserva'] = undefined
+  if (estado === 'reservada') {
+    const detail = props.reservasDetailMap?.[mesa.id]
+    if (detail) {
+      reserva = {
+        nombre_cliente: detail.nombre_cliente,
+        hora: new Date(detail.fecha_hora).toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        comensales: detail.numero_comensales,
+      }
+    }
+  }
+
+  // Gather fusion group mesa numbers
+  let fusionMesas: number[] | undefined
+  let fusionCapacidad: number | undefined
+  if (mesa.id_fusion) {
+    const group = store.mesas.filter((m) => m.id_fusion === mesa.id_fusion)
+    fusionMesas = group.map((m) => m.numero_mesa).sort((a, b) => a - b)
+    fusionCapacidad = mesa.capacidad_actual
+  }
+
+  return { mesa, estado, reserva, fusionMesas, fusionCapacidad }
+})
+
+/** Compute tooltip position: prefer right, fall back to left, then above */
+const tooltipPosition = computed(() => {
+  if (!hoveredMesaId.value) return { left: 0, top: 0, side: 'right' as const }
+  const mesa = store.mesas.find((m) => m.id === hoveredMesaId.value)
+  if (!mesa) return { left: 0, top: 0, side: 'right' as const }
+
+  const x = mesa.posicion_x
+  const y = mesa.posicion_y
+  const w = mesa.ancho
+
+  // Try right side first
+  if (x + w + TOOLTIP_WIDTH + TOOLTIP_GAP <= store.stageWidth) {
+    return { left: x + w + TOOLTIP_GAP, top: y, side: 'right' as const }
+  }
+  // Try left side
+  if (x - TOOLTIP_WIDTH - TOOLTIP_GAP >= 0) {
+    return { left: x - TOOLTIP_WIDTH - TOOLTIP_GAP, top: y, side: 'left' as const }
+  }
+  // Fall back to above, centered
+  return {
+    left: Math.max(4, Math.min(x + w / 2 - TOOLTIP_WIDTH / 2, store.stageWidth - TOOLTIP_WIDTH - 4)),
+    top: Math.max(4, y - 200 - TOOLTIP_GAP),
+    side: 'top' as const,
+  }
+})
+
+const tooltipStyle = computed(() => ({
+  left: `${tooltipPosition.value.left}px`,
+  top: `${tooltipPosition.value.top}px`,
+}))
+
+// ── Hover handlers with grace period for tooltip readability ──
+
+function handleTableHover(mesa: Mesa) {
+  if (store.isDragging) return
+  if (hoverTimeout) clearTimeout(hoverTimeout)
+  hoverTimeout = null
+  hoveredMesaId.value = mesa.id
+}
+
+function handleTableUnhover() {
+  if (hoverTimeout) clearTimeout(hoverTimeout)
+  // Small delay so tooltip doesn't flicker when moving between shapes
+  hoverTimeout = setTimeout(() => {
+    hoveredMesaId.value = null
+  }, 150)
+}
+
+function handleTooltipMouseEnter() {
+  if (hoverTimeout) clearTimeout(hoverTimeout)
+  hoverTimeout = null
+  // Keep tooltip visible while mouse is over it
+}
+
+function handleTooltipMouseLeave() {
+  hoveredMesaId.value = null
 }
 
 // ── Drag bounds (MCA-004) — wired via TableNode group config ──
@@ -186,7 +298,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div id="mesas-canvas">
+  <div id="mesas-canvas" class="relative overflow-visible">
     <v-stage
       :config="{ width: store.stageWidth, height: store.stageHeight }"
       @mousedown="handleStageMouseDown"
@@ -217,10 +329,14 @@ onMounted(async () => {
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
           :selected="store.selectedMesaId === mesa.id"
+          :reservas-map="reservasMap"
+          :fusion-label="fusionLabels?.[mesa.id]"
           @click="handleTableClick(mesa)"
           @dragstart="handleDragStart(mesa)"
           @dragend="handleDragEnd(mesa)"
           @transformend="() => handleTransformEnd(mesa.id)"
+          @hover="handleTableHover(mesa)"
+          @unhover="handleTableUnhover"
         />
 
         <v-transformer
@@ -246,5 +362,42 @@ onMounted(async () => {
       <!-- ============================================================ -->
       <v-layer ref="dragLayerRef" :config="{ name: 'drag-layer' }" />
     </v-stage>
+
+    <!-- ============================================================ -->
+    <!-- Tooltip overlay — HTML card positioned above canvas           -->
+    <!-- ============================================================ -->
+    <Transition name="tooltip-fade">
+      <div
+        v-if="tooltipData"
+        class="absolute z-50"
+        :style="tooltipStyle"
+        @mouseenter="handleTooltipMouseEnter"
+        @mouseleave="handleTooltipMouseLeave"
+      >
+        <!-- Arrow pointing to the table -->
+        <div
+          class="absolute z-10 h-3 w-3 rotate-45 bg-white"
+          :class="{
+            '-left-1.5 top-4 border-b border-l border-gray-200': tooltipPosition.side === 'right',
+            '-right-1.5 top-4 border-t border-r border-gray-200': tooltipPosition.side === 'left',
+            'bottom-[-5px] left-1/2 -translate-x-1/2 border-b border-r border-gray-200': tooltipPosition.side === 'top',
+          }"
+        />
+        <!-- Card -->
+        <TableTooltip :data="tooltipData" />
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+}
+</style>

@@ -407,6 +407,69 @@ async function handleReasignar() {
   }
 }
 
+// ── Text overlay data for TableCanvas ──
+
+/** Map mesa_id → client name for today's reserved tables */
+const reservasMap = computed(() => {
+  const map: Record<string, string> = {}
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  for (const r of reservasList.value) {
+    if (!r.mesa_id) continue
+    const nombre = (r.cliente as any)?.nombre
+    if (!nombre) continue
+    const fecha = r.fecha_hora?.split('T')[0]
+    if (fecha === todayStr) {
+      map[r.mesa_id] = nombre
+    }
+  }
+  return map
+})
+
+/** Map mesa_id → full reservation details for tooltip (MCA-009) */
+const reservasDetailMap = computed(() => {
+  const map: Record<string, { nombre_cliente: string; fecha_hora: string; numero_comensales: number }> = {}
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  for (const r of reservasList.value) {
+    if (!r.mesa_id) continue
+    const nombre = (r.cliente as any)?.nombre
+    if (!nombre) continue
+    const fecha = r.fecha_hora?.split('T')[0]
+    if (fecha === todayStr) {
+      map[r.mesa_id] = {
+        nombre_cliente: nombre,
+        fecha_hora: r.fecha_hora,
+        numero_comensales: r.numero_comensales ?? 0,
+      }
+    }
+  }
+  return map
+})
+
+/** Map mesa_id → combined label (e.g. "1/2") for fused tables */
+const fusionLabels = computed(() => {
+  const labels: Record<string, string> = {}
+  const groups = new Map<string, typeof store.mesas>()
+
+  for (const m of store.mesas) {
+    if (!m.id_fusion) continue
+    const group = groups.get(m.id_fusion) ?? []
+    group.push(m)
+    groups.set(m.id_fusion, group)
+  }
+
+  for (const [, mesas] of groups) {
+    const nums = mesas.map((m: typeof store.mesas[number]) => m.numero_mesa).sort((a: number, b: number) => a - b)
+    const label = nums.join('/')
+    for (const m of mesas) {
+      labels[m.id] = label
+    }
+  }
+
+  return labels
+})
+
 onMounted(async () => {
   await loadConfiguracion()
   await loadMesas()
@@ -467,7 +530,11 @@ onUnmounted(() => {
 
     <!-- Konva canvas -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
-      <TableCanvas />
+      <TableCanvas
+        :reservas-map="reservasMap"
+        :reservas-detail-map="reservasDetailMap"
+        :fusion-labels="fusionLabels"
+      />
     </div>
 
     <!-- Fusion confirm dialog (Slice 4) -->
