@@ -6,7 +6,10 @@ import { ref } from 'vue'
  *
  * 6 nav links via NuxtLink, hamburger toggle for mobile (<768px),
  * sticky top-0. Spanish labels per project language policy.
+ * Logo URL and alt text from useRestaurantConfig (multi-tenant).
  */
+
+const { logoUrl, nombre } = useRestaurantConfig()
 
 const navLinks = [
   { label: 'Inicio', to: '/' },
@@ -34,8 +37,8 @@ function toggleMenu() {
       <!-- Restaurant logo -->
       <NuxtLink to="/" class="flex items-center">
         <img
-          src="/images/logo.png"
-          alt="La Zíngara"
+          :src="logoUrl"
+          :alt="nombre"
           class="h-10 w-auto"
           width="397"
           height="174"

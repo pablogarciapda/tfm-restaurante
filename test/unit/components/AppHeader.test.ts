@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import AppHeader from '../../../app/components/AppHeader.vue'
 
@@ -9,7 +10,20 @@ import AppHeader from '../../../app/components/AppHeader.vue'
  * - Desktop: 6 links visible, hamburger hidden
  * - Mobile: hamburger visible, links hidden
  * - Toggle: click hamburger opens/closes nav
+ * - Logo from useRestaurantConfig (mocked)
  */
+
+// Mock useRestaurantConfig for unit test (no Nuxt SSR context)
+const mockUseRestaurantConfig = () => ({
+  logoUrl: ref('/images/logo.png'),
+  nombre: ref('Restaurante La Zíngara'),
+  restaurant: ref({}),
+  direccionLineas: ref([]),
+  telefono: ref(''),
+  mapsUrl: ref(''),
+})
+const g = globalThis as Record<string, unknown>
+g.useRestaurantConfig = mockUseRestaurantConfig
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },

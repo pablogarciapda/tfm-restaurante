@@ -60,6 +60,15 @@ export interface TimeSlot {
 
 // ──────────────────────────── Public Config ───────────────────────
 
+/** Restaurant info for multi-tenant header/footer (from public-config) */
+export interface RestaurantConfig {
+  nombre: string
+  direccion: string
+  telefono: string
+  maps_url: string
+  logo_url: string | null
+}
+
 /** Public config (safe for public API, cached in configuracion.public_config JSONB) */
 export interface PublicConfig {
   horarios: HorarioConfig
@@ -70,6 +79,7 @@ export interface PublicConfig {
   cliente_elige_zona: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
   notificacion_reserva: 'email' | 'sms' | 'ambos'
+  restaurant: RestaurantConfig
 }
 
 // ──────────────────────────── Admin ───────────────────────────────
