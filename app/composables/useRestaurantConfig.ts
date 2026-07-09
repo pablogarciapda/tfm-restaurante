@@ -4,9 +4,11 @@
  * Fetches restaurant name, address, phone, maps URL, and logo from the
  * configuracion table via the public API.
  *
- * SSR-safe: uses useState for stable hydration (no v-if DOM mismatch).
- * useState guarantees same initial value on server & client during hydration.
- * useFetch populates the shared state; components read from the ref directly.
+ * SSR-safe hydration strategy:
+ * - useState initialised with FALLBACK (same on server & client)
+ * - Server: Object.assign populates state during SSR render
+ * - Client: defers sync until onMounted (post-hydration) to avoid DOM mismatch.
+ *   After mount, watches for future navigation changes.
  *
  * Used by AppHeader (logo) and AppFooter (address/contact).
  */
@@ -27,18 +29,27 @@ export function useRestaurantConfig() {
   // Fetch once, populate the shared state
   const { data } = useFetch<{ restaurant: RestaurantConfig }>('/api/public-config')
 
+  // Server: populate during SSR render
   if (import.meta.server && data.value?.restaurant) {
     Object.assign(restaurant.value, data.value.restaurant)
   }
+
+  // Client: defer until after hydration, then watch for changes
   if (import.meta.client) {
+    let hydrated = false
+    onMounted(() => {
+      hydrated = true
+      if (data.value?.restaurant) {
+        Object.assign(restaurant.value, data.value.restaurant)
+      }
+    })
     watch(data, (val) => {
-      if (val?.restaurant) {
+      if (hydrated && val?.restaurant) {
         Object.assign(restaurant.value, val.restaurant)
       }
-    }, { immediate: true })
+    })
   }
 
-  // Formatted address parts (parsed from direccion)
   const direccionLineas = computed(() => {
     const d = restaurant.value.direccion
     if (!d) return []
