@@ -15,7 +15,7 @@ const DEFAULT_RESTAURANT: RestaurantConfig = {
   telefono: '',
   maps_url: '',
   logo_url: null,
-  site_url: 'https://www.lazingara.es',
+  site_url: '',
 }
 
 export default defineEventHandler(async (event) => {
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     telefono: (data.restaurant_telefono as string) || DEFAULT_RESTAURANT.telefono,
     maps_url: (data.restaurant_maps_url as string) || DEFAULT_RESTAURANT.maps_url,
     logo_url: (data.restaurant_logo_url as string) || null,
-    site_url: (data.site_url as string) || DEFAULT_RESTAURANT.site_url,
+    site_url: (data.site_url as string) || '',
   }
 
   const publicConfig: PublicConfig = {

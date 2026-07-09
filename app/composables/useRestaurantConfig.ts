@@ -20,7 +20,7 @@ const FALLBACK: RestaurantConfig = {
   telefono: '',
   maps_url: '',
   logo_url: null,
-  site_url: 'https://www.lazingara.es',
+  site_url: '',
 }
 
 export function useRestaurantConfig() {

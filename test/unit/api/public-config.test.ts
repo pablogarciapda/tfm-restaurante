@@ -12,7 +12,7 @@ const DEFAULT_RESTAURANT = {
   telefono: '',
   maps_url: '',
   logo_url: null,
-  site_url: 'https://www.lazingara.es',
+  site_url: '',
 }
 
 function createMockSupabase(configData: Record<string, unknown> | null) {

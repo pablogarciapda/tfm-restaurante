@@ -15,7 +15,7 @@ const defaultRestaurant = {
   direccion: 'Plaza Mayor, 1, 24250 Santa María del Páramo, León',
   telefono: '987 123 456',
   maps_url: 'https://maps.google.com/?q=La+Zíngara+Santa+María+del+Páramo',
-  site_url: 'https://www.lazingara.es',
+  site_url: '',
 }
 
 describe('buildConfirmationHtml', () => {

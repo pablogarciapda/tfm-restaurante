@@ -133,7 +133,7 @@ const form = reactive<ConfigFormData>({
   restaurant_maps_url: (props.currentConfig as any).restaurant_maps_url ?? '',
   restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
   restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
-  site_url: (props.currentConfig as any).site_url ?? 'https://www.lazingara.es',
+  site_url: (props.currentConfig as any).site_url ?? '',
 })
 
 const testEmail = ref('')
