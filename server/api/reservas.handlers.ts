@@ -13,7 +13,7 @@ import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.co
 import { normalizePhone } from '#shared/utils/phone'
 import { isSlotInRange } from '#shared/utils/slots'
 import { generarReferencia } from '#shared/utils/referencia'
-import { sendConfirmationEmail } from '../utils/email'
+import { sendConfirmationEmail, sendCancellationEmail } from '../utils/email'
 
 type SupabaseServerClient = SupabaseClient<Database>
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -255,12 +255,14 @@ export async function handleCreateReservation(
 
   // 6. Create reserva
   const estado = modo === 'verificada' ? 'pendiente' : 'confirmada'
+  const cancelToken = crypto.randomUUID()
 
   const reservaData: Record<string, unknown> = {
     cliente_id: clienteId,
     fecha_hora: b.fecha_hora,
     numero_comensales: b.numero_comensales,
     estado,
+    cancel_token: cancelToken,
   }
 
   // Include zona_id if provided
@@ -271,6 +273,7 @@ export async function handleCreateReservation(
     reservaData.zona_id = zona?.nombre || b.zona_id
   }
 
+  // For test compatibility: select only 'id', cancel_token is included via response
   const { data: reserva } = await supabase
     .from('reservas')
     .insert(reservaData as any)
@@ -301,7 +304,8 @@ export async function handleCreateReservation(
           comensales: b.numero_comensales,
           id: reserva.id,
           referencia: ref,
-        },
+          cancel_token: cancelToken,
+        } as any,
         supabase,
         runtimeConfig,
       ).catch((err: any) => console.warn('[reservas] Email send failed:', err.message))
@@ -325,6 +329,127 @@ export async function handleCreateReservation(
       success: true,
       reserva_id: reserva.id,
       estado,
+      cancel_token: cancelToken,
     },
   }
+}
+
+// ──────────────────────────── Cancelación ────────────────────────────────
+
+export interface CancelReservationPayload {
+  token: string
+}
+
+export async function handleCancelReservation(
+  supabase: SupabaseServerClient,
+  body: { token?: string },
+  runtimeConfig?: any,
+): Promise<HandlerResult> {
+  const token = body?.token?.trim()
+  if (!token) {
+    return { status: 400, body: { error: 'Token de cancelación requerido' } }
+  }
+
+  // Look up reservation by cancel_token
+  const { data: reserva, error: fetchError } = await supabase
+    .from('reservas')
+    .select('id, fecha_hora, numero_comensales, estado, cliente_id')
+    .eq('cancel_token', token)
+    .maybeSingle()
+
+  if (fetchError) {
+    console.warn('[cancelar] DB error:', fetchError)
+    return { status: 500, body: { error: 'Error al buscar la reserva' } }
+  }
+
+  if (!reserva) {
+    return { status: 404, body: { error: 'Token de cancelación no válido' } }
+  }
+
+  // Validate state
+  const validStates = ['pendiente', 'confirmada']
+  if (!validStates.includes(reserva.estado)) {
+    const messages: Record<string, string> = {
+      cancelada: 'Esta reserva ya ha sido cancelada',
+      completada: 'Esta reserva ya ha sido completada y no se puede cancelar',
+      standby: 'Esta reserva está en espera y no se puede cancelar',
+    }
+    return {
+      status: 409,
+      body: { error: messages[reserva.estado] || 'La reserva no se puede cancelar en su estado actual' },
+    }
+  }
+
+  // Validate date
+  if (new Date(reserva.fecha_hora) <= new Date()) {
+    return { status: 409, body: { error: 'No se puede cancelar una reserva pasada' } }
+  }
+
+  // Fetch cliente info for notification
+  const { data: cliente } = await supabase
+    .from('clientes')
+    .select('nombre, apellidos, email, telefono')
+    .eq('id', reserva.cliente_id!)
+    .single()
+
+  // Update estado to cancelada
+  const { error: updateError } = await supabase
+    .from('reservas')
+    .update({
+      estado: 'cancelada',
+      cancelado_en: new Date().toISOString(),
+      cancel_token: null,
+    })
+    .eq('id', reserva.id)
+
+  if (updateError) {
+    console.warn('[cancelar] Update error:', updateError)
+    return { status: 500, body: { error: 'Error al cancelar la reserva' } }
+  }
+
+  // Send cancellation notification
+  if (cliente) {
+    const { data: config } = await supabase
+      .from('configuracion')
+      .select('notificacion_reserva')
+      .limit(1)
+      .single()
+
+    const metodo = (config?.notificacion_reserva as string) || 'email'
+    const sendEmail = metodo === 'email' || metodo === 'ambos'
+    const sendSms = metodo === 'sms' || metodo === 'ambos'
+
+    const ref = reserva.numero_comensales
+      ? generarReferencia(reserva.id, reserva.fecha_hora)
+      : undefined
+
+    if (sendEmail && cliente.email) {
+      sendCancellationEmail(
+        {
+          nombre: cliente.nombre,
+          apellidos: cliente.apellidos,
+          email: cliente.email,
+          fecha_hora: reserva.fecha_hora,
+          comensales: reserva.numero_comensales ?? 0,
+          referencia: ref,
+        },
+        supabase,
+        runtimeConfig,
+      ).catch((err: any) => console.warn('[cancelar] Email failed:', err.message))
+    }
+
+    if (sendSms && cliente.telefono) {
+      const fecha = new Date(reserva.fecha_hora).toLocaleString('es-ES', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit',
+      })
+      const emailInfo = metodo === 'sms'
+        ? ''
+        : ' Te enviaremos un email de confirmación.'
+      const msg = `❌ Reserva cancelada en La Zíngara. ${fecha}. ${reserva.numero_comensales ?? '?'} comensales. Ref: ${ref ?? reserva.id}.${emailInfo}`
+      console.info(`[cancelar] SMS to ${cliente.telefono}: ${msg}`)
+    }
+  }
+
+  return { status: 200, body: { success: true } }
 }

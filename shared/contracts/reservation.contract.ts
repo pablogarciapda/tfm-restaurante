@@ -67,6 +67,7 @@ export interface RestaurantConfig {
   telefono: string
   maps_url: string
   logo_url: string | null
+  site_url: string
 }
 
 /** Public config (safe for public API, cached in configuracion.public_config JSONB) */
@@ -90,6 +91,20 @@ export interface AdminReasignarPayload {
   nueva_zona_id?: string
   nueva_mesa_id?: string
   motivo: string
+}
+
+// ──────────────────────────── Cancelación por Token ────────────────
+
+/** Payload for POST /api/reservas/cancelar */
+export interface CancelTokenPayload {
+  token: string
+}
+
+/** Reservation info returned for cancellation preview */
+export interface CancelacionPreview {
+  fecha_hora: string
+  numero_comensales: number | null
+  estado: string
 }
 
 // ──────────────────────────── Reservation Flow ────────────────────

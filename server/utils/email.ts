@@ -25,8 +25,18 @@ interface ConfirmationParams {
   comensales: number
   id: string
   referencia?: string
+  cancel_token?: string | null
   mesa_numero?: number | null
   mesa_zona?: string | null
+}
+
+interface CancellationParams {
+  nombre: string
+  apellidos?: string | null
+  email: string
+  fecha_hora: string
+  comensales: number
+  referencia?: string
 }
 
 /**
@@ -136,6 +146,7 @@ interface RestaurantInfo {
   direccion: string
   telefono: string
   maps_url: string
+  site_url: string
 }
 
 /**
@@ -145,7 +156,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
   try {
     const { data } = await supabase
       .from('configuracion')
-      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url')
+      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url')
       .limit(1)
       .single()
 
@@ -155,6 +166,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
         direccion: (data.restaurant_direccion as string) || '',
         telefono: (data.restaurant_telefono as string) || '',
         maps_url: (data.restaurant_maps_url as string) || '',
+        site_url: (data.site_url as string) || '',
       }
     }
   } catch {
@@ -166,6 +178,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
     direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
     telefono: '987 350 350',
     maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
+    site_url: '',
   }
 }
 
@@ -176,6 +189,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
 export function buildConfirmationHtml(
   params: ConfirmationParams,
   restaurant: RestaurantInfo,
+  fallbackSiteUrl?: string,
 ): string {
   const nombreCompleto = params.apellidos
     ? `${params.nombre} ${params.apellidos}`
@@ -241,6 +255,21 @@ export function buildConfirmationHtml(
           </tr>
         </table>
 
+        <!-- Cancel link (after reservation details, before restaurant info) -->
+        ${params.cancel_token ? `
+        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 16px;">
+        <table role="presentation" style="width: 100%; margin-bottom: 24px;">
+          <tr>
+            <td style="text-align: center;">
+              <p style="margin: 0 0 6px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
+              <a href="${restaurant.site_url || fallbackSiteUrl || ''}/cancelar?token=${params.cancel_token}"
+                 style="display: inline-block; padding: 8px 24px; border: 1px solid #c25b3c; border-radius: 4px; color: #c25b3c; font-size: 13px; text-decoration: none;">
+                Cancelar reserva
+              </a>
+            </td>
+          </tr>
+        </table>` : ''}
+
         <!-- Restaurant info -->
         <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 20px;">
         <p style="margin: 0 0 4px; color: #c25b3c; font-size: 14px; font-weight: bold;">${restaurant.nombre}</p>
@@ -259,6 +288,128 @@ export function buildConfirmationHtml(
   </table>
 </body>
 </html>`.trim()
+}
+
+/**
+ * Build an HTML cancellation confirmation email.
+ * Pure function — no side effects.
+ */
+export function buildCancellationHtml(
+  params: CancellationParams,
+  restaurant: RestaurantInfo,
+): string {
+  const nombreCompleto = params.apellidos
+    ? `${params.nombre} ${params.apellidos}`
+    : params.nombre
+
+  const fecha = new Date(params.fecha_hora)
+  const fechaStr = fecha.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const horaStr = fecha.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f3f0; font-family: Georgia, 'Times New Roman', serif;">
+  <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; margin-top: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <tr>
+      <td style="background-color: #888; padding: 32px 24px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: normal;">${restaurant.nombre}</h1>
+        <p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">Reserva cancelada</p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding: 32px 24px;">
+        <p style="margin: 0 0 16px; color: #333; font-size: 16px;">Hola <strong>${nombreCompleto}</strong>,</p>
+        <p style="margin: 0 0 24px; color: #555; font-size: 15px;">Tu reserva ha sido cancelada correctamente. Estos eran los detalles de la reserva cancelada:</p>
+
+        <table role="presentation" style="width: 100%; background-color: #faf8f6; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Fecha</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${fechaStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Hora</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${horaStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Comensales</td>
+            <td style="padding: 6px 0; color: #333; font-size: 14px;">${params.comensales}</td>
+          </tr>
+          ${params.referencia ? `
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #888; font-size: 13px; white-space: nowrap;">Referencia</td>
+            <td style="padding: 6px 0; color: #888; font-size: 14px;">${params.referencia}</td>
+          </tr>` : ''}
+        </table>
+
+        <p style="margin: 0 0 4px; color: #666; font-size: 14px;">Si no solicitaste esta cancelación, por favor <strong>llámanos al ${restaurant.telefono}</strong> para resolverlo.</p>
+
+        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 20px 0;">
+        <p style="margin: 0 0 4px; color: #c25b3c; font-size: 14px; font-weight: bold;">${restaurant.nombre}</p>
+        <p style="margin: 0 0 2px; color: #666; font-size: 13px;">${restaurant.direccion}</p>
+        ${restaurant.telefono ? `<p style="margin: 0 0 2px; color: #666; font-size: 13px;">☎ ${restaurant.telefono}</p>` : ''}
+        ${restaurant.maps_url ? `<p style="margin: 8px 0 0;"><a href="${restaurant.maps_url}" style="color: #c25b3c; font-size: 13px; text-decoration: underline;">Ver en Google Maps</a></p>` : ''}
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #f5f3f0; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; color: #aaa; font-size: 11px;">Este email es automático, no respondas a este mensaje.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim()
+}
+
+/**
+ * Convenience: send cancellation confirmation email after a reservation is cancelled.
+ * Fire-and-forget — does NOT throw.
+ */
+export async function sendCancellationEmail(
+  params: CancellationParams & { email: string },
+  supabase: any,
+  runtimeConfig: any,
+): Promise<void> {
+  if (!params.email) {
+    console.warn('[email] No email address for cancellation — skipping')
+    return
+  }
+
+  try {
+    const config = await getEmailConfig(supabase, runtimeConfig)
+    if (!config) {
+      console.warn('[email] SMTP not configured — cancellation email not sent')
+      return
+    }
+
+    const restaurantInfo = await getRestaurantInfo(supabase)
+    const html = buildCancellationHtml(params, restaurantInfo)
+    const asunto = `Reserva cancelada — ${restaurantInfo.nombre}`
+    const result = await sendEmail(config, params.email, asunto, html)
+
+    if (!result.success) {
+      console.warn('[email] Failed to send cancellation:', result.message)
+    }
+  } catch (err: any) {
+    console.warn('[email] Fire-and-forget cancellation error:', err.message)
+  }
 }
 
 /**
@@ -292,8 +443,10 @@ export async function sendConfirmationEmail(
         comensales: params.comensales,
         id: params.id,
         referencia: params.referencia,
+        cancel_token: (params as any).cancel_token,
       },
       restaurantInfo,
+      (runtimeConfig as any)?.public?.siteUrl,
     )
 
     const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`

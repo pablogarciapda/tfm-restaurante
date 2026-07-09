@@ -15,6 +15,7 @@ const DEFAULT_RESTAURANT: RestaurantConfig = {
   telefono: '',
   maps_url: '',
   logo_url: null,
+  site_url: '',
 }
 
 export default defineEventHandler(async (event) => {
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url')
     .limit(1)
     .single()
 
@@ -50,6 +51,7 @@ export default defineEventHandler(async (event) => {
     telefono: (data.restaurant_telefono as string) || DEFAULT_RESTAURANT.telefono,
     maps_url: (data.restaurant_maps_url as string) || DEFAULT_RESTAURANT.maps_url,
     logo_url: (data.restaurant_logo_url as string) || null,
+    site_url: (data.site_url as string) || '',
   }
 
   const publicConfig: PublicConfig = {
