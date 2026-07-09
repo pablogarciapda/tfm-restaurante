@@ -254,21 +254,27 @@ export function buildConfirmationHtml(
           </tr>
         </table>
 
+        <!-- Cancel link (after reservation details, before restaurant info) -->
+        ${params.cancel_token ? `
+        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 16px;">
+        <table role="presentation" style="width: 100%; margin-bottom: 24px;">
+          <tr>
+            <td style="text-align: center;">
+              <p style="margin: 0 0 6px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
+              <a href="${restaurant.site_url || 'https://www.lazingara.es'}/cancelar?token=${params.cancel_token}"
+                 style="display: inline-block; padding: 8px 24px; border: 1px solid #c25b3c; border-radius: 4px; color: #c25b3c; font-size: 13px; text-decoration: none;">
+                Cancelar reserva
+              </a>
+            </td>
+          </tr>
+        </table>` : ''}
+
         <!-- Restaurant info -->
         <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 20px;">
         <p style="margin: 0 0 4px; color: #c25b3c; font-size: 14px; font-weight: bold;">${restaurant.nombre}</p>
         <p style="margin: 0 0 2px; color: #666; font-size: 13px;">${restaurant.direccion}</p>
         ${restaurant.telefono ? `<p style="margin: 0 0 2px; color: #666; font-size: 13px;">☎ ${restaurant.telefono}</p>` : ''}
         ${restaurant.maps_url ? `<p style="margin: 8px 0 0;"><a href="${restaurant.maps_url}" style="color: #c25b3c; font-size: 13px; text-decoration: underline;">Ver en Google Maps</a></p>` : ''}
-        ${params.cancel_token ? `
-        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 20px 0;">
-        <p style="margin: 0 0 4px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
-        <p style="margin: 0;">
-          <a href="${restaurant.site_url || 'https://www.lazingara.es'}/cancelar?token=${params.cancel_token}"
-             style="color: #c25b3c; font-size: 12px; text-decoration: underline;">
-            Cancelar reserva
-          </a>
-        </p>` : ''}
       </td>
     </tr>
 
