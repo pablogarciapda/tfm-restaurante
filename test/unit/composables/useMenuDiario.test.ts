@@ -29,7 +29,7 @@ function createSpyChain(resolveData: unknown): { chain: unknown; spy: ChainSpy }
   }
 
   const methods = ['select', 'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'order', 'limit', 'single',
-    'maybeSingle', 'insert', 'update', 'delete', 'in']
+    'maybeSingle', 'insert', 'update', 'delete', 'in', 'ilike']
   for (const m of methods) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chain[m] = (...args: any[]) => {
@@ -194,9 +194,18 @@ describe('useMenuDiario composable (MD-004, MD-005)', () => {
   })
 
   it('returns isHoliday=true when today is in eventos with categoria=festivo', async () => {
-    // Override the eventos mock for this test
+    // Override the mock for categorias_eventos and eventos
     const originalFrom = mockUseSupabaseClient().from
     const customFrom = (table: string) => {
+      if (table === 'categorias_eventos') {
+        const { chain, spy } = createSpyChain({
+          data: { id: 'festivo-cat-id' },
+          error: null,
+        })
+        spy.table = table
+        fromSpies.push(spy)
+        return chain
+      }
       if (table === 'eventos') {
         const { chain, spy } = createSpyChain({
           data: { id: 'holiday-1' },
