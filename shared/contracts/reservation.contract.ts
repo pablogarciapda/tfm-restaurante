@@ -92,6 +92,20 @@ export interface AdminReasignarPayload {
   motivo: string
 }
 
+// ──────────────────────────── Cancelación por Token ────────────────
+
+/** Payload for POST /api/reservas/cancelar */
+export interface CancelTokenPayload {
+  token: string
+}
+
+/** Reservation info returned for cancellation preview */
+export interface CancelacionPreview {
+  fecha_hora: string
+  numero_comensales: number | null
+  estado: string
+}
+
 // ──────────────────────────── Reservation Flow ────────────────────
 
 /** Request body for POST /api/reservas */
