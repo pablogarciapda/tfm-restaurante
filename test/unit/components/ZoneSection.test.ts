@@ -36,6 +36,19 @@ vi.mock('vue-konva', () => ({
      })
     },
   }),
+  Image: defineComponent({
+    props: ['config'],
+    setup(props) {
+      return () => h('div', {
+        'data-testid': 'v-image',
+        'data-x': String(props.config?.x ?? ''),
+        'data-y': String(props.config?.y ?? ''),
+        'data-width': String(props.config?.width ?? ''),
+        'data-height': String(props.config?.height ?? ''),
+        'data-has-image': String(Boolean(props.config?.image)),
+      })
+    },
+  }),
   Text: defineComponent({
     props: ['config'],
     setup(props) {
@@ -78,6 +91,16 @@ vi.mock('vue-konva', () => ({
     props: ['config'],
     setup() {
       return () => h('div', { 'data-testid': 'v-transformer' })
+    },
+  }),
+  Line: defineComponent({
+    props: ['config'],
+    setup(props) {
+      return () => h('div', {
+        'data-testid': 'v-line',
+        'data-points': String(props.config?.points ?? ''),
+        'data-stroke': String(props.config?.stroke ?? ''),
+      })
     },
   }),
 }))

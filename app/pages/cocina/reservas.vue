@@ -15,7 +15,7 @@ import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
 import { getAforoDisponible } from '#shared/utils/fusion-math'
-import type { AforoInfo } from '#shared/contracts/mesas.contract'
+import type { AforoInfo, Mesa } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 
 definePageMeta({
@@ -119,6 +119,93 @@ const aforoInfo = computed<AforoInfo>(() => {
   }
 })
 
+// ── Mode state ──
+
+const role = useState<string>('cocina-role')
+const permissions = useState<Record<string, boolean>>('cocina-permissions')
+
+const canDesign = computed(() => role.value === 'admin')
+const canFusionar = computed(() => {
+  if (role.value === 'admin') return true
+  return permissions.value?.fusionar === true
+})
+
+// ── Reservation modal state (operación mode) ──
+
+const reservaModalShow = ref(false)
+const reservaModalMesa = ref<Mesa | null>(null)
+const reservaForm = ref({
+  nombre: '',
+  telefono: '',
+  email: '',
+  comensales: 4,
+})
+const reservaSaving = ref(false)
+const reservaError = ref('')
+const reservaSuccess = ref(false)
+
+function openReservaModal(mesa: Mesa) {
+  reservaModalMesa.value = mesa
+  reservaForm.value = {
+    nombre: '',
+    telefono: '',
+    email: '',
+    comensales: mesa.capacidad_base,
+  }
+  reservaError.value = ''
+  reservaSuccess.value = false
+  reservaSaving.value = false
+  reservaModalShow.value = true
+}
+
+function closeReservaModal() {
+  reservaModalShow.value = false
+  reservaModalMesa.value = null
+}
+
+async function handleReservaSubmit() {
+  if (!reservaModalMesa.value) return
+  reservaError.value = ''
+  reservaSaving.value = true
+
+  try {
+    const fecha_hora = new Date().toISOString()
+
+    const result = await $fetch<{ success: boolean; reserva_id?: string; error?: string }>(
+      '/api/reservas',
+      {
+        method: 'POST',
+        body: {
+          nombre: reservaForm.value.nombre,
+          telefono: reservaForm.value.telefono,
+          email: reservaForm.value.email || `mesa-${reservaModalMesa.value.numero_mesa}@lazingara.es`,
+          fecha_hora,
+          numero_comensales: reservaForm.value.comensales,
+          gdpr_aceptado: true,
+        },
+      },
+    )
+
+    if (!result.success) {
+      reservaError.value = result.error || 'Error al crear la reserva'
+      return
+    }
+
+    // Assign mesa_id to the reservation
+    if (result.reserva_id) {
+      const client = useSupabaseClient()
+      await client.from('reservas').update({ mesa_id: reservaModalMesa.value.id }).eq('id', result.reserva_id)
+    }
+
+    reservaSuccess.value = true
+    await loadReservas()
+  } catch (err: any) {
+    reservaError.value = err?.data?.error || err?.statusMessage || 'Error al crear la reserva'
+  } finally {
+    reservaSaving.value = false
+  }
+}
+
 // ── Toolbar event handlers ──
 
 async function handleAddMesa(forma?: string) {
@@ -208,13 +295,37 @@ async function handleReassignStandby(reservaId: string) {
   }
 }
 
+// ── Background image upload ──
+
+async function handleBackgroundImageUpload(url: string) {
+  if (!url || !store.activeZona) return
+
+  // Update zonas_config with the new image URL for the active zone
+  const zonas = zonasConfig.value.map((z) => {
+    if (z.nombre === store.activeZona) {
+      return { ...z, imagen_url: url }
+    }
+    return z
+  })
+
+  try {
+    await $fetch('/api/config', {
+      method: 'POST',
+      body: { zonas_config: zonas },
+    })
+    zonasConfig.value = zonas as ZonaOption[]
+  } catch (err) {
+    console.error('Failed to save zone background image:', err)
+  }
+}
+
 // ── Lifecycle ──
 
 async function loadConfiguracion() {
   try {
     const { data, error } = await client
       .from('configuracion')
-      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual, horarios_config')
+      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual, horarios_config, zonas_config')
       .single()
 
     if (error) throw error
@@ -224,6 +335,7 @@ async function loadConfiguracion() {
       modoOcupacion.value = (data.modo_ocupacion ?? 'auto') as 'auto' | 'manual'
       ocupacionManual.value = data.ocupacion_manual ?? 0
       horariosConfig.value = (data.horarios_config as HorarioConfig) ?? null
+      zonasConfig.value = (data.zonas_config as ZonaOption[]) ?? []
     }
   } catch {
     // Keep defaults on error
@@ -507,19 +619,29 @@ onUnmounted(() => {
       @assign="handleReassignStandby"
     />
 
-    <!-- Toolbar with aforo indicator + fusion buttons -->
+    <!-- Toolbar with mode toggle + conditional buttons -->
     <TableToolbar
       :selected-mesa="store.selectedMesa"
       :aforo-info="aforoInfo"
       :can-fuse="canFuse"
       :can-unfuse="canUnfuse"
       :active-turno="store.activeTurno"
-      @update:active-turno="(v) => store.activeTurno = v"
+      :design-mode="store.isDesignMode"
+      :can-design="canDesign"
+      :can-fusionar="canFusionar"
+      :is-drawing="store.isDrawing"
+      :wall-lines-count="store.wallLines.length"
+      :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
+      @update:active-turno="(v: any) => store.activeTurno = v"
       @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
+      @toggle-mode="store.toggleDesignMode()"
+      @toggle-drawing="store.toggleDrawing()"
+      @clear-walls="store.clearWallLines()"
+      @background-image-uploaded="handleBackgroundImageUpload"
     />
 
     <!-- Zone tabs -->
@@ -550,6 +672,9 @@ onUnmounted(() => {
         :reservas-detail-map="reservasDetailMap"
         :fusion-labels="fusionLabels"
         :horarios-config="horariosConfig"
+        :zonas-config="zonasConfig"
+        :design-mode="store.isDesignMode"
+        @table-click-reservation="openReservaModal"
       />
     </div>
 
@@ -835,6 +960,124 @@ onUnmounted(() => {
                 type="button"
                 class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
                 @click="closeConfirmar"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Reservation modal (operación mode) -->
+    <Teleport to="body">
+      <div
+        v-if="reservaModalShow"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        @click.self="closeReservaModal"
+      >
+        <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <h3 class="mb-4 text-lg font-bold text-slate">
+            {{ reservaSuccess ? 'Reserva creada' : 'Nueva reserva' }}
+          </h3>
+
+          <div v-if="reservaModalMesa && !reservaSuccess" class="space-y-4">
+            <!-- Mesa info -->
+            <div class="rounded-lg bg-gray-50 p-3 text-sm text-slate">
+              <p><strong>Mesa:</strong> {{ reservaModalMesa.numero_mesa }} ({{ reservaModalMesa.zona }})</p>
+              <p><strong>Capacidad:</strong> {{ reservaModalMesa.capacidad_base }} personas</p>
+            </div>
+
+            <!-- Form fields -->
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-nombre">
+                Nombre <span class="text-red-500">*</span>
+              </label>
+              <input
+                id="reserva-nombre"
+                v-model="reservaForm.nombre"
+                type="text"
+                required
+                placeholder="Nombre del cliente"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-telefono">
+                Teléfono <span class="text-red-500">*</span>
+              </label>
+              <input
+                id="reserva-telefono"
+                v-model="reservaForm.telefono"
+                type="tel"
+                required
+                placeholder="Ej: 600123456"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-email">
+                Email
+              </label>
+              <input
+                id="reserva-email"
+                v-model="reservaForm.email"
+                type="email"
+                placeholder="opcional"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-comensales">
+                Comensales <span class="text-red-500">*</span>
+              </label>
+              <input
+                id="reserva-comensales"
+                v-model.number="reservaForm.comensales"
+                type="number"
+                min="1"
+                max="20"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+              />
+            </div>
+
+            <p v-if="reservaError" class="text-sm text-red-600">{{ reservaError }}</p>
+
+            <div class="flex justify-end gap-3">
+              <button
+                type="button"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                @click="closeReservaModal"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                :disabled="reservaSaving || !reservaForm.nombre || !reservaForm.telefono"
+                class="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                @click="handleReservaSubmit"
+              >
+                {{ reservaSaving ? 'Creando...' : 'Crear reserva' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Success state -->
+          <div v-else-if="reservaSuccess" class="space-y-4">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+              <p class="font-medium">✅ Reserva creada correctamente</p>
+              <p class="mt-1 text-green-700">
+                Mesa {{ reservaModalMesa?.numero_mesa }} — {{ reservaForm.comensales }} comensales
+              </p>
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+                @click="closeReservaModal"
               >
                 Cerrar
               </button>

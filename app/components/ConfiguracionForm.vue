@@ -19,6 +19,7 @@ interface ZoneConfigForm {
   nombre: string
   capacidad: number
   enabled: boolean
+  imagen_url?: string | null
 }
 
 interface HorarioConfigForm {
@@ -123,11 +124,11 @@ const form = reactive<ConfigFormData>({
     intervalo_minutos: 15,
   },
   zonas_config: (props.currentConfig.zonas_config as ZoneConfigForm[]) ?? [
-    { id: 'principal', nombre: 'Comedor principal', capacidad: 70, enabled: true },
-    { id: 'reservado', nombre: 'Comedor reservado', capacidad: 14, enabled: true },
-    { id: 'zingaro', nombre: 'Comedor Zíngaro', capacidad: 60, enabled: true },
-    { id: 'terraza', nombre: 'Comedor terraza', capacidad: 100, enabled: true },
-    { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true },
+    { id: 'principal', nombre: 'Comedor principal', capacidad: 70, enabled: true, imagen_url: null },
+    { id: 'reservado', nombre: 'Comedor reservado', capacidad: 14, enabled: true, imagen_url: null },
+    { id: 'zingaro', nombre: 'Comedor Zíngaro', capacidad: 60, enabled: true, imagen_url: null },
+    { id: 'terraza', nombre: 'Comedor terraza', capacidad: 100, enabled: true, imagen_url: null },
+    { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true, imagen_url: null },
   ],
   cliente_elige_zona: (props.currentConfig.cliente_elige_zona as ClienteEligeZona) ?? 'none',
   captcha_habilitado: props.currentConfig.captcha_habilitado ?? false,
@@ -178,6 +179,9 @@ const diaBloqueadoError = ref('')
 
 // ── Zonas drag state ──
 const zoneDrag = ref<{ index: number | null; overIndex: number | null }>({ index: null, overIndex: null })
+
+// ── Zone image upload state ──
+const zoneUploadingIndex = ref<number | null>(null)
 
 // ── Restaurante image upload state ──
 const { uploading: logoUploading, uploadFromFile: logoUploadFromFile } = useImageUpload({ bucket: 'config-images' })
@@ -305,7 +309,28 @@ function addZone() {
     nombre: `Zona ${form.zonas_config.length + 1}`,
     capacidad: 10,
     enabled: true,
+    imagen_url: null,
   })
+}
+
+function zoneImageRemove(index: number) {
+  const zona = form.zonas_config[index]
+  if (zona) {
+    zona.imagen_url = null
+  }
+}
+
+async function handleZoneImageUpload(index: number, file: File) {
+  zoneUploadingIndex.value = index
+  try {
+    const { uploadFromFile } = useImageUpload({ bucket: 'config-images' })
+    const result = await uploadFromFile(file, `zona-${form.zonas_config[index]!.id}-${Date.now()}`)
+    if (result) {
+      form.zonas_config[index]!.imagen_url = result
+    }
+  } finally {
+    zoneUploadingIndex.value = null
+  }
 }
 
 function removeZone(index: number) {
@@ -673,6 +698,41 @@ const checkboxClass = 'h-4 w-4 rounded'
             />
             <span class="text-slate">Activo</span>
           </label>
+
+          <!-- Zone background image upload -->
+          <div class="relative flex items-center gap-1">
+            <label
+              class="cursor-pointer rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-500 hover:border-terracotta hover:text-terracotta"
+              :class="{ 'opacity-50': zoneUploadingIndex === index }"
+            >
+              <template v-if="zona.imagen_url && !(zoneUploadingIndex === index)">
+                🖼
+              </template>
+              <template v-else-if="zoneUploadingIndex === index">
+                ...
+              </template>
+              <template v-else>
+                +img
+              </template>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                class="hidden"
+                :disabled="zoneUploadingIndex !== null"
+                @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleZoneImageUpload(index, f); (e.target as HTMLInputElement).value = '' }"
+              />
+            </label>
+            <button
+              v-if="zona.imagen_url"
+              type="button"
+              class="rounded px-1 py-0.5 text-xs text-red-400 hover:text-red-600"
+              title="Quitar imagen de fondo"
+              @click="zoneImageRemove(index)"
+            >
+              ✕
+            </button>
+          </div>
+
           <button
             type="button"
             :disabled="form.zonas_config.length <= 1"

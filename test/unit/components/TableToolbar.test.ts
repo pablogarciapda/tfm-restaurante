@@ -7,8 +7,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { ref } from 'vue'
 import type { Component } from 'vue'
 import type { Mesa, AforoInfo } from '~/shared/contracts/mesas.contract'
+
+const g = globalThis as Record<string, unknown>
+g.useImageUpload = () => ({
+  uploading: ref(false),
+  uploadError: ref(null),
+  uploadFromFile: vi.fn().mockResolvedValue(null),
+  uploadFromUrl: vi.fn().mockResolvedValue(null),
+  validateImage: vi.fn().mockReturnValue(null),
+  compressToWebP: vi.fn(),
+})
 
 // ── Mock AforoIndicator to avoid Konva dependency ──
 vi.mock('../../../app/features/mesas/components/AforoIndicator.vue', () => ({
@@ -89,14 +100,13 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
-    expect(wrapper.text()).toContain('Nueva Mesa')
     expect(wrapper.text()).toContain('Fusionar')
     expect(wrapper.text()).toContain('Desfusionar')
-    expect(wrapper.text()).toContain('Eliminar')
-    expect(wrapper.text()).toContain('Guardar')
   })
 
   it('renders AforoIndicator child component', async () => {
@@ -107,6 +117,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -124,6 +136,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -139,6 +153,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: true,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -154,6 +170,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -169,6 +187,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -184,6 +204,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -203,6 +225,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -224,6 +248,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -239,6 +265,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -256,6 +284,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -273,6 +303,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: true,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -288,6 +320,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -303,6 +337,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: true,
+        canFusionar: true,
+        designMode: false,
       },
     })
 
@@ -318,6 +354,8 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
@@ -333,10 +371,131 @@ describe('TableToolbar', () => {
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
+        canFusionar: true,
+        designMode: true,
       },
     })
 
     await findButton(wrapper, 'Guardar').trigger('click')
     expect(wrapper.emitted('save')).toBeTruthy()
+  })
+
+  // ── Mode toggle ──
+
+  it('renders mode toggle button when canDesign is true', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        canDesign: true,
+        designMode: false,
+      },
+    })
+
+    const toggleBtn = findButton(wrapper, 'Operación')
+    expect(toggleBtn.exists()).toBe(true)
+  })
+
+  it('emits toggleMode when mode button is clicked', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        canDesign: true,
+        designMode: false,
+      },
+    })
+
+    await findButton(wrapper, 'Operación').trigger('click')
+    expect(wrapper.emitted('toggleMode')).toBeTruthy()
+  })
+
+  it('shows Operación label when in diseño mode', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        canDesign: true,
+        designMode: true,
+      },
+    })
+
+    const toggleBtn = findButton(wrapper, 'Diseño')
+    expect(toggleBtn.exists()).toBe(true)
+  })
+
+  it('hides fusion buttons in diseño mode', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: true,
+        canUnfuse: true,
+        canFusionar: true,
+        canDesign: true,
+        designMode: true,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Fusionar')
+    expect(wrapper.text()).not.toContain('Desfusionar')
+  })
+
+  it('hides add/delete/save buttons in operación mode', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        canFusionar: true,
+        canDesign: true,
+        designMode: false,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Nueva Mesa')
+    expect(wrapper.text()).not.toContain('Eliminar')
+    expect(wrapper.text()).not.toContain('Guardar')
+  })
+
+  it('renders turn filter in both modes', async () => {
+    const comp = await loadComponent()
+    // Test in diseño mode
+    const wrapper1 = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        designMode: true,
+      },
+    })
+    expect(wrapper1.text()).toContain('Comida')
+    expect(wrapper1.text()).toContain('Cena')
+
+    // Test in operación mode
+    const wrapper2 = mount(comp, {
+      props: {
+        selectedMesa: null,
+        aforoInfo: makeAforoInfo(),
+        canFuse: false,
+        canUnfuse: false,
+        designMode: false,
+      },
+    })
+    expect(wrapper2.text()).toContain('Comida')
+    expect(wrapper2.text()).toContain('Cena')
   })
 })

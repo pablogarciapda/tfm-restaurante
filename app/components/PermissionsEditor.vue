@@ -31,6 +31,8 @@ const permissions: PermissionItem[] = [
   { key: 'reservas', label: 'Reservas' },
   { key: 'configuracion', label: 'Configuración' },
   { key: 'usuarios', label: 'Usuarios' },
+  { key: 'clientes', label: 'Clientes' },
+  { key: 'fusionar', label: 'Fusionar mesas' },
 ]
 
 function toggle(key: string) {

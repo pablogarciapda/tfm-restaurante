@@ -3,6 +3,10 @@
 
   Props: selectedMesa, aforoInfo, fusionMode, canFuse, canUnfuse
   Emits: add(shape), delete, save, fuse, unfuse
+
+  Mode separation: diseño (layout editing) vs operación (reservations).
+  Toggle visible only for admins (canDesign prop).
+  Fusion buttons only visible in operación mode and with fusionar permission.
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
@@ -17,6 +21,13 @@ const props = defineProps<{
   canFuse?: boolean
   canUnfuse?: boolean
   activeTurno?: TurnoFilter
+  designMode?: boolean
+  canDesign?: boolean
+  canFusionar?: boolean
+  isDrawing?: boolean
+  wallLinesCount?: number
+  activeZona?: string
+  uploading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,9 +37,29 @@ const emit = defineEmits<{
   fuse: []
   unfuse: []
   'update:activeTurno': [value: TurnoFilter]
+  'toggleMode': []
+  toggleDrawing: []
+  clearWalls: []
+  backgroundImageUploaded: [url: string]
 }>()
 
 const selectedForma = ref<FormaMesa>('rectangular')
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const { uploading, uploadFromFile } = useImageUpload({ bucket: 'config-images' })
+
+async function handleImageUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const url = await uploadFromFile(file, `zona-${props.activeZona || 'fondo'}`)
+  if (url) {
+    emit('backgroundImageUploaded', url)
+  }
+  // Reset input so the same file can be re-selected
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
 
 const turnoOptions: { value: TurnoFilter; label: string }[] = [
   { value: 'todos', label: 'Todos' },
@@ -44,84 +75,149 @@ const activeTurnoValue = computed({
 
 <template>
   <div
-    class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
+    class="sticky top-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
   >
-    <!-- Left: action buttons -->
+    <!-- Left: mode toggle + action buttons -->
     <div class="flex items-center gap-2">
-      <!-- Shape selector dropdown + add button -->
-      <div class="flex items-center gap-1">
-        <select
-          v-model="selectedForma"
-          class="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-          title="Forma de la mesa"
-        >
-          <option value="rectangular">Rectangular</option>
-          <option value="cuadrada">Cuadrada</option>
-          <option value="redonda">Redonda</option>
-          <option value="ovalada">Ovalada</option>
-        </select>
+      <!-- Mode toggle — visible only for admins -->
+      <button
+        v-if="canDesign"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+        :class="
+          designMode
+            ? 'bg-terracotta text-white hover:bg-terracotta/90 focus:ring-terracotta/50'
+            : 'bg-slate-100 text-slate hover:bg-slate-200 focus:ring-slate-500/50'
+        "
+        @click="emit('toggleMode')"
+      >
+        {{ designMode ? 'Diseño' : 'Operación' }}
+      </button>
+
+      <!-- Diseño mode buttons -->
+      <template v-if="designMode">
+        <!-- Shape selector dropdown + add button -->
+        <div class="flex items-center gap-1">
+          <select
+            v-model="selectedForma"
+            class="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+            title="Forma de la mesa"
+          >
+            <option value="rectangular">Rectangular</option>
+            <option value="cuadrada">Cuadrada</option>
+            <option value="redonda">Redonda</option>
+            <option value="ovalada">Ovalada</option>
+          </select>
+          <button
+            class="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+            @click="emit('add', selectedForma)"
+          >
+            + Nueva Mesa
+          </button>
+        </div>
+
         <button
-          class="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-          @click="emit('add', selectedForma)"
+          :disabled="!selectedMesa"
+          class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+          :class="
+            selectedMesa
+              ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500/50'
+              : 'cursor-not-allowed bg-gray-200 text-gray-400'
+          "
+          @click="selectedMesa && emit('delete')"
         >
-          + Nueva Mesa
+          Eliminar
         </button>
-      </div>
 
-      <!-- Fusion buttons (Slice 4) -->
-      <button
-        :disabled="!canFuse"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
-        :class="
-          canFuse
-            ? 'bg-terracotta/80 text-white hover:bg-terracotta focus:ring-terracotta/50'
-            : 'cursor-not-allowed bg-gray-200 text-gray-400'
-        "
-        @click="canFuse && emit('fuse')"
-      >
-        Fusionar
-      </button>
+        <button
+          class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
+          @click="emit('save')"
+        >
+          Guardar
+        </button>
 
-      <button
-        :disabled="!canUnfuse"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
-        :class="
-          canUnfuse
-            ? 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500/50'
-            : 'cursor-not-allowed bg-gray-200 text-gray-400'
-        "
-        @click="canUnfuse && emit('unfuse')"
-      >
-        Desfusionar
-      </button>
+        <!-- Selected mesa info -->
+        <span
+          v-if="selectedMesa"
+          class="ml-2 text-sm text-slate-500"
+        >
+          Mesa {{ selectedMesa.numero_mesa }}
+        </span>
 
-      <button
-        :disabled="!selectedMesa"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
-        :class="
-          selectedMesa
-            ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500/50'
-            : 'cursor-not-allowed bg-gray-200 text-gray-400'
-        "
-        @click="selectedMesa && emit('delete')"
-      >
-        Eliminar
-      </button>
+        <!-- Drawing mode button -->
+        <button
+          class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+          :class="
+            isDrawing
+              ? 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500/50'
+              : 'bg-slate-100 text-slate hover:bg-slate-200 focus:ring-slate-500/50'
+          "
+          @click="emit('toggleDrawing')"
+          title="Dibujar paredes y líneas"
+        >
+          Dibujar
+        </button>
 
-      <button
-        class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
-        @click="emit('save')"
-      >
-        Guardar
-      </button>
+        <!-- Clear walls button (only if walls exist) -->
+        <button
+          v-if="wallLinesCount && wallLinesCount > 0"
+          class="rounded-md bg-red-400 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+          @click="emit('clearWalls')"
+          title="Borrar todos los dibujos"
+        >
+          Borrar dibujo
+        </button>
 
-      <!-- Selected mesa info -->
-      <span
-        v-if="selectedMesa"
-        class="ml-2 text-sm text-slate-500"
-      >
-        Mesa {{ selectedMesa.numero_mesa }}
-      </span>
+        <!-- Background image upload -->
+        <div class="flex items-center gap-1">
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            class="hidden"
+            @change="handleImageUpload"
+          />
+          <button
+            :disabled="uploading || !activeZona"
+            class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-slate transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="fileInput?.click()"
+            :title="activeZona ? `Subir imagen de fondo para ${activeZona}` : 'Selecciona una zona primero'"
+          >
+            {{ uploading ? 'Subiendo...' : 'Subir fondo' }}
+          </button>
+        </div>
+      </template>
+
+      <!-- Operación mode buttons -->
+      <template v-else>
+        <!-- Fusion buttons — only if user has fusionar permission -->
+        <button
+          v-if="canFusionar"
+          :disabled="!canFuse"
+          class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+          :class="
+            canFuse
+              ? 'bg-terracotta/80 text-white hover:bg-terracotta focus:ring-terracotta/50'
+              : 'cursor-not-allowed bg-gray-200 text-gray-400'
+          "
+          @click="canFuse && emit('fuse')"
+        >
+          Fusionar
+        </button>
+
+        <button
+          v-if="canFusionar"
+          :disabled="!canUnfuse"
+          class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+          :class="
+            canUnfuse
+              ? 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500/50'
+              : 'cursor-not-allowed bg-gray-200 text-gray-400'
+          "
+          @click="canUnfuse && emit('unfuse')"
+        >
+          Desfusionar
+        </button>
+      </template>
     </div>
 
     <!-- Center: Turn filter -->

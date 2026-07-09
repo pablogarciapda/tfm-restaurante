@@ -73,6 +73,16 @@ vi.mock('vue-konva', () => ({
       })
     },
   }),
+  Line: defineComponent({
+    props: ['config'],
+    setup(props) {
+      return () => h('div', {
+        'data-testid': 'v-line',
+        'data-points': String(props.config?.points ?? ''),
+        'data-stroke': String(props.config?.stroke ?? ''),
+      })
+    },
+  }),
 }))
 
 // ── Helpers ──
@@ -119,7 +129,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     setActivePinia(createPinia())
   })
 
-  async function mountCanvas(mesas?: Mesa[], reservas?: Array<{ mesa_id: string | null; estado: string; fecha_hora: string }>) {
+  async function mountCanvas(mesas?: Mesa[], reservas?: Array<{ mesa_id: string | null; estado: string; fecha_hora: string }>, designMode?: boolean) {
     const store = useCanvasStore()
     if (mesas) store.setMesas(mesas)
 
@@ -127,6 +137,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     return mount(mod.default, {
       props: {
         reservas: reservas ?? [],
+        ...(designMode !== undefined ? { designMode } : {}),
       },
     })
   }
@@ -141,11 +152,11 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     })
   })
 
-  describe('3-layer structure', () => {
-    it('renders exactly 3 v-layer components', async () => {
+  describe('4-layer structure (background + walls + main + drag)', () => {
+    it('renders exactly 4 v-layer components', async () => {
       const wrapper = await mountCanvas()
       const layers = wrapper.findAll('[data-testid="v-layer"]')
-      expect(layers).toHaveLength(3)
+      expect(layers).toHaveLength(4)
     })
 
     it('first layer (background) has listening:false', async () => {
@@ -154,16 +165,22 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       expect(layers[0].attributes('data-listening')).toBe('false')
     })
 
-    it('second layer (main) is interactive', async () => {
+    it('second layer (walls) has listening:false', async () => {
       const wrapper = await mountCanvas()
       const layers = wrapper.findAll('[data-testid="v-layer"]')
-      expect(layers[1].attributes('data-listening')).toBe('true')
+      expect(layers[1].attributes('data-listening')).toBe('false')
     })
 
-    it('third layer (drag) is the drag isolation layer', async () => {
+    it('third layer (main) is interactive', async () => {
       const wrapper = await mountCanvas()
       const layers = wrapper.findAll('[data-testid="v-layer"]')
-      expect(layers[2].attributes('data-name')).toBe('drag-layer')
+      expect(layers[2].attributes('data-listening')).toBe('true')
+    })
+
+    it('fourth layer (drag) is the drag isolation layer', async () => {
+      const wrapper = await mountCanvas()
+      const layers = wrapper.findAll('[data-testid="v-layer"]')
+      expect(layers[3].attributes('data-name')).toBe('drag-layer')
     })
   })
 
@@ -186,7 +203,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
         makeMesa({ id: 'c', numero_mesa: 3, zona: 'Bar' }),
       ]
       const wrapper = await mountCanvas(mesas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
       // Each TableNode renders a v-group
       expect(groups).toHaveLength(3)
@@ -194,25 +211,30 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
     it('renders no TableNodes when store is empty', async () => {
       const wrapper = await mountCanvas()
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
       expect(groups).toHaveLength(0)
     })
   })
 
   describe('transformer', () => {
-    it('renders a v-transformer in the main layer', async () => {
-      const wrapper = await mountCanvas()
+    it('renders a v-transformer in the main layer when designMode is true', async () => {
+      const wrapper = await mountCanvas([], [], true)
       expect(wrapper.find('[data-testid="v-transformer"]').exists()).toBe(true)
+    })
+
+    it('does not render transformer in operación mode', async () => {
+      const wrapper = await mountCanvas([], [], false)
+      expect(wrapper.find('[data-testid="v-transformer"]').exists()).toBe(false)
     })
   })
 
   describe('empty canvas behavior', () => {
     it('renders without crashing when store has no mesas', async () => {
       const wrapper = await mountCanvas()
-      // Should render stage, 3 layers, zone sections, transformer
+      // Should render stage, 4 layers (background + walls + main + drag), zone sections
       expect(wrapper.find('[data-testid="v-stage"]').exists()).toBe(true)
-      expect(wrapper.findAll('[data-testid="v-layer"]')).toHaveLength(3)
+      expect(wrapper.findAll('[data-testid="v-layer"]')).toHaveLength(4)
     })
   })
 
@@ -230,7 +252,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       ]
       const wrapper = await mountCanvas(mesas)
 
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
       // Each mesa renders a v-group (TableNode wrapper)
       expect(groups).toHaveLength(2)
@@ -240,7 +262,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 't1' })]
       const wrapper = await mountCanvas(mesas)
 
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const group = mainLayer.find('[data-testid="v-group"]')
       expect(group.exists()).toBe(true)
     })
@@ -248,7 +270,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
   describe('transformer behavior', () => {
     it('renders transformer with rotationSnaps at 15° increments', async () => {
-      const wrapper = await mountCanvas()
+      const wrapper = await mountCanvas([], [], true)
       const transformer = wrapper.find('[data-testid="v-transformer"]')
       const snaps = transformer.attributes('data-rotationsnaps')
       expect(snaps).toBeTruthy()
@@ -258,7 +280,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     })
 
     it('has boundBoxFunc preventing dimensions below 40x40', async () => {
-      const wrapper = await mountCanvas()
+      const wrapper = await mountCanvas([], [], true)
       expect(wrapper.find('[data-testid="v-transformer"]').exists()).toBe(true)
     })
   })
@@ -268,7 +290,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'click-me', numero_mesa: 7 })]
       const wrapper = await mountCanvas(mesas)
 
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
       expect(groups).toHaveLength(1)
       // TableNode receives click handler (verified structurally)
@@ -289,7 +311,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
   describe('performance (MCA-008)', () => {
     it('uses batchDraw-friendly configuration on transformers', async () => {
-      const wrapper = await mountCanvas()
+      const wrapper = await mountCanvas([], [], true)
       const transformer = wrapper.find('[data-testid="v-transformer"]')
       expect(transformer.exists()).toBe(true)
     })
@@ -312,7 +334,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'free-1', numero_mesa: 10 })]
       const wrapper = await mountCanvas(mesas)
       // TableNode renders v-rect with fill from STATUS_COLORS[estado]
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#22C55E')
     })
@@ -321,7 +343,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'reserved-1', numero_mesa: 11 })]
       const reservas = [makeReserva({ mesa_id: 'reserved-1', estado: 'pendiente' })]
       const wrapper = await mountCanvas(mesas, reservas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#F59E0B')
     })
@@ -330,7 +352,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'confirmed-1', numero_mesa: 12 })]
       const reservas = [makeReserva({ mesa_id: 'confirmed-1', estado: 'confirmada' })]
       const wrapper = await mountCanvas(mesas, reservas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#F59E0B')
     })
@@ -339,7 +361,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'occupied-1', numero_mesa: 13 })]
       const reservas = [makeReserva({ mesa_id: 'occupied-1', estado: 'completada' })]
       const wrapper = await mountCanvas(mesas, reservas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#EF4444')
     })
@@ -348,7 +370,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'free-2', numero_mesa: 14 })]
       const reservas = [makeReserva({ mesa_id: 'other-mesa', estado: 'pendiente' })]
       const wrapper = await mountCanvas(mesas, reservas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#22C55E')
     })
@@ -357,7 +379,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const mesas = [makeMesa({ id: 'free-3', numero_mesa: 15 })]
       const reservas = [makeReserva({ mesa_id: 'free-3', estado: 'pendiente', fecha_hora: '2020-01-01T20:00:00.000Z' })]
       const wrapper = await mountCanvas(mesas, reservas)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#22C55E')
     })
@@ -365,7 +387,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     it('gracefully degrades to libre when no reservas prop provided', async () => {
       const mesas = [makeMesa({ id: 'no-res', numero_mesa: 16 })]
       const wrapper = await mountCanvas(mesas, undefined)
-      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[1]
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-fill')).toBe('#22C55E')
     })

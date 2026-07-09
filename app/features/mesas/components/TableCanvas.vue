@@ -17,6 +17,7 @@ import {
   Stage as VStage,
   Layer as VLayer,
   Transformer as VTransformer,
+  Line as VLine,
 } from 'vue-konva'
 import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
@@ -45,9 +46,19 @@ const props = defineProps<{
   fusionLabels?: Record<string, string>
   reservasDetailMap?: Record<string, ReservaDetail>
   horariosConfig?: HorarioConfig | null
+  /** Zone configuration from DB: { id, nombre, capacidad, enabled, imagen_url? }[] */
+  zonasConfig?: Array<{ id: string; nombre: string; imagen_url?: string | null }>
+  designMode?: boolean
 }>()
 
-const ZONES: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
+const emit = defineEmits<{
+  'table-click-reservation': [mesa: Mesa]
+}>()
+
+const BASE_WIDTH = 1200
+const BASE_HEIGHT = 800
+
+const ZONE_DEFS: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
   { zona: 'Principal', x: 20, y: 20, w: 380, h: 370 },
   { zona: 'Zingaro', x: 420, y: 20, w: 370, h: 370 },
   { zona: 'Privado', x: 20, y: 410, w: 380, h: 370 },
@@ -63,13 +74,34 @@ const ZONE_COLORS: Record<string, string> = {
   Bar: '#C4B8D0',
 }
 
+/** Build a map of zona nombre → imageUrl from zonasConfig */
+const zoneImageMap = computed(() => {
+  const map: Record<string, string | null | undefined> = {}
+  for (const z of props.zonasConfig ?? []) {
+    map[z.nombre] = z.imagen_url
+  }
+  return map
+})
+
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
 
-/** Zone sections filtered by activeZona ('' = all zones) */
+/** Scale factors for proportional zones (Bug 3 fix) */
+const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH)
+const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT)
+
+/** Zone sections filtered by activeZona ('' = all zones), positions scaled to stage size */
 const filteredZones = computed(() => {
-  if (store.activeZona === '') return ZONES
-  return ZONES.filter((z) => z.zona === store.activeZona)
+  const baseZones = store.activeZona === '' ? ZONE_DEFS : ZONE_DEFS.filter((z) => z.zona === store.activeZona)
+  const sx = stageScaleX.value
+  const sy = stageScaleY.value
+  return baseZones.map((z) => ({
+    zona: z.zona,
+    x: Math.round(z.x * sx),
+    y: Math.round(z.y * sy),
+    w: Math.round(z.w * sx),
+    h: Math.round(z.h * sy),
+  }))
 })
 
 /**
@@ -127,6 +159,10 @@ const mesaTurnoStatus = computed(() => {
 const transformerRef = ref()
 const mainLayerRef = ref()
 const dragLayerRef = ref()
+const canvasContainer = ref<HTMLDivElement | null>(null)
+const draggingMesaId = ref<string | null>(null)
+const isDrawingLine = ref(false)
+const currentLinePoints = ref<number[]>([])
 
 // mesaEstado derived from today's reservas (MCA-005)
 // Defaults to 'libre' when no reservas data is loaded
@@ -264,16 +300,58 @@ function updateTransformer() {
 // ── Event handlers ──
 
 function handleTableClick(mesa: Mesa) {
-  store.selectMesa(mesa.id)
-  updateTransformer()
+  if (props.designMode === true) {
+    // Diseño mode — select for editing
+    store.selectMesa(mesa.id)
+    updateTransformer()
+  } else {
+    // Operación mode — open reservation modal
+    store.selectMesa(mesa.id)
+    emit('table-click-reservation', mesa)
+  }
 }
 
-function handleStageMouseDown() {
-  store.clearSelection()
-  updateTransformer()
+function handleStageMouseDown(e: any) {
+  // Drawing mode: start a new line on stage background click
+  if (props.designMode && store.isDrawing) {
+    const stage = e.target.getStage()
+    // Only draw when clicking on the stage background, not on shapes
+    if (e.target === stage) {
+      const pos = stage?.getPointerPosition()
+      if (pos) {
+        currentLinePoints.value = [pos.x, pos.y]
+        isDrawingLine.value = true
+      }
+    }
+    return
+  }
+
+  // Normal deselection behavior
+  if (props.designMode === true) {
+    store.clearSelection()
+    updateTransformer()
+  }
 }
 
-/** Drag end: move shape back to main layer + persist position */
+function handleStageMouseMove(e: any) {
+  if (!isDrawingLine.value) return
+  const stage = e.target.getStage()
+  const pos = stage?.getPointerPosition()
+  if (pos) {
+    currentLinePoints.value = [...currentLinePoints.value, pos.x, pos.y]
+  }
+}
+
+function handleStageMouseUp() {
+  if (!isDrawingLine.value) return
+  isDrawingLine.value = false
+  if (currentLinePoints.value.length >= 4) {
+    store.addWallLine([...currentLinePoints.value])
+  }
+  currentLinePoints.value = []
+}
+
+/** Drag end: move shape back to main layer + persist actual position */
 function handleDragEnd(mesa: Mesa) {
   // Move back to main layer
   const mainLayer = mainLayerRef.value?.getNode()
@@ -281,20 +359,30 @@ function handleDragEnd(mesa: Mesa) {
   if (mainLayer && dragLayer) {
     const node = dragLayer.findOne(`#${mesa.id}`)
     if (node) {
+      // Read ACTUAL position from Konva node after drag (Bug 1 fix)
+      const newX = Math.round(node.x())
+      const newY = Math.round(node.y())
       node.moveTo(mainLayer)
       mainLayer.batchDraw()
+
+      // Update store immediately with actual position (Bug 1 fix)
+      store.updateMesa(mesa.id, { posicion_x: newX, posicion_y: newY } as Partial<Mesa>)
+
+      // Persist actual position to DB (Bug 1 fix)
+      updateMesa(mesa.id, {
+        posicion_x: newX,
+        posicion_y: newY,
+      } as Partial<Mesa>)
     }
   }
 
-  // Persist position
-  updateMesa(mesa.id, {
-    posicion_x: mesa.posicion_x,
-    posicion_y: mesa.posicion_y,
-  } as Partial<Mesa>)
+  // Clear dragging state (Bug 2 fix)
+  draggingMesaId.value = null
 }
 
 /** Drag start: move shape to drag layer for isolation performance */
 function handleDragStart(mesa: Mesa) {
+  draggingMesaId.value = mesa.id
   const mainLayer = mainLayerRef.value?.getNode()
   const dragLayer = dragLayerRef.value?.getNode()
   if (mainLayer && dragLayer) {
@@ -349,18 +437,42 @@ function handleTransformEnd(mesaId: string) {
   mainLayer.batchDraw()
 }
 
-// ── Performance: limit pixel ratio per AD-02 ──
+// ── Canvas sizing: fill available width (Bug 3 fix) ──
+
+/** Recalculate stage size from container width, keeping 3:2 aspect ratio */
+function updateCanvasSize() {
+  if (!canvasContainer.value) return
+  const rect = canvasContainer.value.getBoundingClientRect()
+  if (rect.width <= 0) return
+  const newWidth = Math.floor(rect.width)
+  const newHeight = Math.floor(newWidth / (BASE_WIDTH / BASE_HEIGHT))
+  store.stageWidth = newWidth
+  store.stageHeight = newHeight
+}
+
+// ── Performance: limit pixel ratio per AD-02 + dynamic sizing ──
 onMounted(async () => {
+  // Set initial canvas size
+  updateCanvasSize()
+
+  // Watch for container resize to keep canvas responsive
+  if (typeof ResizeObserver !== 'undefined' && canvasContainer.value) {
+    const observer = new ResizeObserver(() => { updateCanvasSize() })
+    observer.observe(canvasContainer.value)
+  }
+
   const Konva = (await import('konva')).default as typeof KonvaType
   Konva.pixelRatio = window.devicePixelRatio > 2 ? 2 : 1
 })
 </script>
 
 <template>
-  <div id="mesas-canvas" class="relative overflow-visible">
+  <div ref="canvasContainer" id="mesas-canvas" class="relative overflow-visible">
     <v-stage
       :config="{ width: store.stageWidth, height: store.stageHeight }"
       @mousedown="handleStageMouseDown"
+      @mousemove="handleStageMouseMove"
+      @mouseup="handleStageMouseUp"
     >
       <!-- ============================================================ -->
       <!-- Layer 1: Background — static zones, no events, cached       -->
@@ -375,6 +487,37 @@ onMounted(async () => {
           :width="zone.w"
           :height="zone.h"
           :zone-color="ZONE_COLORS[zone.zona]"
+          :image-url="zoneImageMap[zone.zona]"
+        />
+      </v-layer>
+
+      <!-- ============================================================ -->
+      <!-- Layer: Walls — static wall/line drawings (design mode only) -->
+      <!-- ============================================================ -->
+      <v-layer :config="{ listening: false }" :key="'wall-layer'">
+        <v-line
+          v-for="(line, i) in store.wallLines"
+          :key="'wall-' + i"
+          :config="{
+            points: line.points,
+            stroke: '#666',
+            strokeWidth: 3,
+            lineCap: 'round',
+            lineJoin: 'round',
+            tension: 0.5,
+          }"
+        />
+        <!-- Current line being drawn (preview) -->
+        <v-line
+          v-if="isDrawingLine"
+          :config="{
+            points: currentLinePoints,
+            stroke: '#666',
+            strokeWidth: 3,
+            lineCap: 'round',
+            lineJoin: 'round',
+            tension: 0.5,
+          }"
         />
       </v-layer>
 
@@ -383,24 +526,26 @@ onMounted(async () => {
       <!-- ============================================================ -->
       <v-layer ref="mainLayerRef">
         <TableNode
-          v-for="mesa in store.filteredMesas"
+          v-for="mesa in store.filteredMesas.filter(m => m.id !== draggingMesaId)"
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
           :selected="store.selectedMesaId === mesa.id"
+          :design-mode="designMode === true"
           :reservas-map="reservasMap"
           :fusion-label="fusionLabels?.[mesa.id]"
           :turno-status="mesaTurnoStatus[mesa.id]"
           :active-turno="store.activeTurno"
           @click="handleTableClick(mesa)"
-          @dragstart="handleDragStart(mesa)"
-          @dragend="handleDragEnd(mesa)"
-          @transformend="() => handleTransformEnd(mesa.id)"
+          @dragstart="designMode === true && handleDragStart(mesa)"
+          @dragend="designMode === true && handleDragEnd(mesa)"
+          @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"
           @unhover="handleTableUnhover"
         />
 
         <v-transformer
+          v-if="designMode === true"
           ref="transformerRef"
           :config="{
             rotateAnchorOffset: 30,

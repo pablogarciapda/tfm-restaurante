@@ -25,7 +25,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="sticky top-0 z-20">
+  <div class="sticky top-0">
     <!-- Empty state -->
     <p
       v-if="reservations.length === 0"

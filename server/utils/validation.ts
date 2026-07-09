@@ -37,6 +37,7 @@ export const zonaConfigSchema = z.object({
   nombre: z.string().min(1),
   capacidad: z.number().int().min(0),
   enabled: z.boolean(),
+  imagen_url: z.string().nullable().optional(),
 })
 
 export type ZonaConfigInput = z.infer<typeof zonaConfigSchema>

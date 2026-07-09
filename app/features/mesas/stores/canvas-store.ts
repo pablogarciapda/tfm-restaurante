@@ -26,6 +26,12 @@ export const useCanvasStore = defineStore('canvas', () => {
   const activeZona = ref<string>('')
   /** Active turn filter for table coloring: 'todos' | 'comida' | 'cena' */
   const activeTurno = ref<TurnoFilter>('todos')
+  /** Design mode toggle: true = diseño (layout editing), false = operación (reservations) */
+  const isDesignMode = ref(false)
+  /** Drawing mode for walls/lines in diseño mode */
+  const isDrawing = ref(false)
+  /** Wall/pencil lines drawn on canvas */
+  const wallLines = ref<Array<{ points: number[] }>>([])
 
   // ── Getters ──
 
@@ -88,6 +94,31 @@ export const useCanvasStore = defineStore('canvas', () => {
     selectedMesaId.value = null
   }
 
+  /** Toggle design/operation mode */
+  function toggleDesignMode(value?: boolean) {
+    isDesignMode.value = value ?? !isDesignMode.value
+    if (isDesignMode.value === false) {
+      clearSelection()
+      // Exit drawing mode when leaving diseño mode
+      isDrawing.value = false
+    }
+  }
+
+  /** Toggle drawing mode for walls/lines */
+  function toggleDrawing() {
+    isDrawing.value = !isDrawing.value
+  }
+
+  /** Add a completed wall line */
+  function addWallLine(points: number[]) {
+    wallLines.value.push({ points })
+  }
+
+  /** Clear all wall lines */
+  function clearWallLines() {
+    wallLines.value = []
+  }
+
   return {
     // State
     mesas,
@@ -97,6 +128,9 @@ export const useCanvasStore = defineStore('canvas', () => {
     stageHeight,
     activeZona,
     activeTurno,
+    isDesignMode,
+    isDrawing,
+    wallLines,
     // Getters
     selectedMesa,
     mesasByZona,
@@ -109,5 +143,9 @@ export const useCanvasStore = defineStore('canvas', () => {
     deleteMesa,
     selectMesa,
     clearSelection,
+    toggleDesignMode,
+    toggleDrawing,
+    addWallLine,
+    clearWallLines,
   }
 })

@@ -10,8 +10,8 @@
     Terraza=#B8C9B0, Bar=#C4B8D0
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Rect as VRect, Text as VText } from 'vue-konva'
+import { computed, ref, onMounted, watch } from 'vue'
+import { Rect as VRect, Text as VText, Image as VImage } from 'vue-konva'
 import type { Zona } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
@@ -22,6 +22,8 @@ const props = defineProps<{
   height: number
   /** Optional fill color override. Falls back to ZONE_COLORS map or neutral default. */
   zoneColor?: string
+  /** Optional background image URL for the zone. When provided, renders v-image instead of v-rect. */
+  imageUrl?: string | null
 }>()
 
 const ZONE_COLORS: Record<string, string> = {
@@ -33,11 +35,51 @@ const ZONE_COLORS: Record<string, string> = {
 }
 
 const fillColor = computed(() => props.zoneColor || ZONE_COLORS[props.zona] || '#D4C5B9')
+
+/** Konva Image instance — loaded from imageUrl */
+const konvaImage = ref<HTMLImageElement | null>(null)
+const imageLoading = ref(false)
+
+function loadImage(url: string | null | undefined) {
+  if (!url) {
+    konvaImage.value = null
+    return
+  }
+  imageLoading.value = true
+  const img = new window.Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    konvaImage.value = img
+    imageLoading.value = false
+  }
+  img.onerror = () => {
+    konvaImage.value = null
+    imageLoading.value = false
+    console.warn(`[ZoneSection] Failed to load background image for zone "${props.zona}": ${url}`)
+  }
+  img.src = url
+}
+
+onMounted(() => loadImage(props.imageUrl))
+
+watch(() => props.imageUrl, (url) => loadImage(url))
 </script>
 
 <template>
-  <!-- Zone background rectangle — semi-transparent -->
+  <!-- Zone background: image if available, fallback to semi-transparent rect -->
+  <v-image
+    v-if="konvaImage && !imageLoading"
+    :config="{
+      x,
+      y,
+      width,
+      height,
+      image: konvaImage,
+      listening: false,
+    }"
+  />
   <v-rect
+    v-else
     :config="{
       x,
       y,
@@ -50,7 +92,7 @@ const fillColor = computed(() => props.zoneColor || ZONE_COLORS[props.zona] || '
     }"
   />
 
-  <!-- Zone label text — centered in the zone area -->
+  <!-- Zone label text — positioned top-left in the zone area -->
   <v-text
     :config="{
       x: x + 16,

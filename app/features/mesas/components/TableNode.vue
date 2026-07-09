@@ -35,6 +35,7 @@ const props = defineProps<{
   mesa: Mesa
   estado: MesaEstado
   selected: boolean
+  designMode: boolean
   reservasMap?: Record<string, string>
   fusionLabel?: string
   turnoStatus?: { comida: boolean; cena: boolean }
@@ -249,7 +250,7 @@ const bottomText = computed(() => {
       x: mesa.posicion_x,
       y: mesa.posicion_y,
       rotation: mesa.rotacion,
-      draggable: true,
+      draggable: designMode,
     }"
     @click="$emit('click')"
     @dragstart="$emit('dragstart')"
