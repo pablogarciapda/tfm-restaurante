@@ -186,6 +186,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
 export function buildConfirmationHtml(
   params: ConfirmationParams,
   restaurant: RestaurantInfo,
+  siteUrl?: string,
 ): string {
   const nombreCompleto = params.apellidos
     ? `${params.nombre} ${params.apellidos}`
@@ -261,7 +262,7 @@ export function buildConfirmationHtml(
         <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 20px 0;">
         <p style="margin: 0 0 4px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
         <p style="margin: 0;">
-          <a href="https://lazingara.es/cancelar?token=${params.cancel_token}"
+          <a href="${siteUrl || 'https://www.lazingara.es'}/cancelar?token=${params.cancel_token}"
              style="color: #c25b3c; font-size: 12px; text-decoration: underline;">
             Cancelar reserva
           </a>
@@ -436,6 +437,7 @@ export async function sendConfirmationEmail(
         cancel_token: (params as any).cancel_token,
       },
       restaurantInfo,
+      runtimeConfig.public?.siteUrl,
     )
 
     const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`
