@@ -11,18 +11,18 @@ import { generateSlots, generateTurnSlots, isSlotInRange } from '../../../shared
 describe('generateTurnSlots', () => {
   it('generates correct number of slots for 15-min interval', () => {
     const slots = generateTurnSlots('13:30', '15:30', 15)
-    // 13:30 to 15:30 in 15-min steps: 13:30, 13:45, 14:00, 14:15, 14:30, 14:45, 15:00, 15:15 = 8 slots
-    expect(slots.length).toBe(8)
+    // 13:30 to 15:30 in 15-min steps: 13:30, 13:45, 14:00, 14:15, 14:30, 14:45, 15:00, 15:15, 15:30 = 9 slots
+    expect(slots.length).toBe(9)
     expect(slots[0]!.hora).toBe('13:30')
-    expect(slots[7]!.hora).toBe('15:15')
+    expect(slots[8]!.hora).toBe('15:30')
   })
 
   it('generates correct number of slots for 30-min interval', () => {
     const slots = generateTurnSlots('13:30', '15:30', 30)
-    // 13:30, 14:00, 14:30, 15:00 = 4 slots
-    expect(slots.length).toBe(4)
+    // 13:30, 14:00, 14:30, 15:00, 15:30 = 5 slots
+    expect(slots.length).toBe(5)
     expect(slots[0]!.hora).toBe('13:30')
-    expect(slots[3]!.hora).toBe('15:00')
+    expect(slots[4]!.hora).toBe('15:30')
   })
 
   it('generates correct number of slots for 60-min interval', () => {
@@ -31,11 +31,11 @@ describe('generateTurnSlots', () => {
     expect(slots.length).toBe(3)
   })
 
-  it('excludes end time (exclusive boundary)', () => {
+  it('includes end time when aligned with interval', () => {
     const slots = generateTurnSlots('13:00', '14:00', 30)
-    // 13:00, 13:30 (14:00 excluded)
-    expect(slots.length).toBe(2)
-    expect(slots.map((s) => s.hora)).toEqual(['13:00', '13:30'])
+    // 13:00, 13:30, 14:00 (14:00 included when aligned)
+    expect(slots.length).toBe(3)
+    expect(slots.map((s) => s.hora)).toEqual(['13:00', '13:30', '14:00'])
   })
 
   it('returns empty array when start >= end', () => {
@@ -55,22 +55,22 @@ describe('generateSlots', () => {
 
   it('combines lunch and dinner slots', () => {
     const slots = generateSlots(config)
-    // 8 lunch + 10 dinner = 18
-    expect(slots.length).toBe(18)
+    // 9 lunch + 11 dinner = 20 (inclusive end boundaries)
+    expect(slots.length).toBe(20)
   })
 
   it('orders lunch slots first, then dinner', () => {
     const slots = generateSlots(config)
     expect(slots[0]!.hora).toBe('13:30')
-    expect(slots[7]!.hora).toBe('15:15') // last lunch
-    expect(slots[8]!.hora).toBe('21:00') // first dinner
-    expect(slots[17]!.hora).toBe('23:15') // last dinner
+    expect(slots[8]!.hora).toBe('15:30') // last lunch
+    expect(slots[9]!.hora).toBe('21:00') // first dinner
+    expect(slots[19]!.hora).toBe('23:30') // last dinner
   })
 
   it('works with 30-min interval', () => {
     const slots = generateSlots({ ...config, intervalo_minutos: 30 })
-    // 4 lunch + 5 dinner = 9
-    expect(slots.length).toBe(9)
+    // 5 lunch + 6 dinner = 11 (inclusive end boundaries)
+    expect(slots.length).toBe(11)
   })
 
   it('all slots are in HH:MM format', () => {

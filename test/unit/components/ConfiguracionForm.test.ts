@@ -3,9 +3,19 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 
 const g = globalThis as Record<string, unknown>
 g.useSupabaseClient = () => ({ from: vi.fn(), auth: vi.fn() })
+g.useImageUpload = () => ({
+  uploading: ref(false),
+  uploadError: ref(null),
+  uploadFromFile: vi.fn().mockResolvedValue(null),
+  uploadFromUrl: vi.fn().mockResolvedValue(null),
+  validateImage: vi.fn().mockReturnValue(null),
+  compressToWebP: vi.fn(),
+})
+g.toProxyUrl = (url: string | null | undefined) => url || undefined
 
 describe('ConfiguracionForm (CFG-001)', () => {
   async function mountForm(props: Record<string, unknown> = {}) {

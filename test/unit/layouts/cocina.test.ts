@@ -38,6 +38,8 @@ g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina/dashboard' })
 
 // Mock useRestaurantConfig for multi-tenant name
+g.ref = ref
+
 g.useRestaurantConfig = () => {
   const restaurant = ref({
     nombre: 'La Zíngara',
