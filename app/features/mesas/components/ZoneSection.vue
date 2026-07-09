@@ -20,9 +20,11 @@ const props = defineProps<{
   y: number
   width: number
   height: number
+  /** Optional fill color override. Falls back to ZONE_COLORS map or neutral default. */
+  zoneColor?: string
 }>()
 
-const ZONE_COLORS: Record<Zona, string> = {
+const ZONE_COLORS: Record<string, string> = {
   Principal: '#E8D5C4',
   Zingaro: '#D4C5B9',
   Privado: '#C9BFB0',
@@ -30,7 +32,7 @@ const ZONE_COLORS: Record<Zona, string> = {
   Bar: '#C4B8D0',
 }
 
-const fillColor = computed(() => ZONE_COLORS[props.zona])
+const fillColor = computed(() => props.zoneColor || ZONE_COLORS[props.zona] || '#D4C5B9')
 </script>
 
 <template>

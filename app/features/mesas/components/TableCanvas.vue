@@ -11,7 +11,7 @@
   Slice 3: drag & drop, Transformer resize/rotate, selection (MCA-004, AD-10).
 -->
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import type KonvaType from 'konva'
 import {
   Stage as VStage,
@@ -37,8 +37,22 @@ const ZONES: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
   { zona: 'Bar', x: 810, y: 20, w: 370, h: 760 },
 ]
 
+const ZONE_COLORS: Record<string, string> = {
+  Principal: '#E8D5C4',
+  Zingaro: '#D4C5B9',
+  Privado: '#C9BFB0',
+  Terraza: '#B8C9B0',
+  Bar: '#C4B8D0',
+}
+
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
+
+/** Zone sections filtered by activeZona ('' = all zones) */
+const filteredZones = computed(() => {
+  if (store.activeZona === '') return ZONES
+  return ZONES.filter((z) => z.zona === store.activeZona)
+})
 
 const transformerRef = ref()
 const mainLayerRef = ref()
@@ -182,13 +196,14 @@ onMounted(async () => {
       <!-- ============================================================ -->
       <v-layer :config="{ listening: false }">
         <ZoneSection
-          v-for="zone in ZONES"
+          v-for="zone in filteredZones"
           :key="zone.zona"
           :zona="zone.zona"
           :x="zone.x"
           :y="zone.y"
           :width="zone.w"
           :height="zone.h"
+          :zone-color="ZONE_COLORS[zone.zona]"
         />
       </v-layer>
 
@@ -197,7 +212,7 @@ onMounted(async () => {
       <!-- ============================================================ -->
       <v-layer ref="mainLayerRef">
         <TableNode
-          v-for="mesa in store.mesas"
+          v-for="mesa in store.filteredMesas"
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"

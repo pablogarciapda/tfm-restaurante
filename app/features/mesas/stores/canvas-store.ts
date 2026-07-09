@@ -19,6 +19,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   const isDragging = ref(false)
   const stageWidth = ref(1200)
   const stageHeight = ref(800)
+  /** Active zone filter: '' means all zones, otherwise zone name */
+  const activeZona = ref<string>('')
 
   // ── Getters ──
 
@@ -32,6 +34,12 @@ export const useCanvasStore = defineStore('canvas', () => {
   function mesasByZona(zona: Zona): Mesa[] {
     return mesas.value.filter((m) => m.zona === zona)
   }
+
+  /** Mesas filtered by activeZona ('' = all) */
+  const filteredMesas = computed<Mesa[]>(() => {
+    if (activeZona.value === '') return mesas.value
+    return mesas.value.filter((m) => m.zona === activeZona.value)
+  })
 
   /** Only root mesas (mesa_padre_id IS NULL) — not children of fused groups */
   const parentMesas = computed<Mesa[]>(() => {
@@ -82,10 +90,12 @@ export const useCanvasStore = defineStore('canvas', () => {
     isDragging,
     stageWidth,
     stageHeight,
+    activeZona,
     // Getters
     selectedMesa,
     mesasByZona,
     parentMesas,
+    filteredMesas,
     // Actions
     setMesas,
     addMesa,

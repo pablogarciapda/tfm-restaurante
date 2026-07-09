@@ -9,6 +9,11 @@ const user = useSupabaseUser()
 const { signOut } = useAuth()
 const showMobileMenu = ref(false)
 const { nombre } = useRestaurantConfig()
+import { computed } from 'vue'
+const route = useRoute()
+
+/** Hide the sidebar on the reservas page to maximize canvas space */
+const hideSidebar = computed(() => route.path === '/cocina/reservas')
 
 function closeMobileMenu() {
   showMobileMenu.value = false
@@ -17,15 +22,16 @@ function closeMobileMenu() {
 
 <template>
   <div class="flex h-screen overflow-hidden bg-cream">
-    <!-- Overlay (mobile) -->
+    <!-- Overlay (mobile) — shown even on reservas for mobile nav access -->
     <div
       v-if="showMobileMenu"
       class="fixed inset-0 z-10 bg-black/30 md:hidden"
       @click="closeMobileMenu"
     />
 
-    <!-- Sidebar -->
+    <!-- Sidebar (hidden on reservas page) -->
     <aside
+      v-if="!hideSidebar"
       class="w-60 flex-shrink-0 max-md:fixed max-md:left-0 max-md:top-0 max-md:z-20 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200"
       :class="{ 'max-md:translate-x-0': showMobileMenu }"
     >
