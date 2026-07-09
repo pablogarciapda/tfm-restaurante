@@ -944,6 +944,9 @@ const checkboxClass = 'h-4 w-4 rounded'
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             placeholder="Avda. del Páramo, 11, 24240 Santa María del Páramo, León"
           />
+          <p class="mt-1 text-xs text-gray-400">
+            Separa con comas para que cada parte aparezca en una línea distinta del footer.
+          </p>
         </div>
         <div class="sm:col-span-2">
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-maps">
