@@ -42,7 +42,7 @@ const props = defineProps<{
   activeTurno?: TurnoFilter
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   click: []
   dragstart: []
   dragend: []
@@ -241,24 +241,25 @@ const bottomText = computed(() => {
   }
   return `${props.mesa.capacidad_base}p`
 })
+
+// Group config with Konva-native event handlers (avoids Vue fragment inheritance issue)
+const groupConfig = computed(() => ({
+  id: props.mesa.id,
+  x: props.mesa.posicion_x,
+  y: props.mesa.posicion_y,
+  rotation: props.mesa.rotacion,
+  draggable: props.designMode,
+  onClick: () => emit('click'),
+  onDragStart: () => emit('dragstart'),
+  onDragEnd: () => emit('dragend'),
+  onTransformEnd: () => emit('transformend'),
+  onMouseEnter: () => emit('hover'),
+  onMouseLeave: () => emit('unhover'),
+}))
 </script>
 
 <template>
-  <v-group
-    :config="{
-      id: mesa.id,
-      x: mesa.posicion_x,
-      y: mesa.posicion_y,
-      rotation: mesa.rotacion,
-      draggable: designMode,
-    }"
-    @click="$emit('click')"
-    @dragstart="$emit('dragstart')"
-    @dragend="$emit('dragend')"
-    @transformend="$emit('transformend')"
-    @mouseenter="$emit('hover')"
-    @mouseleave="$emit('unhover')"
-  >
+  <v-group :config="groupConfig">
     <!-- Table shape: conditional rendering -->
     <v-circle
       v-if="mesa.forma === 'redonda'"
