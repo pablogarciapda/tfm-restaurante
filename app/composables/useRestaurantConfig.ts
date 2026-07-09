@@ -15,12 +15,16 @@
 import type { RestaurantConfig } from '#shared/contracts/reservation.contract'
 
 const FALLBACK: RestaurantConfig = {
-  nombre: 'Restaurante La Zíngara',
+  nombre: '',
   direccion: '',
   telefono: '',
   maps_url: '',
   logo_url: null,
   site_url: '',
+  email: '',
+  instagram_url: '',
+  facebook_url: '',
+  poblacion: '',
 }
 
 export function useRestaurantConfig() {
@@ -65,5 +69,9 @@ export function useRestaurantConfig() {
     telefono: computed(() => restaurant.value.telefono),
     mapsUrl: computed(() => restaurant.value.maps_url),
     siteUrl: computed(() => restaurant.value.site_url),
+    email: computed(() => restaurant.value.email),
+    instagramUrl: computed(() => restaurant.value.instagram_url),
+    facebookUrl: computed(() => restaurant.value.facebook_url),
+    poblacion: computed(() => restaurant.value.poblacion),
   }
 }

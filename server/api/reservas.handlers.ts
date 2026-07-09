@@ -88,13 +88,14 @@ export async function handleCreateReservation(
   // 4. Read config → modo_reserva, sms_verificacion, horarios_config, zonas_config, captcha_habilitado
   const { data: config } = await supabase
     .from('configuracion')
-    .select('modo_reserva, sms_verificacion, notificacion_reserva, horarios_config, zonas_config, captcha_habilitado')
+    .select('modo_reserva, sms_verificacion, notificacion_reserva, horarios_config, zonas_config, captcha_habilitado, restaurant_nombre')
     .limit(1)
     .single()
   const modo = config?.modo_reserva ?? 'automatica'
   const smsReq = (config?.sms_verificacion as boolean) ?? false
   const horariosConfig = config?.horarios_config as HorarioConfig | null
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
+  const restaurantNombre = (config?.restaurant_nombre as string) || ''
 
   // 4a. SMS gate — only required when sms_verificacion is enabled
   if (smsReq && !b.sms_verified) {
@@ -318,7 +319,7 @@ export async function handleCreateReservation(
       })
       const emailInfo = b.email ? ` Tu email es: ${b.email}.` : ''
       const ref = generarReferencia(reserva.id, b.fecha_hora)
-      const msg = `✅ Reserva confirmada en La Zíngara. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
+      const msg = `✅ Reserva confirmada en ${restaurantNombre || 'Restaurante'}. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
       console.info(`[reservas] SMS to ${normalizedPhone}: ${msg}`)
     }
   }
@@ -411,11 +412,12 @@ export async function handleCancelReservation(
   if (cliente) {
     const { data: config } = await supabase
       .from('configuracion')
-      .select('notificacion_reserva')
+      .select('notificacion_reserva, restaurant_nombre')
       .limit(1)
       .single()
 
     const metodo = (config?.notificacion_reserva as string) || 'email'
+    const cancelRestNombre = (config?.restaurant_nombre as string) || ''
     const sendEmail = metodo === 'email' || metodo === 'ambos'
     const sendSms = metodo === 'sms' || metodo === 'ambos'
 
@@ -446,7 +448,7 @@ export async function handleCancelReservation(
       const emailInfo = metodo === 'sms'
         ? ''
         : ' Te enviaremos un email de confirmación.'
-      const msg = `❌ Reserva cancelada en La Zíngara. ${fecha}. ${reserva.numero_comensales ?? '?'} comensales. Ref: ${ref ?? reserva.id}.${emailInfo}`
+      const msg = `❌ Reserva cancelada en ${cancelRestNombre || 'Restaurante'}. ${fecha}. ${reserva.numero_comensales ?? '?'} comensales. Ref: ${ref ?? reserva.id}.${emailInfo}`
       console.info(`[cancelar] SMS to ${cliente.telefono}: ${msg}`)
     }
   }

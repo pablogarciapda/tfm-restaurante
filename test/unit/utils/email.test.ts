@@ -16,6 +16,10 @@ const defaultRestaurant = {
   telefono: '987 123 456',
   maps_url: 'https://maps.google.com/?q=La+Zíngara+Santa+María+del+Páramo',
   site_url: '',
+  email: 'reservas@lazingara.es',
+  instagram_url: 'https://www.instagram.com/restaurantelazingaraoficial',
+  facebook_url: 'https://www.facebook.com/RestauranteLaZingara',
+  poblacion: 'Santa María del Páramo, León',
 }
 
 describe('buildConfirmationHtml', () => {

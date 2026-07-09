@@ -7,7 +7,7 @@
  * (multi-tenant: configurable from /cocina/configuracion).
  */
 
-const { restaurant, direccionLineas, mapsUrl, telefono } = useRestaurantConfig()
+const { restaurant, direccionLineas, mapsUrl, telefono, email, instagramUrl, facebookUrl } = useRestaurantConfig()
 </script>
 
 <template>
@@ -56,11 +56,13 @@ const { restaurant, direccionLineas, mapsUrl, telefono } = useRestaurantConfig()
             </li>
             <li>
               <a
-                href="mailto:reservas@lazingara.es"
+                v-if="email"
+                :href="`mailto:${email}`"
                 class="transition-colors hover:text-white"
               >
-                reservas@lazingara.es
+                {{ email }}
               </a>
+              <span v-else class="text-cream/50">&mdash;</span>
             </li>
           </ul>
         </div>
@@ -69,9 +71,9 @@ const { restaurant, direccionLineas, mapsUrl, telefono } = useRestaurantConfig()
         <div>
           <h4 class="mb-3 font-semibold text-white">Síguenos</h4>
           <ul class="flex gap-4">
-            <li>
+            <li v-if="instagramUrl">
               <a
-                href="https://www.instagram.com/restaurantelazingaraoficial"
+                :href="instagramUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="transition-colors hover:text-white"
@@ -80,9 +82,9 @@ const { restaurant, direccionLineas, mapsUrl, telefono } = useRestaurantConfig()
                 Instagram
               </a>
             </li>
-            <li>
+            <li v-if="facebookUrl">
               <a
-                href="https://www.facebook.com/RestauranteLaZingara"
+                :href="facebookUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="transition-colors hover:text-white"

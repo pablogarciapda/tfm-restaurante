@@ -8,6 +8,7 @@
 const user = useSupabaseUser()
 const { signOut } = useAuth()
 const showMobileMenu = ref(false)
+const { nombre } = useRestaurantConfig()
 
 function closeMobileMenu() {
   showMobileMenu.value = false
@@ -49,7 +50,7 @@ function closeMobileMenu() {
             </svg>
           </button>
 
-          <span class="font-serif text-lg font-bold text-terracotta">La Zíngara</span>
+          <span class="font-serif text-lg font-bold text-terracotta">{{ nombre || 'Restaurante' }}</span>
         </div>
 
         <div class="flex items-center gap-4">

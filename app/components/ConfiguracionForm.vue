@@ -68,6 +68,10 @@ interface ConfigFormData {
   restaurant_direccion: string
   restaurant_telefono: string
   restaurant_maps_url: string
+  restaurant_email: string
+  restaurant_instagram_url: string
+  restaurant_facebook_url: string
+  restaurant_poblacion: string
   restaurant_logo_url: string
   restaurant_icon_url: string
   site_url: string
@@ -127,10 +131,14 @@ const form = reactive<ConfigFormData>({
   ],
   cliente_elige_zona: (props.currentConfig.cliente_elige_zona as ClienteEligeZona) ?? 'none',
   captcha_habilitado: props.currentConfig.captcha_habilitado ?? false,
-  restaurant_nombre: (props.currentConfig as any).restaurant_nombre ?? 'La Zíngara',
+  restaurant_nombre: (props.currentConfig as any).restaurant_nombre ?? '',
   restaurant_direccion: (props.currentConfig as any).restaurant_direccion ?? '',
   restaurant_telefono: (props.currentConfig as any).restaurant_telefono ?? '',
   restaurant_maps_url: (props.currentConfig as any).restaurant_maps_url ?? '',
+  restaurant_email: (props.currentConfig as any).restaurant_email ?? '',
+  restaurant_instagram_url: (props.currentConfig as any).restaurant_instagram_url ?? '',
+  restaurant_facebook_url: (props.currentConfig as any).restaurant_facebook_url ?? '',
+  restaurant_poblacion: (props.currentConfig as any).restaurant_poblacion ?? '',
   restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
   restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
   site_url: (props.currentConfig as any).site_url ?? '',
@@ -368,6 +376,10 @@ watch(
     if ((cfg as any).restaurant_direccion !== undefined) form.restaurant_direccion = (cfg as any).restaurant_direccion as string
     if ((cfg as any).restaurant_telefono !== undefined) form.restaurant_telefono = (cfg as any).restaurant_telefono as string
     if ((cfg as any).restaurant_maps_url !== undefined) form.restaurant_maps_url = (cfg as any).restaurant_maps_url as string
+    if ((cfg as any).restaurant_email !== undefined) form.restaurant_email = (cfg as any).restaurant_email as string
+    if ((cfg as any).restaurant_instagram_url !== undefined) form.restaurant_instagram_url = (cfg as any).restaurant_instagram_url as string
+    if ((cfg as any).restaurant_facebook_url !== undefined) form.restaurant_facebook_url = (cfg as any).restaurant_facebook_url as string
+    if ((cfg as any).restaurant_poblacion !== undefined) form.restaurant_poblacion = (cfg as any).restaurant_poblacion as string
     if ((cfg as any).restaurant_logo_url !== undefined) {
       form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
       logoPreview.value = toProxyUrl(form.restaurant_logo_url) ?? null
@@ -951,6 +963,21 @@ const checkboxClass = 'h-4 w-4 rounded'
             Separa con comas para que cada parte aparezca en una línea distinta del footer.
           </p>
         </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-poblacion">
+            Población
+          </label>
+          <input
+            id="cfg-rest-poblacion"
+            v-model="form.restaurant_poblacion"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Santa María del Páramo, León"
+          />
+          <p class="mt-1 text-xs text-gray-400">
+            Se muestra en la página de inicio y como subtítulo del hero.
+          </p>
+        </div>
         <div class="sm:col-span-2">
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-maps">
             URL de Google Maps
@@ -961,6 +988,45 @@ const checkboxClass = 'h-4 w-4 rounded'
             type="url"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             placeholder="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-email">
+            Email del restaurante
+          </label>
+          <input
+            id="cfg-rest-email"
+            v-model="form.restaurant_email"
+            type="email"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="reservas@restaurante.es"
+          />
+          <p class="mt-1 text-xs text-gray-400">
+            Se muestra en el footer, página de contacto y como email de contacto.
+          </p>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-instagram">
+            URL de Instagram
+          </label>
+          <input
+            id="cfg-rest-instagram"
+            v-model="form.restaurant_instagram_url"
+            type="url"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="https://www.instagram.com/turestaurante"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-facebook">
+            URL de Facebook
+          </label>
+          <input
+            id="cfg-rest-facebook"
+            v-model="form.restaurant_facebook_url"
+            type="url"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="https://www.facebook.com/turestaurante"
           />
         </div>
         <div class="sm:col-span-2">

@@ -15,6 +15,7 @@ const emit = defineEmits<{
 const role = useState<string | null>('cocina-role')
 const permissions = useState<Record<string, boolean> | null>('cocina-permissions')
 const { signOut } = useAuth()
+const { nombre } = useRestaurantConfig()
 
 function handleNavigate() {
   emit('navigate')
@@ -60,7 +61,7 @@ async function handleLogout() {
   >
     <!-- App brand -->
     <div class="border-b border-slate-700 px-4 py-4">
-      <span class="font-serif text-lg font-bold text-terracotta">La Zíngara</span>
+      <span class="font-serif text-lg font-bold text-terracotta">{{ nombre || 'Restaurante' }}</span>
     </div>
 
     <!-- Navigation links -->

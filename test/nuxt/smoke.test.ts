@@ -26,7 +26,7 @@ await setup({
 describe('Nuxt Integration Smoke — SSR /', () => {
   it('returns 200 with Spanish HTML from SSR /', async () => {
     const html = await $fetch<string>('/')
-    expect(html).toContain('Restaurante La Zíngara')
-    expect(html).toContain('Santa María del Páramo')
+    expect(html).toContain('Restaurante')
+    expect(html).toContain('Carta')
   })
 })

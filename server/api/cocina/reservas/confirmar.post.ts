@@ -53,11 +53,12 @@ export default defineEventHandler(async (event) => {
   // Read notification method from config
   const { data: config } = await supabase
     .from('configuracion')
-    .select('notificacion_reserva')
+    .select('notificacion_reserva, restaurant_nombre')
     .limit(1)
     .single()
 
   const metodo = (config?.notificacion_reserva as string) || 'email'
+  const restNombre = (config?.restaurant_nombre as string) || ''
 
   // Fetch mesa info if mesa was assigned
   let mesaNumero: number | null = null
@@ -105,7 +106,7 @@ export default defineEventHandler(async (event) => {
       })
       const emailInfo = cliente.email ? ` Tu email es: ${cliente.email}.` : ''
       const ref = generarReferencia(updated.id, updated.fecha_hora)
-      const msg = `✅ Reserva confirmada en La Zíngara. ${fecha}. ${updated.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
+      const msg = `✅ Reserva confirmada en ${restNombre || 'Restaurante'}. ${fecha}. ${updated.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
       console.info(`[confirmar] SMS to ${cliente.telefono}: ${msg}`)
     }
   }

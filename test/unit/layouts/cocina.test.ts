@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const mockSignOut = vi.fn()
 const mockNavigateTo = vi.fn((path: string) => path)
@@ -36,6 +36,35 @@ g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useState = (key: string, init?: unknown) => ref(init ?? null)
 g.useRouter = () => ({ push: mockNavigateTo })
 g.useRoute = () => ({ path: '/cocina/dashboard' })
+
+// Mock useRestaurantConfig for multi-tenant name
+g.useRestaurantConfig = () => {
+  const restaurant = ref({
+    nombre: 'La Zíngara',
+    direccion: '',
+    telefono: '',
+    maps_url: '',
+    logo_url: null,
+    site_url: '',
+    email: '',
+    instagram_url: '',
+    facebook_url: '',
+    poblacion: '',
+  })
+  return {
+    restaurant,
+    direccionLineas: ref([]),
+    logoUrl: ref('/images/logo.png'),
+    nombre: computed(() => restaurant.value.nombre),
+    telefono: computed(() => restaurant.value.telefono),
+    mapsUrl: computed(() => restaurant.value.maps_url),
+    siteUrl: computed(() => restaurant.value.site_url),
+    email: computed(() => restaurant.value.email),
+    instagramUrl: computed(() => restaurant.value.instagram_url),
+    facebookUrl: computed(() => restaurant.value.facebook_url),
+    poblacion: computed(() => restaurant.value.poblacion),
+  }
+}
 
 describe('cocina layout (PU-010)', () => {
   beforeEach(() => {

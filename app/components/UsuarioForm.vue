@@ -104,7 +104,7 @@ function handleSubmit() {
         v-model="email"
         type="email"
         :readonly="!isCreate"
-        :placeholder="isCreate ? 'usuario@lazingara.es' : ''"
+        :placeholder="isCreate ? 'email@restaurante.es' : ''"
         class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta disabled:bg-gray-100"
         :class="{ 'bg-gray-100 cursor-not-allowed': !isCreate }"
       />

@@ -1,7 +1,55 @@
 <script setup lang="ts">
 /**
  * Contacto page — Business hours, map, contact info, and form (CO-001–CO-004)
+ *
+ * Hotel California mode: you can check out any time you like,
+ * but you can never leave. Unless you're a frontend dev, in which
+ * case you're contractually obligated to make every string configurable.
  */
+import { ref, computed, onMounted } from 'vue'
+
+const { restaurant, nombre, telefono, mapsUrl, email, poblacion } = useRestaurantConfig()
+
+// Build maps src from restaurant address or fallback
+const mapsSrc = computed(() => {
+  const mapsUrlVal = mapsUrl.value || restaurant.value.maps_url
+  if (mapsUrlVal) {
+    const encoded = encodeURIComponent(mapsUrlVal)
+    return `https://maps.google.com/maps?q=${encoded}&t=m&z=16&output=embed&iwloc=near`
+  }
+  const dir = restaurant.value.direccion
+  if (dir) {
+    const encoded = encodeURIComponent(dir)
+    return `https://maps.google.com/maps?q=${encoded}&t=m&z=16&output=embed&iwloc=near`
+  }
+  return 'https://maps.google.com/maps?q=Espa%C3%B1a&t=m&z=10&output=embed'
+})
+
+const mapTitle = computed(() => `Mapa de ubicación de ${nombre.value || 'Restaurante'}`)
+
+// Format horarios from public-config into readable hours
+const horariosText = ref<{ days: string; hours: string }[]>([])
+
+onMounted(async () => {
+  try {
+    const publicConfig = await $fetch<any>('/api/public-config')
+    if (publicConfig?.horarios) {
+      const h = publicConfig.horarios
+      horariosText.value = [
+        {
+          days: 'Comida',
+          hours: `${h.comida_inicio || '—'} – ${h.comida_fin || '—'}`,
+        },
+        {
+          days: 'Cena',
+          hours: `${h.cena_inicio || '—'} – ${h.cena_fin || '—'}`,
+        },
+      ]
+    }
+  } catch {
+    horariosText.value = []
+  }
+})
 </script>
 
 <template>
@@ -14,57 +62,56 @@
         <div>
           <!-- Contact details -->
           <div class="mb-8 space-y-4">
-            <div>
+            <div v-if="restaurant.direccion || mapsUrl">
               <span class="text-sm text-gray-500">Dirección</span>
               <a
-                href="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+                v-if="mapsUrl"
+                :href="mapsUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="block text-lg font-semibold text-terracotta hover:underline"
               >
-                Avda. del Páramo, 11<br />
-                <span class="text-base font-normal">24240 Santa María del Páramo, León</span>
+                {{ restaurant.direccion || '—' }}
               </a>
+              <p v-else class="block text-lg font-semibold text-slate">
+                {{ restaurant.direccion || '—' }}
+              </p>
             </div>
-            <div>
+            <div v-if="telefono">
               <span class="text-sm text-gray-500">Teléfono</span>
               <a
-                href="tel:+34987350350"
+                :href="`tel:${String(telefono).replace(/\s/g, '')}`"
                 class="block text-lg font-semibold text-terracotta hover:underline"
               >
-                987 350 350
+                {{ telefono }}
               </a>
             </div>
-            <div>
+            <div v-if="restaurant.email">
               <span class="text-sm text-gray-500">Email</span>
               <a
-                href="mailto:reservas@lazingara.es"
+                :href="`mailto:${restaurant.email}`"
                 class="block text-lg font-semibold text-terracotta hover:underline"
               >
-                reservas@lazingara.es
+                {{ restaurant.email }}
               </a>
             </div>
           </div>
 
           <!-- Business hours (CO-001) -->
-          <section class="mb-8">
+          <section class="mb-8" v-if="horariosText.length > 0">
             <h2 class="mb-4 text-xl font-bold text-slate">Horario</h2>
             <div class="overflow-hidden rounded-lg border border-gray-200">
               <table class="w-full text-left text-sm">
                 <thead>
                   <tr class="bg-cream">
-                    <th class="px-4 py-2 font-medium text-slate">Día</th>
+                    <th class="px-4 py-2 font-medium text-slate">Turno</th>
                     <th class="px-4 py-2 font-medium text-slate">Horario</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                  <tr>
-                    <td class="px-4 py-2.5 font-medium">Lunes a Jueves</td>
-                    <td class="px-4 py-2.5">09:00–00:00</td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-2.5 font-medium">Viernes a Domingo</td>
-                    <td class="px-4 py-2.5">09:00–02:00</td>
+                  <tr v-for="(row, i) in horariosText" :key="i">
+                    <td class="px-4 py-2.5 font-medium">{{ row.days }}</td>
+                    <td class="px-4 py-2.5">{{ row.hours }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -75,8 +122,9 @@
           <section>
             <h2 class="mb-4 text-xl font-bold text-slate">Ubicación</h2>
             <MapEmbed
-              src="https://maps.google.com/maps?q=Avda.+del+P%C3%A1ramo%2C+11%2C+24240+Santa+Mar%C3%ADa+del+P%C3%A1ramo%2C+Le%C3%B3n%2C+Espa%C3%B1a&amp;t=m&amp;z=16&amp;output=embed&amp;iwloc=near"
-              title="Mapa de ubicación de La Zíngara"
+              :src="mapsSrc"
+              :title="mapTitle"
+              :caption="nombre ? `${nombre}, ${poblacion || ''}` : undefined"
             />
           </section>
         </div>

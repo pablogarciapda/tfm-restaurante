@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { computed, ref } from 'vue'
 import ReservasPage from '../../../app/pages/reservas.vue'
 import ReservationForm from '../../../app/components/ReservationForm.vue'
 import SmsVerificationStep from '../../../app/components/SmsVerificationStep.vue'
@@ -27,6 +28,9 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   beforeEach(() => {
     mockFetch = vi.fn()
     vi.stubGlobal('$fetch', mockFetch)
+    vi.stubGlobal('useRestaurantConfig', () => ({
+      nombre: computed(() => 'Test Restaurant'),
+    }))
   })
 
   function mountPage() {
