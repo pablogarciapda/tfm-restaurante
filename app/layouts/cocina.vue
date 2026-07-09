@@ -22,18 +22,23 @@ function closeMobileMenu() {
 
 <template>
   <div class="flex h-screen overflow-hidden bg-cream">
-    <!-- Overlay (mobile) — shown even on reservas for mobile nav access -->
+    <!-- Overlay (mobile + reservas) -->
     <div
       v-if="showMobileMenu"
-      class="fixed inset-0 z-10 bg-black/30 md:hidden"
+      class="fixed inset-0 z-10 bg-black/30"
+      :class="{ 'md:hidden': !hideSidebar }"
       @click="closeMobileMenu"
     />
 
-    <!-- Sidebar (hidden on reservas page) -->
+    <!-- Sidebar (hidden on reservas, togglable via hamburger everywhere) -->
     <aside
-      v-if="!hideSidebar"
-      class="w-60 flex-shrink-0 max-md:fixed max-md:left-0 max-md:top-0 max-md:z-20 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200"
-      :class="{ 'max-md:translate-x-0': showMobileMenu }"
+      v-if="!hideSidebar || showMobileMenu"
+      class="w-60 flex-shrink-0"
+      :class="{
+        'max-md:fixed max-md:left-0 max-md:top-0 max-md:z-20 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200': !hideSidebar,
+        'max-md:translate-x-0': showMobileMenu,
+        'fixed left-0 top-0 z-20 h-full': hideSidebar && showMobileMenu,
+      }"
     >
       <AdminSidebar @navigate="closeMobileMenu" />
     </aside>
@@ -45,9 +50,10 @@ function closeMobileMenu() {
         class="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm"
       >
         <div class="flex items-center gap-3">
-          <!-- Mobile hamburger -->
+          <!-- Mobile hamburger (always visible when sidebar is hidden) -->
           <button
-            class="rounded-md p-1 text-slate hover:bg-cream md:hidden"
+            class="rounded-md p-1 text-slate hover:bg-cream"
+            :class="{ 'md:hidden': !hideSidebar }"
             aria-label="Abrir menú"
             @click="showMobileMenu = !showMobileMenu"
           >
