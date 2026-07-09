@@ -14,7 +14,7 @@ await setup({
 describe('Public pages SSR integration', () => {
   it('GET / returns 200 with Spanish content', async () => {
     const html = await $fetch<string>('/')
-    expect(html).toContain('Restaurante La Zíngara')
+    expect(html).toContain('Restaurante')
     expect(html).toContain('Carta')
   })
 
@@ -58,6 +58,6 @@ describe('Public pages SSR integration', () => {
   it('GET /contacto returns 200 with Spanish content', async () => {
     const html = await $fetch<string>('/contacto')
     expect(html).toContain('Contacto')
-    expect(html).toContain('Horario')
+    expect(html).toContain('Ubicación')
   })
 })

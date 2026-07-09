@@ -9,6 +9,7 @@
 defineProps<{
   src: string
   title: string
+  caption?: string
 }>()
 </script>
 
@@ -25,7 +26,7 @@ defineProps<{
       referrerpolicy="no-referrer-when-downgrade"
     />
     <p class="p-4 text-center text-sm text-gray-500">
-      Santa María del Páramo, León, España
+      {{ caption || 'Ubicación del restaurante' }}
     </p>
   </div>
 </template>

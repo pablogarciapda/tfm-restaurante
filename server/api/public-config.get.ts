@@ -10,12 +10,16 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import type { PublicConfig, HorarioConfig, ZonaConfig, RestaurantConfig } from '#shared/contracts/reservation.contract'
 
 const DEFAULT_RESTAURANT: RestaurantConfig = {
-  nombre: 'Restaurante La Zíngara',
+  nombre: '',
   direccion: '',
   telefono: '',
   maps_url: '',
   logo_url: null,
   site_url: '',
+  email: '',
+  instagram_url: '',
+  facebook_url: '',
+  poblacion: '',
 }
 
 export default defineEventHandler(async (event) => {
@@ -23,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
     .limit(1)
     .single()
 
@@ -52,6 +56,10 @@ export default defineEventHandler(async (event) => {
     maps_url: (data.restaurant_maps_url as string) || DEFAULT_RESTAURANT.maps_url,
     logo_url: (data.restaurant_logo_url as string) || null,
     site_url: (data.site_url as string) || '',
+    email: (data.restaurant_email as string) || DEFAULT_RESTAURANT.email,
+    instagram_url: (data.restaurant_instagram_url as string) || DEFAULT_RESTAURANT.instagram_url,
+    facebook_url: (data.restaurant_facebook_url as string) || DEFAULT_RESTAURANT.facebook_url,
+    poblacion: (data.restaurant_poblacion as string) || DEFAULT_RESTAURANT.poblacion,
   }
 
   const publicConfig: PublicConfig = {

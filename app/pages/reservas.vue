@@ -23,6 +23,8 @@ import GdprConsentModal from '../components/GdprConsentModal.vue'
 import PageHero from '../components/PageHero.vue'
 import type { ReservationPayload } from '../components/ReservationForm.vue'
 
+const { nombre } = useRestaurantConfig()
+
 type Step = 'form' | 'gdpr' | 'sms' | 'confirmation'
 
 const step = ref<Step>('form')
@@ -226,7 +228,7 @@ async function handleResend() {
 
 <template>
   <div>
-    <PageHero title="Reservas" subtitle="Reserva tu mesa en La Zíngara" />
+    <PageHero title="Reservas" :subtitle="`Reserva tu mesa en ${nombre || 'el restaurante'}`" />
 
     <section class="mx-auto max-w-lg px-4 py-12">
       <!-- Elegir mesa -->

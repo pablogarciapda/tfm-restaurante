@@ -125,11 +125,12 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
+  fromName?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
     const transporter = createTransporter(config)
     await transporter.sendMail({
-      from: `"La Zíngara" <${config.fromEmail}>`,
+      from: `"${fromName || 'Restaurante'}" <${config.fromEmail}>`,
       to,
       subject,
       html,
@@ -147,6 +148,10 @@ interface RestaurantInfo {
   telefono: string
   maps_url: string
   site_url: string
+  email: string
+  instagram_url: string
+  facebook_url: string
+  poblacion: string
 }
 
 /**
@@ -156,17 +161,21 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
   try {
     const { data } = await supabase
       .from('configuracion')
-      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url')
+      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
       .limit(1)
       .single()
 
     if (data) {
       return {
-        nombre: (data.restaurant_nombre as string) || 'La Zíngara',
+        nombre: (data.restaurant_nombre as string) || '',
         direccion: (data.restaurant_direccion as string) || '',
         telefono: (data.restaurant_telefono as string) || '',
         maps_url: (data.restaurant_maps_url as string) || '',
         site_url: (data.site_url as string) || '',
+        email: (data.restaurant_email as string) || '',
+        instagram_url: (data.restaurant_instagram_url as string) || '',
+        facebook_url: (data.restaurant_facebook_url as string) || '',
+        poblacion: (data.restaurant_poblacion as string) || '',
       }
     }
   } catch {
@@ -174,11 +183,15 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
   }
 
   return {
-    nombre: 'La Zíngara',
-    direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
-    telefono: '987 350 350',
-    maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
+    nombre: '',
+    direccion: '',
+    telefono: '',
+    maps_url: '',
     site_url: '',
+    email: '',
+    instagram_url: '',
+    facebook_url: '',
+    poblacion: '',
   }
 }
 
@@ -402,7 +415,7 @@ export async function sendCancellationEmail(
     const restaurantInfo = await getRestaurantInfo(supabase)
     const html = buildCancellationHtml(params, restaurantInfo)
     const asunto = `Reserva cancelada — ${restaurantInfo.nombre}`
-    const result = await sendEmail(config, params.email, asunto, html)
+    const result = await sendEmail(config, params.email, asunto, html, restaurantInfo.nombre)
 
     if (!result.success) {
       console.warn('[email] Failed to send cancellation:', result.message)
@@ -450,7 +463,7 @@ export async function sendConfirmationEmail(
     )
 
     const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`
-    const result = await sendEmail(config, params.email, asunto, html)
+    const result = await sendEmail(config, params.email, asunto, html, restaurantInfo.nombre)
 
     if (!result.success) {
       console.warn('[email] Failed to send confirmation:', result.message)

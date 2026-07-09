@@ -68,6 +68,10 @@ export interface RestaurantConfig {
   maps_url: string
   logo_url: string | null
   site_url: string
+  email: string
+  instagram_url: string
+  facebook_url: string
+  poblacion: string
 }
 
 /** Public config (safe for public API, cached in configuracion.public_config JSONB) */
@@ -179,6 +183,10 @@ export interface ConfigData {
   restaurant_direccion: string
   restaurant_telefono: string
   restaurant_maps_url: string
+  restaurant_email: string
+  restaurant_instagram_url: string
+  restaurant_facebook_url: string
+  restaurant_poblacion: string
 }
 
 /** Cliente data from the API */
@@ -239,4 +247,8 @@ export interface ConfigUpdatePayload {
   restaurant_direccion?: string
   restaurant_telefono?: string
   restaurant_maps_url?: string
+  restaurant_email?: string
+  restaurant_instagram_url?: string
+  restaurant_facebook_url?: string
+  restaurant_poblacion?: string
 }

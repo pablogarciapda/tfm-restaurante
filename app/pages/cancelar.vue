@@ -9,6 +9,8 @@ import { ref, onMounted } from 'vue'
 import { generarReferencia } from '#shared/utils/referencia'
 import PageHero from '../components/PageHero.vue'
 
+const { nombre, telefono } = useRestaurantConfig()
+
 const route = useRoute()
 const token = ref<string>('')
 const loading = ref(true)
@@ -90,7 +92,7 @@ function formatHora(iso: string): string {
 
 <template>
   <div>
-    <PageHero title="Cancelar reserva" subtitle="Gestiona tu reserva en La Zíngara" />
+    <PageHero title="Cancelar reserva" :subtitle="`Gestiona tu reserva en ${nombre || 'el restaurante'}`" />
 
     <section class="mx-auto max-w-lg px-4 py-12">
       <!-- Loading -->
@@ -104,7 +106,7 @@ function formatHora(iso: string): string {
         <p class="mt-2 text-red-700">{{ error }}</p>
         <p class="mt-4 text-sm text-slate">
           Si crees que esto es un error, llámanos al
-          <a href="tel:987350350" class="text-terracotta underline">987 350 350</a>.
+          <a :href="`tel:${String(telefono).replace(/\s/g, '')}`" class="text-terracotta underline">{{ telefono || 'el restaurante' }}</a>.
         </p>
       </div>
 

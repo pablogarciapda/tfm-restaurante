@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Root component — renders NuxtLayout + NuxtPage shell
+const { nombre } = useRestaurantConfig()
 useHead({
-  title: 'Restaurante La Zíngara',
+  title: computed(() => nombre.value || 'Restaurante'),
 })
 </script>
 

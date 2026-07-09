@@ -11,6 +11,7 @@
 import { computed } from 'vue'
 import { toProxyUrl } from '~/utils/image-url'
 
+const { nombre, poblacion } = useRestaurantConfig()
 const supabase = useSupabaseClient()
 
 const { data: proximoEvento } = useAsyncData('home-proximo-evento', async () => {
@@ -41,8 +42,8 @@ const eventoAlt = computed(() => {
   <div class="min-h-screen">
     <!-- Hero -->
     <PageHero
-      title="Restaurante La Zíngara"
-      subtitle="Santa María del Páramo, León"
+      :title="nombre || 'Restaurante'"
+      :subtitle="poblacion || undefined"
     />
 
     <!-- Navigation cards grid -->
@@ -124,7 +125,7 @@ const eventoAlt = computed(() => {
           >
             <h2 class="text-xl font-bold text-slate">Contacto</h2>
             <p class="mt-2 text-sm text-gray-600">
-              Encuéntranos en Santa María del Páramo. Consulta nuestro horario,
+              Encuéntranos {{ poblacion ? 'en ' + poblacion : '' }}. Consulta nuestro horario,
               teléfono y ubicación en el mapa.
             </p>
             <div class="mt-auto pt-4">

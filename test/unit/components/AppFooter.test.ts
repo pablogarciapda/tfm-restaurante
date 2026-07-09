@@ -17,6 +17,11 @@ const mockRestaurant = {
   telefono: '987 350 350',
   maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
   logo_url: null,
+  site_url: '',
+  email: 'reservas@lazingara.es',
+  instagram_url: 'https://www.instagram.com/restaurantelazingaraoficial',
+  facebook_url: 'https://www.facebook.com/RestauranteLaZingara',
+  poblacion: 'Santa María del Páramo, León',
 }
 
 const mockDireccionLineas = ref(['Avda. del Páramo, 11', '24240 Santa María del Páramo', 'León'])
@@ -25,6 +30,10 @@ const mockLogoUrl = ref('/images/logo.png')
 const mockNombre = ref(mockRestaurant.nombre)
 const mockTelefono = ref(mockRestaurant.telefono)
 const mockMapsUrl = ref(mockRestaurant.maps_url)
+const mockEmail = ref(mockRestaurant.email)
+const mockInstagramUrl = ref(mockRestaurant.instagram_url)
+const mockFacebookUrl = ref(mockRestaurant.facebook_url)
+const mockPoblacion = ref(mockRestaurant.poblacion)
 
 const mockUseRestaurantConfig = () => ({
   restaurant: mockRestaurantRef,
@@ -33,6 +42,11 @@ const mockUseRestaurantConfig = () => ({
   nombre: mockNombre,
   telefono: mockTelefono,
   mapsUrl: mockMapsUrl,
+  siteUrl: ref(mockRestaurant.site_url),
+  email: mockEmail,
+  instagramUrl: mockInstagramUrl,
+  facebookUrl: mockFacebookUrl,
+  poblacion: mockPoblacion,
 })
 
 const g = globalThis as Record<string, unknown>
