@@ -366,8 +366,14 @@ watch(
     if ((cfg as any).restaurant_direccion !== undefined) form.restaurant_direccion = (cfg as any).restaurant_direccion as string
     if ((cfg as any).restaurant_telefono !== undefined) form.restaurant_telefono = (cfg as any).restaurant_telefono as string
     if ((cfg as any).restaurant_maps_url !== undefined) form.restaurant_maps_url = (cfg as any).restaurant_maps_url as string
-    if ((cfg as any).restaurant_logo_url !== undefined) form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
-    if ((cfg as any).restaurant_icon_url !== undefined) form.restaurant_icon_url = (cfg as any).restaurant_icon_url as string
+    if ((cfg as any).restaurant_logo_url !== undefined) {
+      form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
+      logoPreview.value = toProxyUrl(form.restaurant_logo_url) ?? null
+    }
+    if ((cfg as any).restaurant_icon_url !== undefined) {
+      form.restaurant_icon_url = (cfg as any).restaurant_icon_url as string
+      iconPreview.value = toProxyUrl(form.restaurant_icon_url) ?? null
+    }
     // smtp_password is NEVER loaded — always empty on GET
   },
   { deep: true },
