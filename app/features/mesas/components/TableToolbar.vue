@@ -5,16 +5,18 @@
   Emits: add(shape), delete, save, fuse, unfuse
 -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Mesa, AforoInfo, FormaMesa } from '#shared/contracts/mesas.contract'
+import type { TurnoFilter } from '../stores/canvas-store'
 import AforoIndicator from './AforoIndicator.vue'
 
-defineProps<{
+const props = defineProps<{
   selectedMesa: Mesa | null
   aforoInfo: AforoInfo
   fusionMode?: boolean
   canFuse?: boolean
   canUnfuse?: boolean
+  activeTurno?: TurnoFilter
 }>()
 
 const emit = defineEmits<{
@@ -23,9 +25,21 @@ const emit = defineEmits<{
   save: []
   fuse: []
   unfuse: []
+  'update:activeTurno': [value: TurnoFilter]
 }>()
 
 const selectedForma = ref<FormaMesa>('rectangular')
+
+const turnoOptions: { value: TurnoFilter; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'comida', label: 'Comida' },
+  { value: 'cena', label: 'Cena' },
+]
+
+const activeTurnoValue = computed({
+  get: () => props.activeTurno ?? 'todos',
+  set: (val: TurnoFilter) => emit('update:activeTurno', val),
+})
 </script>
 
 <template>
@@ -108,6 +122,24 @@ const selectedForma = ref<FormaMesa>('rectangular')
       >
         Mesa {{ selectedMesa.numero_mesa }}
       </span>
+    </div>
+
+    <!-- Center: Turn filter -->
+    <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
+      <button
+        v-for="opt in turnoOptions"
+        :key="opt.value"
+        type="button"
+        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+        :class="
+          activeTurnoValue === opt.value
+            ? 'bg-terracotta text-white shadow-sm'
+            : 'text-slate hover:bg-gray-100'
+        "
+        @click="activeTurnoValue = opt.value"
+      >
+        {{ opt.label }}
+      </button>
     </div>
 
     <!-- Right: Aforo -->

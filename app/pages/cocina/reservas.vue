@@ -16,6 +16,7 @@ import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
 import { getAforoDisponible } from '#shared/utils/fusion-math'
 import type { AforoInfo } from '#shared/contracts/mesas.contract'
+import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
@@ -94,6 +95,7 @@ const canUnfuse = computed(() => {
 const capacidadTotal = ref(80)
 const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
+const horariosConfig = ref<HorarioConfig | null>(null)
 
 const aforoInfo = computed<AforoInfo>(() => {
   const disponible = getAforoDisponible(
@@ -212,7 +214,7 @@ async function loadConfiguracion() {
   try {
     const { data, error } = await client
       .from('configuracion')
-      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual')
+      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual, horarios_config')
       .single()
 
     if (error) throw error
@@ -221,6 +223,7 @@ async function loadConfiguracion() {
       capacidadTotal.value = data.capacidad_total_local ?? 80
       modoOcupacion.value = (data.modo_ocupacion ?? 'auto') as 'auto' | 'manual'
       ocupacionManual.value = data.ocupacion_manual ?? 0
+      horariosConfig.value = (data.horarios_config as HorarioConfig) ?? null
     }
   } catch {
     // Keep defaults on error
@@ -409,6 +412,15 @@ async function handleReasignar() {
 
 // ── Text overlay data for TableCanvas ──
 
+/** Reservas formatted for TableCanvas turn coloring (mesa_id, estado, fecha_hora) */
+const reservasForCanvas = computed(() => {
+  return reservasList.value.map((r) => ({
+    mesa_id: r.mesa_id ?? null,
+    estado: r.estado,
+    fecha_hora: r.fecha_hora,
+  }))
+})
+
 /** Map mesa_id → client name for today's reserved tables */
 const reservasMap = computed(() => {
   const map: Record<string, string> = {}
@@ -501,6 +513,8 @@ onUnmounted(() => {
       :aforo-info="aforoInfo"
       :can-fuse="canFuse"
       :can-unfuse="canUnfuse"
+      :active-turno="store.activeTurno"
+      @update:active-turno="(v) => store.activeTurno = v"
       @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
@@ -531,9 +545,11 @@ onUnmounted(() => {
     <!-- Konva canvas -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
+        :reservas="reservasForCanvas"
         :reservas-map="reservasMap"
         :reservas-detail-map="reservasDetailMap"
         :fusion-labels="fusionLabels"
+        :horarios-config="horariosConfig"
       />
     </div>
 

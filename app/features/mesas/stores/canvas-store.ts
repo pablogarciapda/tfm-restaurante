@@ -11,6 +11,9 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 
+/** Active turn filter for table coloring */
+export type TurnoFilter = 'todos' | 'comida' | 'cena'
+
 export const useCanvasStore = defineStore('canvas', () => {
   // ── State ──
 
@@ -21,6 +24,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   const stageHeight = ref(800)
   /** Active zone filter: '' means all zones, otherwise zone name */
   const activeZona = ref<string>('')
+  /** Active turn filter for table coloring: 'todos' | 'comida' | 'cena' */
+  const activeTurno = ref<TurnoFilter>('todos')
 
   // ── Getters ──
 
@@ -91,6 +96,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     stageWidth,
     stageHeight,
     activeZona,
+    activeTurno,
     // Getters
     selectedMesa,
     mesasByZona,

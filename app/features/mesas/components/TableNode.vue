@@ -24,10 +24,12 @@ import {
   Rect as VRect,
   Circle as VCircle,
   Ellipse as VEllipse,
+  Wedge as VWedge,
   Text as VText,
   Group as VGroup,
 } from 'vue-konva'
 import type { Mesa, MesaEstado } from '#shared/contracts/mesas.contract'
+import type { TurnoFilter } from '../stores/canvas-store'
 
 const props = defineProps<{
   mesa: Mesa
@@ -35,6 +37,8 @@ const props = defineProps<{
   selected: boolean
   reservasMap?: Record<string, string>
   fusionLabel?: string
+  turnoStatus?: { comida: boolean; cena: boolean }
+  activeTurno?: TurnoFilter
 }>()
 
 defineEmits<{
@@ -52,8 +56,49 @@ const STATUS_COLORS: Record<MesaEstado, string> = {
   reservada: '#F59E0B',
 }
 
-const fillColor = computed(() => {
+// ── Turn visualization logic ──
+
+/** Determine the turn overlay type for this mesa */
+const turnOverlay = computed<'none' | 'half' | 'full'>(() => {
+  if (!props.turnoStatus || !props.activeTurno || props.activeTurno === 'todos') {
+    return 'none'
+  }
+
+  const hasComida = props.turnoStatus.comida
+  const hasCena = props.turnoStatus.cena
+  const hasBoth = hasComida && hasCena
+
+  if (props.activeTurno === 'comida') {
+    if (hasBoth) return 'full'
+    if (hasComida) return 'half'
+    return 'none'
+  }
+
+  if (props.activeTurno === 'cena') {
+    if (hasBoth) return 'full'
+    if (hasCena) return 'half'
+    return 'none'
+  }
+
+  return 'none'
+})
+
+/** Label to show on the colored half: 'M' for comida, 'T' for cena */
+const turnLabel = computed<string | null>(() => {
+  if (turnOverlay.value === 'none') return null
+  if (props.activeTurno === 'comida') return 'M'
+  if (props.activeTurno === 'cena') return 'T'
+  return null
+})
+
+/**
+ * Override fill color when both turns are reserved.
+ * For 'half' overlay, base stays green (overlay handles the red).
+ */
+const baseFillColor = computed(() => {
   if (props.selected) return '#C67B5C'
+  if (turnOverlay.value === 'full') return '#EF4444'
+  if (turnOverlay.value !== 'none') return '#22C55E' // green base for half overlay
   return STATUS_COLORS[props.estado]
 })
 
@@ -63,7 +108,7 @@ const isSmall = computed(() => props.mesa.ancho < 60 || props.mesa.alto < 60)
 // Shape-specific configs
 const shapeConfig = computed(() => {
   const base = {
-    fill: fillColor.value,
+    fill: baseFillColor.value,
     stroke: '#2D3748',
     strokeWidth: 2,
     shadowBlur: 4,
@@ -131,6 +176,63 @@ const paxOffsetY = computed(() => textOffsetY.value + 16 + 2)  // after number +
 // Show fusion label (e.g. "1/2") for fused tables, else just the table number
 const displayNumber = computed(() => props.fusionLabel || String(props.mesa.numero_mesa))
 
+// ── Turn overlay configs ──
+
+const OVERLAY_RED = '#EF4444'
+const OVERLAY_OPACITY = 0.6
+
+/** Rect overlay for rectangular/square tables (top half) */
+const rectOverlayConfig = computed(() => ({
+  x: 0,
+  y: 0,
+  width: props.mesa.ancho,
+  height: (props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto) / 2,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/** Wedge overlay for round tables (left half) */
+const roundOverlayConfig = computed(() => ({
+  x: props.mesa.ancho / 2,
+  y: props.mesa.ancho / 2,
+  radius: props.mesa.ancho / 2,
+  angle: 180,
+  rotation: -90,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/** Rect overlay for oval tables (left half) */
+const ovalOverlayConfig = computed(() => ({
+  x: 0,
+  y: 0,
+  width: props.mesa.ancho / 2,
+  height: props.mesa.alto,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * (x, y) center for the turn label on the colored half:
+ * - Rect/square: center of top half at (ancho/2, alto/4)
+ * - Round: center of left half at (ancho/4, ancho/2)
+ * - Oval: center of left half at (ancho/4, alto/2)
+ */
+const turnLabelPos = computed(() => {
+  if (props.mesa.forma === 'redonda') {
+    return { x: props.mesa.ancho * 0.25, y: props.mesa.ancho * 0.5 }
+  }
+  if (props.mesa.forma === 'ovalada') {
+    return { x: props.mesa.ancho * 0.25, y: props.mesa.alto * 0.5 }
+  }
+  // Rect / Square: center of top half
+  const h = props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto
+  return { x: props.mesa.ancho * 0.5, y: h * 0.25 }
+})
+
 // Show client name when reserved, else capacity formatted as "4p"
 const bottomText = computed(() => {
   if (props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]) {
@@ -168,6 +270,43 @@ const bottomText = computed(() => {
     <v-rect
       v-else
       :config="shapeConfig"
+    />
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- Turn visualization overlay (Comida/Cena half-fill)     -->
+    <!-- ════════════════════════════════════════════════════════ -->
+
+    <!-- Rect/square: top half overlay -->
+    <v-rect
+      v-if="turnOverlay === 'half' && (mesa.forma === 'rectangular' || mesa.forma === 'cuadrada')"
+      :config="rectOverlayConfig"
+    />
+    <!-- Round: wedge for left half -->
+    <v-wedge
+      v-else-if="turnOverlay === 'half' && mesa.forma === 'redonda'"
+      :config="roundOverlayConfig"
+    />
+    <!-- Oval: left half rect overlay -->
+    <v-rect
+      v-else-if="turnOverlay === 'half' && mesa.forma === 'ovalada'"
+      :config="ovalOverlayConfig"
+    />
+
+    <!-- Turn label ('M' for comida, 'T' for cena) on the colored half -->
+    <v-text
+      v-if="turnLabel && turnOverlay === 'half'"
+      :config="{
+        x: turnLabelPos.x,
+        y: turnLabelPos.y,
+        text: turnLabel,
+        fontSize: 14,
+        fontStyle: 'bold',
+        fontFamily: 'Inter, sans-serif',
+        fill: '#FFFFFF',
+        listening: false,
+        offsetX: 7,
+        offsetY: 7,
+      }"
     />
 
     <!-- Mesa number — bold, centered, larger font -->

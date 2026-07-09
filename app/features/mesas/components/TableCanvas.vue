@@ -18,13 +18,14 @@ import {
   Layer as VLayer,
   Transformer as VTransformer,
 } from 'vue-konva'
-import { useCanvasStore } from '../stores/canvas-store'
+import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
 import TableTooltip from './TableTooltip.vue'
 import type { TooltipData } from './TableTooltip.vue'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
+import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { getMesaEstado } from '#shared/utils/fusion-math'
 
 export interface ReservaDetail {
@@ -33,11 +34,17 @@ export interface ReservaDetail {
   numero_comensales: number
 }
 
+function toMinutes(h: string): number {
+  const [hours, minutes] = h.split(':').map(Number)
+  return hours! * 60 + minutes!
+}
+
 const props = defineProps<{
   reservas?: { mesa_id: string | null; estado: string; fecha_hora: string }[]
   reservasMap?: Record<string, string>
   fusionLabels?: Record<string, string>
   reservasDetailMap?: Record<string, ReservaDetail>
+  horariosConfig?: HorarioConfig | null
 }>()
 
 const ZONES: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
@@ -63,6 +70,58 @@ const { updateMesa } = useMesas()
 const filteredZones = computed(() => {
   if (store.activeZona === '') return ZONES
   return ZONES.filter((z) => z.zona === store.activeZona)
+})
+
+/**
+ * Per-mesa turn reservation status.
+ * Returns a map of mesa_id → { comida: boolean, cena: boolean }
+ * based on reservas that fall within the configured turn time windows.
+ */
+const mesaTurnoStatus = computed(() => {
+  const status: Record<string, { comida: boolean; cena: boolean }> = {}
+  for (const mesa of store.filteredMesas) {
+    status[mesa.id] = { comida: false, cena: false }
+  }
+
+  const config = props.horariosConfig
+  if (!config) return status
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const comidaStart = toMinutes(config.comida_inicio)
+  const comidaEnd = toMinutes(config.comida_fin)
+  const cenaStart = toMinutes(config.cena_inicio)
+  const cenaEnd = toMinutes(config.cena_fin)
+
+  for (const r of props.reservas ?? []) {
+    if (!r.mesa_id) continue
+    if (!r.fecha_hora.startsWith(todayStr)) continue
+    const hora = r.fecha_hora.split('T')[1]?.slice(0, 5)
+    if (!hora) continue
+    const mins = toMinutes(hora)
+
+    if (mins >= comidaStart && mins < comidaEnd) {
+      const s = status[r.mesa_id]
+      if (s) s.comida = true
+    }
+    // Handle cena that may cross midnight
+    if (cenaEnd <= cenaStart) {
+      // Crosses midnight: [cenaStart, 24:00) OR [00:00, cenaEnd)
+      if (mins >= cenaStart && mins < 1440) {
+        const s = status[r.mesa_id]
+        if (s) s.cena = true
+      } else if (mins >= 0 && mins < cenaEnd) {
+        const s = status[r.mesa_id]
+        if (s) s.cena = true
+      }
+    } else {
+      if (mins >= cenaStart && mins < cenaEnd) {
+        const s = status[r.mesa_id]
+        if (s) s.cena = true
+      }
+    }
+  }
+
+  return status
 })
 
 const transformerRef = ref()
@@ -331,6 +390,8 @@ onMounted(async () => {
           :selected="store.selectedMesaId === mesa.id"
           :reservas-map="reservasMap"
           :fusion-label="fusionLabels?.[mesa.id]"
+          :turno-status="mesaTurnoStatus[mesa.id]"
+          :active-turno="store.activeTurno"
           @click="handleTableClick(mesa)"
           @dragstart="handleDragStart(mesa)"
           @dragend="handleDragEnd(mesa)"
