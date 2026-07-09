@@ -146,6 +146,7 @@ interface RestaurantInfo {
   direccion: string
   telefono: string
   maps_url: string
+  site_url: string
 }
 
 /**
@@ -155,7 +156,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
   try {
     const { data } = await supabase
       .from('configuracion')
-      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url')
+      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url')
       .limit(1)
       .single()
 
@@ -165,6 +166,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
         direccion: (data.restaurant_direccion as string) || '',
         telefono: (data.restaurant_telefono as string) || '',
         maps_url: (data.restaurant_maps_url as string) || '',
+        site_url: (data.site_url as string) || 'https://www.lazingara.es',
       }
     }
   } catch {
@@ -176,6 +178,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
     direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
     telefono: '987 350 350',
     maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
+    site_url: 'https://www.lazingara.es',
   }
 }
 
@@ -186,7 +189,6 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
 export function buildConfirmationHtml(
   params: ConfirmationParams,
   restaurant: RestaurantInfo,
-  siteUrl?: string,
 ): string {
   const nombreCompleto = params.apellidos
     ? `${params.nombre} ${params.apellidos}`
@@ -262,7 +264,7 @@ export function buildConfirmationHtml(
         <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 20px 0;">
         <p style="margin: 0 0 4px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
         <p style="margin: 0;">
-          <a href="${siteUrl || 'https://www.lazingara.es'}/cancelar?token=${params.cancel_token}"
+          <a href="${restaurant.site_url || 'https://www.lazingara.es'}/cancelar?token=${params.cancel_token}"
              style="color: #c25b3c; font-size: 12px; text-decoration: underline;">
             Cancelar reserva
           </a>
@@ -437,7 +439,6 @@ export async function sendConfirmationEmail(
         cancel_token: (params as any).cancel_token,
       },
       restaurantInfo,
-      runtimeConfig.public?.siteUrl,
     )
 
     const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`

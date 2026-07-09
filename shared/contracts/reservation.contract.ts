@@ -67,6 +67,7 @@ export interface RestaurantConfig {
   telefono: string
   maps_url: string
   logo_url: string | null
+  site_url: string
 }
 
 /** Public config (safe for public API, cached in configuracion.public_config JSONB) */

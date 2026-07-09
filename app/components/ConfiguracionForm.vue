@@ -70,6 +70,7 @@ interface ConfigFormData {
   restaurant_maps_url: string
   restaurant_logo_url: string
   restaurant_icon_url: string
+  site_url: string
 }
 
 const props = defineProps<{
@@ -132,6 +133,7 @@ const form = reactive<ConfigFormData>({
   restaurant_maps_url: (props.currentConfig as any).restaurant_maps_url ?? '',
   restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
   restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
+  site_url: (props.currentConfig as any).site_url ?? 'https://www.lazingara.es',
 })
 
 const testEmail = ref('')
@@ -374,6 +376,7 @@ watch(
       form.restaurant_icon_url = (cfg as any).restaurant_icon_url as string
       iconPreview.value = toProxyUrl(form.restaurant_icon_url) ?? null
     }
+    if ((cfg as any).site_url !== undefined) form.site_url = (cfg as any).site_url as string
     // smtp_password is NEVER loaded — always empty on GET
   },
   { deep: true },
@@ -959,6 +962,21 @@ const checkboxClass = 'h-4 w-4 rounded'
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             placeholder="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
           />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-rest-site-url">
+            Dominio público (URL)
+          </label>
+          <input
+            id="cfg-rest-site-url"
+            v-model="form.site_url"
+            type="url"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            placeholder="https://www.lazingara.es"
+          />
+          <p class="mt-1 text-xs text-gray-400">
+            Se usa en los emails (link de cancelación, etc.). Sin esto, el dominio sale del archivo de configuración.
+          </p>
         </div>
       </div>
 
