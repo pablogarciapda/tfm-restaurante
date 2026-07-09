@@ -165,7 +165,15 @@ export function useImageUpload(options?: MaybeRefOrGetter<ImageUploadOptions | u
       const isWebP = autoCompress.value
       const ext = isWebP ? 'webp' : file.name.split('.').pop() ?? 'jpg'
       const contentType = isWebP ? 'image/webp' : file.type
-      const uniqueName = fileName ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+      // Ensure filename always has an extension (required by image proxy validation)
+      let uniqueName: string
+      if (fileName) {
+        const hasExt = /\.[a-z]{3,4}$/i.test(fileName)
+        uniqueName = hasExt ? fileName : `${fileName}.${ext}`
+      } else {
+        uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      }
 
       const { data, error } = await supabase.storage
         .from(resolvedBucket.value)

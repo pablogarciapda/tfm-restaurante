@@ -2,9 +2,17 @@
  * public-config.test.ts — Unit tests for GET /api/public-config
  *
  * Tests the handler directly (no HTTP): returns filtered public config,
- * only enabled zones, no sensitive data.
+ * only enabled zones, no sensitive data, + restaurant info for multi-tenant.
  */
 import { describe, it, expect, vi } from 'vitest'
+
+const DEFAULT_RESTAURANT = {
+  nombre: 'Restaurante La Zíngara',
+  direccion: '',
+  telefono: '',
+  maps_url: '',
+  logo_url: null,
+}
 
 function createMockSupabase(configData: Record<string, unknown> | null) {
   const selectFn = vi.fn().mockResolvedValue({ data: configData, error: null })
@@ -32,7 +40,7 @@ function createMockSupabase(configData: Record<string, unknown> | null) {
 async function getPublicConfig(supabase: any) {
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, cliente_elige_zona')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url')
     .limit(1)
     .single()
 
@@ -42,7 +50,11 @@ async function getPublicConfig(supabase: any) {
       zonas: [],
       texto_proteccion_datos: null,
       modo_reserva: 'automatica',
+      sms_verificacion: false,
+      notificacion_reserva: 'email',
       cliente_elige_zona: 'none',
+      captcha_habilitado: false,
+      restaurant: DEFAULT_RESTAURANT,
     }
   }
 
@@ -50,12 +62,24 @@ async function getPublicConfig(supabase: any) {
   const allZonas = data.zonas_config || []
   const enabledZonas = (allZonas as any[]).filter((z: any) => z.enabled)
 
+  const restaurant = {
+    nombre: (data.restaurant_nombre as string) || DEFAULT_RESTAURANT.nombre,
+    direccion: (data.restaurant_direccion as string) || DEFAULT_RESTAURANT.direccion,
+    telefono: (data.restaurant_telefono as string) || DEFAULT_RESTAURANT.telefono,
+    maps_url: (data.restaurant_maps_url as string) || DEFAULT_RESTAURANT.maps_url,
+    logo_url: (data.restaurant_logo_url as string) || null,
+  }
+
   return {
     horarios,
     zonas: enabledZonas,
     texto_proteccion_datos: data.texto_proteccion_datos || null,
     modo_reserva: data.modo_reserva || 'automatica',
+    sms_verificacion: (data.sms_verificacion as boolean) ?? false,
+    notificacion_reserva: data.notificacion_reserva || 'email',
     cliente_elige_zona: data.cliente_elige_zona || 'none',
+    captcha_habilitado: (data.captcha_habilitado as boolean) ?? false,
+    restaurant,
   }
 }
 
@@ -89,6 +113,8 @@ describe('GET /api/public-config', () => {
     expect(result.texto_proteccion_datos).toBe('Texto legal...')
     expect(result.modo_reserva).toBe('automatica')
     expect(result.cliente_elige_zona).toBe('zona')
+    expect(result.restaurant).toBeDefined()
+    expect(result.restaurant.nombre).toBe('Restaurante La Zíngara')
   })
 
   it('filters out disabled zones', async () => {
@@ -118,6 +144,7 @@ describe('GET /api/public-config', () => {
     expect(result.zonas).toEqual([])
     expect(result.modo_reserva).toBe('automatica')
     expect(result.cliente_elige_zona).toBe('none')
+    expect(result.restaurant.nombre).toBe('Restaurante La Zíngara')
   })
 
   it('handles missing cliente_elige_zona field', async () => {
@@ -146,6 +173,16 @@ describe('GET /api/public-config', () => {
     // Only the expected public keys
     const keys = Object.keys(result)
     keys.sort()
-    expect(keys).toEqual(['cliente_elige_zona', 'horarios', 'modo_reserva', 'texto_proteccion_datos', 'zonas'])
+    expect(keys).toEqual([
+      'captcha_habilitado',
+      'cliente_elige_zona',
+      'horarios',
+      'modo_reserva',
+      'notificacion_reserva',
+      'restaurant',
+      'sms_verificacion',
+      'texto_proteccion_datos',
+      'zonas',
+    ])
   })
 })

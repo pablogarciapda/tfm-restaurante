@@ -3,8 +3,11 @@
  * AppFooter — Site-wide footer (PU-004)
  *
  * Renders restaurant name, address, phone, email, and social links
- * on every public page. Spanish content per project language policy.
+ * on every public page. Reads restaurant info from useRestaurantConfig
+ * (multi-tenant: configurable from /cocina/configuracion).
  */
+
+const { restaurant, direccionLineas, mapsUrl, telefono } = useRestaurantConfig()
 </script>
 
 <template>
@@ -14,11 +17,11 @@
         <!-- Restaurant info -->
         <div>
           <h3 class="mb-3 text-lg font-bold text-white">
-            Restaurante La Zíngara
+            {{ restaurant.nombre }}
           </h3>
-          <address class="not-italic leading-relaxed">
+          <address v-if="mapsUrl" class="not-italic leading-relaxed">
             <a
-              href="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+              :href="mapsUrl"
               target="_blank"
               rel="noopener noreferrer"
               class="transition-colors hover:text-white"
@@ -36,10 +39,15 @@
                   clip-rule="evenodd"
                 />
               </svg>
-              Avda. del Páramo, 11<br />
-              24240 Santa María del Páramo<br />
-              León, España
+              <template v-for="(line, i) in direccionLineas" :key="i">
+                {{ line }}<br v-if="i < direccionLineas.length - 1" />
+              </template>
             </a>
+          </address>
+          <address v-else class="not-italic leading-relaxed">
+            <template v-for="(line, i) in direccionLineas" :key="i">
+              {{ line }}<br v-if="i < direccionLineas.length - 1" />
+            </template>
           </address>
         </div>
 
@@ -47,12 +55,12 @@
         <div>
           <h4 class="mb-3 font-semibold text-white">Contacto</h4>
           <ul class="space-y-2">
-            <li>
+            <li v-if="telefono">
               <a
-                href="tel:+34987350350"
+                :href="`tel:${telefono.replace(/\s/g, '')}`"
                 class="transition-colors hover:text-white"
               >
-                987 350 350
+                {{ telefono }}
               </a>
             </li>
             <li>
@@ -100,7 +108,7 @@
       <div
         class="mt-8 border-t border-cream/20 pt-6 text-center text-sm"
       >
-        &copy; {{ new Date().getFullYear() }} Restaurante La Zíngara
+        &copy; {{ new Date().getFullYear() }} {{ restaurant.nombre }}
       </div>
     </div>
   </footer>
