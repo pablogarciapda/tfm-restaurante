@@ -165,6 +165,21 @@ const slotPreview = computed(() => {
   }
 })
 
+// Split slots into morning (comida) and evening (cena) for visual separation
+const slotsComida = computed(() => {
+  const [comidaStart] = form.horarios_config.comida_inicio.split(':').map(Number)
+  return slotPreview.value.filter((s) => {
+    const h = parseInt(s.hora.split(':')[0]!)
+    return h >= comidaStart! && h < 17 // before 17:00 = morning
+  })
+})
+const slotsCena = computed(() => {
+  return slotPreview.value.filter((s) => {
+    const h = parseInt(s.hora.split(':')[0]!)
+    return h >= 17 // 17:00 and later = evening
+  })
+})
+
 const totalCapacidadZonas = computed(() =>
   form.zonas_config.reduce((sum, z) => sum + z.capacidad, 0),
 )
@@ -490,15 +505,33 @@ const checkboxClass = 'h-4 w-4 rounded'
       <!-- Preview -->
       <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
         <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="slot in slotPreview"
-            :key="slot.hora"
-            class="rounded-md bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
-            data-testid="slot-preview"
-          >
-            {{ slot.hora }}
-          </span>
+        <!-- Comida row -->
+        <div v-if="slotsComida.length > 0" class="mb-2">
+          <span class="mr-2 text-xs font-medium text-amber-700">☀️ Comida</span>
+          <div class="mt-1 flex flex-wrap gap-1">
+            <span
+              v-for="slot in slotsComida"
+              :key="slot.hora"
+              class="rounded-md bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+              data-testid="slot-preview"
+            >
+              {{ slot.hora }}
+            </span>
+          </div>
+        </div>
+        <!-- Cena row -->
+        <div v-if="slotsCena.length > 0">
+          <span class="mr-2 text-xs font-medium text-indigo-700">🌙 Cena</span>
+          <div class="mt-1 flex flex-wrap gap-1">
+            <span
+              v-for="slot in slotsCena"
+              :key="slot.hora"
+              class="rounded-md bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800"
+              data-testid="slot-preview"
+            >
+              {{ slot.hora }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
