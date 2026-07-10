@@ -210,6 +210,11 @@ async function toggleActivo(configId: string, activo: boolean) {
   await loadConfigs()
 }
 
+async function toggleFestivo(configId: string, es_festivo: boolean) {
+  await client.from('menu_diario_config').update({ es_festivo }).eq('id', configId)
+  await loadConfigs()
+}
+
 async function createConfig(dayOfWeek: number) {
   const defaultPrecio = dayOfWeek === 6
     ? String(configPrice.value?.precio_menu_sabado ?? '')
@@ -440,6 +445,17 @@ onMounted(async () => {
             @change="toggleActivo(currentConfig.id, ($event.target as HTMLInputElement).checked)"
           />
           <label class="text-sm font-medium text-slate">Activo</label>
+        </div>
+
+        <div v-if="currentConfig.activo" class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            :checked="(currentConfig as any).es_festivo === true"
+            class="h-4 w-4 rounded"
+            @change="toggleFestivo(currentConfig.id, ($event.target as HTMLInputElement).checked)"
+          />
+          <label class="text-sm font-medium text-amber-700">Festivo</label>
+          <span class="text-xs text-amber-600">(precio domingo)</span>
         </div>
 
         <!-- Date display (read-only — managed by day_of_week + activo) -->
