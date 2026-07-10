@@ -474,32 +474,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Event Category Management Card -->
-    <div class="rounded-lg bg-white p-6 shadow">
-      <h2 class="mb-4 text-xl font-bold text-slate">Categorías de Eventos</h2>
-      <p class="mb-4 text-xs text-gray-400">Arrastra las categorías para reordenarlas.</p>
-      <div class="space-y-1">
-        <div
-          v-for="(cat, index) in eventCategorias" :key="index"
-          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', dragClasses(index)]"
-          draggable="true"
-          @dragstart="onDragStart(index)" @dragenter="onDragEnter(index)" @dragover="onDragOver" @dragleave="onDragLeave"
-          @drop="onDrop($event, index, eventCategorias)" @dragend="onDragEnd"
-        >
-          <template v-if="!cat._deleted">
-            <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
-            <input :value="cat.nombre" @input="cat.nombre = ($event.target as HTMLInputElement).value" type="text" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Nombre de categoría" />
-            <button type="button" class="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600" @click="removeEventCategory(index)">Eliminar</button>
-          </template>
-        </div>
-      </div>
-      <p v-if="eventCatError" class="mt-2 text-sm text-red-600">{{ eventCatError }}</p>
-      <button type="button" class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta" @click="addEventCategory">+ Añadir categoría</button>
-      <div class="mt-6">
-        <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="eventCatSaving" @click="saveEventCategories">{{ eventCatSaving ? 'Guardando...' : 'Guardar categorías de eventos' }}</button>
-      </div>
-    </div>
-
     <!-- Subcategory (Familia) Management Card -->
     <div class="rounded-lg bg-white p-6 shadow">
       <h2 class="mb-4 text-xl font-bold text-slate">Subcategorías (Familias)</h2>
@@ -547,6 +521,32 @@ onMounted(() => {
       <button type="button" class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta" @click="addFamilia">+ Añadir subcategoría</button>
       <div class="mt-6">
         <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="familiaSaving" @click="saveFamilias">{{ familiaSaving ? 'Guardando...' : 'Guardar subcategorías' }}</button>
+      </div>
+    </div>
+
+    <!-- Event Category Management Card -->
+    <div class="rounded-lg bg-white p-6 shadow">
+      <h2 class="mb-4 text-xl font-bold text-slate">Categorías de Eventos</h2>
+      <p class="mb-4 text-xs text-gray-400">Arrastra las categorías para reordenarlas.</p>
+      <div class="space-y-1">
+        <div
+          v-for="(cat, index) in eventCategorias" :key="index"
+          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', dragClasses(index)]"
+          draggable="true"
+          @dragstart="onDragStart(index)" @dragenter="onDragEnter(index)" @dragover="onDragOver" @dragleave="onDragLeave"
+          @drop="onDrop($event, index, eventCategorias)" @dragend="onDragEnd"
+        >
+          <template v-if="!cat._deleted">
+            <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
+            <input :value="cat.nombre" @input="cat.nombre = ($event.target as HTMLInputElement).value" type="text" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Nombre de categoría" />
+            <button type="button" class="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600" @click="removeEventCategory(index)">Eliminar</button>
+          </template>
+        </div>
+      </div>
+      <p v-if="eventCatError" class="mt-2 text-sm text-red-600">{{ eventCatError }}</p>
+      <button type="button" class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta" @click="addEventCategory">+ Añadir categoría</button>
+      <div class="mt-6">
+        <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="eventCatSaving" @click="saveEventCategories">{{ eventCatSaving ? 'Guardando...' : 'Guardar categorías de eventos' }}</button>
       </div>
     </div>
   </div>
