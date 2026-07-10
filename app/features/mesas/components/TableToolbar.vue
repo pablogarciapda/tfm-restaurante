@@ -29,6 +29,7 @@ const props = defineProps<{
   wallLinesCount?: number
   activeZona?: string
   uploading?: boolean
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -117,10 +118,11 @@ const activeTurnoValue = computed({
         </button>
 
         <button
-          class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
+          class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50 disabled:opacity-50"
+          :disabled="saving"
           @click="emit('save')"
         >
-          Guardar
+          {{ saving ? 'Guardando...' : 'Guardar' }}
         </button>
 
         <!-- Selected mesa info -->

@@ -403,23 +403,11 @@ function handleStageMouseUp() {
 }
 
 /** Drag end: persist actual position from Konva node after drag ends */
- function handleDragEnd(mesa: Mesa) {
-  const mainLayer = mainLayerRef.value?.getNode()
-  if (!mainLayer) return
-
-  const node = mainLayer.findOne(`#${mesa.id}`)
-  if (!node) return
-
-  // Read actual position from the Konva node after drag completes
-  const newX = Math.round(node.x())
-  const newY = Math.round(node.y())
-  mainLayer.batchDraw()
-
-  // Mutate mesa in-place (avoids recreating Konva node — fixes ghost table bug)
-  mesa.posicion_x = newX
-  mesa.posicion_y = newY
-
-  // Clear dragging state
+function handleDragEnd(mesa: Mesa) {
+  // Konva handles the visual position during drag.
+  // Don't mutate mesa.posicion_x/y here — that triggers Vue reactivity
+  // which recreates the Konva node → ghost table.
+  // Positions are saved on explicit "Guardar" button click.
   store.isDragging = false
 }
 
@@ -498,6 +486,19 @@ onMounted(async () => {
   const Konva = (await import('konva')).default as typeof KonvaType
   Konva.pixelRatio = window.devicePixelRatio > 2 ? 2 : 1
 })
+
+// Expose: allow parent to read actual Konva node positions
+function getMesaPositions(): Record<string, { x: number; y: number }> {
+  const positions: Record<string, { x: number; y: number }> = {}
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return positions
+  for (const mesa of store.filteredMesas) {
+    const node = layer.findOne(`#${mesa.id}`)
+    if (node) positions[mesa.id] = { x: Math.round(node.x()), y: Math.round(node.y()) }
+  }
+  return positions
+}
+defineExpose({ getMesaPositions })
 </script>
 
 <template>

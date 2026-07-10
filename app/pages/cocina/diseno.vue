@@ -124,18 +124,28 @@ async function handleDeleteMesa() {
   await deleteMesa(store.selectedMesaId)
 }
 
+const canvasRef = ref<any>(null)
+const saving = ref(false)
 async function handleSaveMesa() {
-  // Persist all mesa positions for the active zone
-  for (const mesa of store.mesas) {
-    await updateMesa(mesa.id, {
-      posicion_x: mesa.posicion_x,
-      posicion_y: mesa.posicion_y,
-      ancho: mesa.ancho,
-      alto: mesa.alto,
-      rotacion: mesa.rotacion,
-    } as unknown as Partial<Mesa>)
+  saving.value = true
+  try {
+    const positions: Record<string, { x: number; y: number }> = canvasRef.value?.getMesaPositions?.() || {}
+    for (const mesa of store.filteredMesas) {
+      const pos = positions[mesa.id]
+      await updateMesa(mesa.id, {
+        posicion_x: pos?.x ?? mesa.posicion_x,
+        posicion_y: pos?.y ?? mesa.posicion_y,
+        ancho: mesa.ancho,
+        alto: mesa.alto,
+        rotacion: mesa.rotacion,
+      } as unknown as Partial<Mesa>)
+    }
+    showToast('Posiciones guardadas', 'success')
+  } catch {
+    showToast('Error al guardar', 'error')
+  } finally {
+    saving.value = false
   }
-  showToast('Posiciones guardadas', 'success')
 }
 let toastMessage = ref('')
 let toastType = ref<'success' | 'error'>('success')
@@ -213,6 +223,7 @@ onUnmounted(() => {
       :is-drawing="store.isDrawing"
       :wall-lines-count="store.wallLines.length"
       :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
+      :saving="saving"
       @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
@@ -244,6 +255,7 @@ onUnmounted(() => {
     <!-- Canvas — fills available space -->
     <div class="min-h-0 flex-1 rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
+        ref="canvasRef"
         :zonas-config="zonasConfig"
         :design-mode="true"
         :single-zone="true"
