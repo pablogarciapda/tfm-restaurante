@@ -2,9 +2,12 @@
  * TDD: RED → GREEN → TRIANGULATE — TableCanvas component (MCA-001, MCA-008)
  *
  * Main Konva canvas with 3-layer architecture:
- *   1. Background layer (listening:false) — 5 ZoneSection components
- *   2. Main layer — TableNode components + v-transformer
- *   3. Drag layer — empty, used for drag isolation
+ *   1. Background layer (listening:false) — ZoneSection components
+ *   2. Walls layer (listening:false) — wall/pencil line drawings
+ *   3. Main layer — TableNode components + v-transformer
+ *
+ * No drag isolation layer — tables stay in main layer during drag
+ * to avoid Vue/Konva race conditions (sdd-apply fix).
  *
  * Stage config, layer structure, and event wiring verified.
  * Actual canvas rendering is deferred to E2E — per design AD-13.
@@ -152,11 +155,11 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     })
   })
 
-  describe('4-layer structure (background + walls + main + drag)', () => {
-    it('renders exactly 4 v-layer components', async () => {
+  describe('3-layer structure (background + walls + main)', () => {
+    it('renders exactly 3 v-layer components', async () => {
       const wrapper = await mountCanvas()
       const layers = wrapper.findAll('[data-testid="v-layer"]')
-      expect(layers).toHaveLength(4)
+      expect(layers).toHaveLength(3)
     })
 
     it('first layer (background) has listening:false', async () => {
@@ -171,16 +174,11 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       expect(layers[1].attributes('data-listening')).toBe('false')
     })
 
-    it('third layer (main) is interactive', async () => {
+    it('third layer (main) is interactive (default listening)', async () => {
       const wrapper = await mountCanvas()
       const layers = wrapper.findAll('[data-testid="v-layer"]')
+      // Third layer has no explicit listening config, so default is 'true'
       expect(layers[2].attributes('data-listening')).toBe('true')
-    })
-
-    it('fourth layer (drag) is the drag isolation layer', async () => {
-      const wrapper = await mountCanvas()
-      const layers = wrapper.findAll('[data-testid="v-layer"]')
-      expect(layers[3].attributes('data-name')).toBe('drag-layer')
     })
   })
 
@@ -232,9 +230,9 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
   describe('empty canvas behavior', () => {
     it('renders without crashing when store has no mesas', async () => {
       const wrapper = await mountCanvas()
-      // Should render stage, 4 layers (background + walls + main + drag), zone sections
+      // Should render stage, 3 layers (background + walls + main), zone sections
       expect(wrapper.find('[data-testid="v-stage"]').exists()).toBe(true)
-      expect(wrapper.findAll('[data-testid="v-layer"]')).toHaveLength(4)
+      expect(wrapper.findAll('[data-testid="v-layer"]')).toHaveLength(3)
     })
   })
 
@@ -245,7 +243,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       vi.clearAllMocks()
     })
 
-    it('TableNode groups exist for drag interaction', async () => {
+    it('TableNode groups exist for drag interaction in main layer', async () => {
       const mesas = [
         makeMesa({ id: 't1', posicion_x: 100, posicion_y: 200 }),
         makeMesa({ id: 't2', posicion_x: 300, posicion_y: 400 }),
@@ -254,17 +252,21 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
-      // Each mesa renders a v-group (TableNode wrapper)
+      // Each mesa renders a v-group (TableNode wrapper) — no drag-layer filter
       expect(groups).toHaveLength(2)
     })
 
-    it('passes dragBoundFunc config to TableNode groups', async () => {
-      const mesas = [makeMesa({ id: 't1' })]
+    it('TableNodes are not filtered during drag (no drag layer)', async () => {
+      const mesas = [
+        makeMesa({ id: 't1', posicion_x: 100, posicion_y: 200 }),
+        makeMesa({ id: 't2', posicion_x: 300, posicion_y: 400 }),
+      ]
       const wrapper = await mountCanvas(mesas)
 
+      // All TableNodes render in main layer regardless of drag state
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
-      const group = mainLayer.find('[data-testid="v-group"]')
-      expect(group.exists()).toBe(true)
+      const groups = mainLayer.findAll('[data-testid="v-group"]')
+      expect(groups).toHaveLength(2)
     })
   })
 

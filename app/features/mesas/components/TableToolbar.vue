@@ -1,12 +1,12 @@
 <!--
   TableToolbar.vue — Canvas toolbar (MCA-003, Slice 4: fusion buttons, AD-14: shape selector)
 
-  Props: selectedMesa, aforoInfo, fusionMode, canFuse, canUnfuse
-  Emits: add(shape), delete, save, fuse, unfuse
+  Props: mode ('diseno' | 'operacion'), selectedMesa, aforoInfo, fusion buttons, etc.
+  Emits: add(shape), delete, save, fuse, unfuse, etc.
 
-  Mode separation: diseño (layout editing) vs operación (reservations).
-  Toggle visible only for admins (canDesign prop).
-  Fusion buttons only visible in operación mode and with fusionar permission.
+  Mode separation: diseno (layout editing) vs operación (reservations + fusion).
+  'diseno' mode: shape selector, add/delete/save, drawing mode, background upload.
+  'operacion' mode: fuse/unfuse buttons, turno filter, aforo indicator.
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
@@ -15,15 +15,16 @@ import type { TurnoFilter } from '../stores/canvas-store'
 import AforoIndicator from './AforoIndicator.vue'
 
 const props = defineProps<{
+  mode: 'diseno' | 'operacion'
   selectedMesa: Mesa | null
   aforoInfo: AforoInfo
-  fusionMode?: boolean
+  // Fusion (operación mode)
   canFuse?: boolean
   canUnfuse?: boolean
-  activeTurno?: TurnoFilter
-  designMode?: boolean
-  canDesign?: boolean
   canFusionar?: boolean
+  // Turn filter (operación mode)
+  activeTurno?: TurnoFilter
+  // Drawing / walls (diseño mode)
   isDrawing?: boolean
   wallLinesCount?: number
   activeZona?: string
@@ -37,7 +38,6 @@ const emit = defineEmits<{
   fuse: []
   unfuse: []
   'update:activeTurno': [value: TurnoFilter]
-  'toggleMode': []
   toggleDrawing: []
   clearWalls: []
   backgroundImageUploaded: [url: string]
@@ -77,24 +77,12 @@ const activeTurnoValue = computed({
   <div
     class="sticky top-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
   >
-    <!-- Left: mode toggle + action buttons -->
+    <!-- Left: action buttons -->
     <div class="flex items-center gap-2">
-      <!-- Mode toggle — visible only for admins -->
-      <button
-        v-if="canDesign"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
-        :class="
-          designMode
-            ? 'bg-terracotta text-white hover:bg-terracotta/90 focus:ring-terracotta/50'
-            : 'bg-slate-100 text-slate hover:bg-slate-200 focus:ring-slate-500/50'
-        "
-        @click="emit('toggleMode')"
-      >
-        {{ designMode ? 'Diseño' : 'Operación' }}
-      </button>
-
-      <!-- Diseño mode buttons -->
-      <template v-if="designMode">
+      <!-- ============================================================ -->
+      <!-- DISEÑO mode: shape selector, add, delete, save, draw, upload  -->
+      <!-- ============================================================ -->
+      <template v-if="mode === 'diseno'">
         <!-- Shape selector dropdown + add button -->
         <div class="flex items-center gap-1">
           <select
@@ -187,9 +175,10 @@ const activeTurnoValue = computed({
         </div>
       </template>
 
-      <!-- Operación mode buttons -->
+      <!-- ============================================================ -->
+      <!-- OPERACIÓN mode: fuse, unfuse                                -->
+      <!-- ============================================================ -->
       <template v-else>
-        <!-- Fusion buttons — only if user has fusionar permission -->
         <button
           v-if="canFusionar"
           :disabled="!canFuse"
@@ -220,8 +209,11 @@ const activeTurnoValue = computed({
       </template>
     </div>
 
-    <!-- Center: Turn filter -->
-    <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
+    <!-- Center: Turn filter (operación mode only) -->
+    <div
+      v-if="mode === 'operacion'"
+      class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5"
+    >
       <button
         v-for="opt in turnoOptions"
         :key="opt.value"
@@ -238,7 +230,7 @@ const activeTurnoValue = computed({
       </button>
     </div>
 
-    <!-- Right: Aforo -->
+    <!-- Right: Aforo (both modes) -->
     <div class="flex items-center gap-2">
       <AforoIndicator :aforo-info="aforoInfo" />
     </div>

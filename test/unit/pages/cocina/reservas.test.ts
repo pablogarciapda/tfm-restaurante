@@ -201,13 +201,6 @@ describe('/cocina/reservas — table manager page', () => {
     expect(toolbar.props('selectedMesa')).toBeNull()
   })
 
-  it('wires toolbar @add to createMesa', async () => {
-    const wrapper = await mountPage()
-    const toolbar = wrapper.findComponent(TableToolbarStub)
-    await toolbar.vm.$emit('add')
-    expect(mockCreateMesa).toHaveBeenCalled()
-  })
-
   // ── Slice 4: Fusion + Standby ──
 
   it('renders StandbyBanner component', async () => {

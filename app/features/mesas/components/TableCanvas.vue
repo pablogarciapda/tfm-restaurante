@@ -11,7 +11,7 @@
   Slice 3: drag & drop, Transformer resize/rotate, selection (MCA-004, AD-10).
 -->
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, nextTick, ref, computed } from 'vue'
 import type KonvaType from 'konva'
 import {
   Stage as VStage,
@@ -49,6 +49,8 @@ const props = defineProps<{
   /** Zone configuration from DB: { id, nombre, capacidad, enabled, imagen_url? }[] */
   zonasConfig?: Array<{ id: string; nombre: string; imagen_url?: string | null }>
   designMode?: boolean
+  /** Single zone mode: active zone fills the full stage (used in design page) */
+  singleZone?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -90,8 +92,22 @@ const { updateMesa } = useMesas()
 const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH)
 const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT)
 
-/** Zone sections filtered by activeZona ('' = all zones), positions scaled to stage size */
+/** Zone sections filtered by activeZona.
+ *  - singleZone mode: active zone fills the full stage (0,0 → stageWidth,stageHeight)
+ *  - Normal mode: zones positioned from ZONE_DEFS, scaled to stage size
+ */
 const filteredZones = computed(() => {
+  if (props.singleZone && store.activeZona) {
+    // Single zone fills the entire canvas at (0,0)
+    return [{
+      zona: store.activeZona,
+      x: 0,
+      y: 0,
+      w: store.stageWidth,
+      h: store.stageHeight,
+    }]
+  }
+  // Multi-zone mode (or "Todas") — scale from ZONE_DEFS
   const baseZones = store.activeZona === '' ? ZONE_DEFS : ZONE_DEFS.filter((z) => z.zona === store.activeZona)
   const sx = stageScaleX.value
   const sy = stageScaleY.value
@@ -158,11 +174,11 @@ const mesaTurnoStatus = computed(() => {
 
 const transformerRef = ref()
 const mainLayerRef = ref()
-const dragLayerRef = ref()
 const canvasContainer = ref<HTMLDivElement | null>(null)
-const draggingMesaId = ref<string | null>(null)
 const isDrawingLine = ref(false)
 const currentLinePoints = ref<number[]>([])
+/** Anchor point for straight line start (click-to-click mode) */
+const lineStart = ref({ x: 0, y: 0 })
 
 // mesaEstado derived from today's reservas (MCA-005)
 // Defaults to 'libre' when no reservas data is loaded
@@ -281,7 +297,9 @@ function dragBoundFunc(pos: { x: number; y: number }) {
 }
 
 // ── Transformer update (AD-10) ──
-function updateTransformer() {
+async function updateTransformer() {
+  // Wait for Vue to render the updated component tree
+  await nextTick()
   const transformer = transformerRef.value?.getNode()
   if (!transformer) return
 
@@ -290,10 +308,11 @@ function updateTransformer() {
     const selectedNode = stage?.findOne(`#${store.selectedMesaId}`)
     if (selectedNode) {
       transformer.nodes([selectedNode])
+      transformer.getLayer()?.batchDraw()
+      return
     }
-  } else {
-    transformer.nodes([])
   }
+  transformer.nodes([])
   transformer.getLayer()?.batchDraw()
 }
 
@@ -318,7 +337,26 @@ function handleStageMouseDown(e: any) {
     // Only draw when clicking on the stage background, not on shapes
     if (e.target === stage) {
       const pos = stage?.getPointerPosition()
-      if (pos) {
+      if (!pos) return
+
+      if (store.straightLine) {
+        // ── Straight line mode: click-to-click ──
+        if (isDrawingLine.value) {
+          // Second click: finish the straight line
+          currentLinePoints.value = [lineStart.value.x, lineStart.value.y, pos.x, pos.y]
+          if (currentLinePoints.value.length >= 4) {
+            store.addWallLine([...currentLinePoints.value])
+          }
+          isDrawingLine.value = false
+          currentLinePoints.value = []
+        } else {
+          // First click: start drawing — record anchor point
+          lineStart.value = { x: pos.x, y: pos.y }
+          currentLinePoints.value = [pos.x, pos.y, pos.x, pos.y]
+          isDrawingLine.value = true
+        }
+      } else {
+        // ── Freehand mode: press-drag-release ──
         currentLinePoints.value = [pos.x, pos.y]
         isDrawingLine.value = true
       }
@@ -337,13 +375,26 @@ function handleStageMouseMove(e: any) {
   if (!isDrawingLine.value) return
   const stage = e.target.getStage()
   const pos = stage?.getPointerPosition()
-  if (pos) {
+  if (!pos) return
+
+  if (store.straightLine) {
+    // Straight line: only update the endpoint (preview from anchor to cursor)
+    currentLinePoints.value = [lineStart.value.x, lineStart.value.y, pos.x, pos.y]
+  } else {
+    // Freehand: append all mouse movements
     currentLinePoints.value = [...currentLinePoints.value, pos.x, pos.y]
   }
 }
 
 function handleStageMouseUp() {
   if (!isDrawingLine.value) return
+
+  if (store.straightLine) {
+    // In straight line mode, line only finishes on second click, not on mouse up
+    return
+  }
+
+  // Freehand: finish on mouse up
   isDrawingLine.value = false
   if (currentLinePoints.value.length >= 4) {
     store.addWallLine([...currentLinePoints.value])
@@ -351,47 +402,30 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag end: move shape back to main layer + persist actual position */
-function handleDragEnd(mesa: Mesa) {
-  // Move back to main layer
+/** Drag end: persist actual position from Konva node after drag ends */
+ function handleDragEnd(mesa: Mesa) {
   const mainLayer = mainLayerRef.value?.getNode()
-  const dragLayer = dragLayerRef.value?.getNode()
-  if (mainLayer && dragLayer) {
-    const node = dragLayer.findOne(`#${mesa.id}`)
-    if (node) {
-      // Read ACTUAL position from Konva node after drag (Bug 1 fix)
-      const newX = Math.round(node.x())
-      const newY = Math.round(node.y())
-      node.moveTo(mainLayer)
-      mainLayer.batchDraw()
+  if (!mainLayer) return
 
-      // Update store immediately with actual position (Bug 1 fix)
-      store.updateMesa(mesa.id, { posicion_x: newX, posicion_y: newY } as Partial<Mesa>)
+  const node = mainLayer.findOne(`#${mesa.id}`)
+  if (!node) return
 
-      // Persist actual position to DB (Bug 1 fix)
-      updateMesa(mesa.id, {
-        posicion_x: newX,
-        posicion_y: newY,
-      } as Partial<Mesa>)
-    }
-  }
+  // Read actual position from the Konva node after drag completes
+  const newX = Math.round(node.x())
+  const newY = Math.round(node.y())
+  mainLayer.batchDraw()
 
-  // Clear dragging state (Bug 2 fix)
-  draggingMesaId.value = null
+  // Mutate mesa in-place (avoids recreating Konva node — fixes ghost table bug)
+  mesa.posicion_x = newX
+  mesa.posicion_y = newY
+
+  // Clear dragging state
+  store.isDragging = false
 }
 
-/** Drag start: move shape to drag layer for isolation performance */
-function handleDragStart(mesa: Mesa) {
-  draggingMesaId.value = mesa.id
-  const mainLayer = mainLayerRef.value?.getNode()
-  const dragLayer = dragLayerRef.value?.getNode()
-  if (mainLayer && dragLayer) {
-    const node = mainLayer.findOne(`#${mesa.id}`)
-    if (node) {
-      node.moveTo(dragLayer)
-      dragLayer.batchDraw()
-    }
-  }
+/** Drag start: record state so Tooltip stays hidden during drag */
+function handleDragStart(_mesa: Mesa) {
+  store.isDragging = true
 }
 
 /** Transform end: apply scale to dimensions (AD-10) + persist */
@@ -526,7 +560,7 @@ onMounted(async () => {
       <!-- ============================================================ -->
       <v-layer ref="mainLayerRef">
         <TableNode
-          v-for="mesa in store.filteredMesas.filter(m => m.id !== draggingMesaId)"
+          v-for="mesa in store.filteredMesas"
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
@@ -536,6 +570,7 @@ onMounted(async () => {
           :fusion-label="fusionLabels?.[mesa.id]"
           :turno-status="mesaTurnoStatus[mesa.id]"
           :active-turno="store.activeTurno"
+          :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
           @dragstart="designMode === true && handleDragStart(mesa)"
           @dragend="designMode === true && handleDragEnd(mesa)"
@@ -562,11 +597,6 @@ onMounted(async () => {
           }"
         />
       </v-layer>
-
-      <!-- ============================================================ -->
-      <!-- Layer 3: Drag — temporary holder during drag operations      -->
-      <!-- ============================================================ -->
-      <v-layer ref="dragLayerRef" :config="{ name: 'drag-layer' }" />
     </v-stage>
 
     <!-- ============================================================ -->

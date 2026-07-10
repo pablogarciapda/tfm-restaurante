@@ -30,6 +30,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   const isDesignMode = ref(false)
   /** Drawing mode for walls/lines in diseño mode */
   const isDrawing = ref(false)
+  /** Straight line mode (vs freehand) for line drawing */
+  const straightLine = ref(false)
   /** Wall/pencil lines drawn on canvas */
   const wallLines = ref<Array<{ points: number[] }>>([])
 
@@ -73,7 +75,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   function updateMesa(id: string, data: Partial<Mesa>) {
     const index = mesas.value.findIndex((m) => m.id === id)
     if (index === -1) return
-    mesas.value[index] = { ...mesas.value[index]!, ...data }
+    // Mutate in place to avoid recreating Konva nodes (ghost table bug)
+    Object.assign(mesas.value[index]!, data)
   }
 
   /** Remove a mesa by id */
@@ -109,6 +112,11 @@ export const useCanvasStore = defineStore('canvas', () => {
     isDrawing.value = !isDrawing.value
   }
 
+  /** Toggle straight line vs freehand drawing */
+  function toggleStraightLine() {
+    straightLine.value = !straightLine.value
+  }
+
   /** Add a completed wall line */
   function addWallLine(points: number[]) {
     wallLines.value.push({ points })
@@ -130,6 +138,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     activeTurno,
     isDesignMode,
     isDrawing,
+    straightLine,
     wallLines,
     // Getters
     selectedMesa,
@@ -145,6 +154,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     clearSelection,
     toggleDesignMode,
     toggleDrawing,
+    toggleStraightLine,
     addWallLine,
     clearWallLines,
   }

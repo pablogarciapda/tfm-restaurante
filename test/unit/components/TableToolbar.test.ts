@@ -96,12 +96,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -113,12 +113,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -132,12 +132,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -149,12 +149,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: true,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -166,12 +166,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -183,12 +183,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -200,12 +197,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: makeMesa({ numero_mesa: 3 }),
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -221,12 +215,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -244,12 +235,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -261,12 +249,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -280,12 +265,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -299,12 +281,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: true,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -316,12 +298,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -333,12 +315,12 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: true,
         canFusionar: true,
-        designMode: false,
       },
     })
 
@@ -350,12 +332,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: makeMesa({ id: 'm3', numero_mesa: 3 }),
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -367,12 +346,9 @@ describe('TableToolbar', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canFusionar: true,
-        designMode: true,
       },
     })
 
@@ -380,70 +356,15 @@ describe('TableToolbar', () => {
     expect(wrapper.emitted('save')).toBeTruthy()
   })
 
-  // ── Mode toggle ──
+  // ── Mode separation (mode prop instead of toggle) ──
 
-  it('renders mode toggle button when canDesign is true', async () => {
+  it('hides fusion buttons in diseno mode', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canDesign: true,
-        designMode: false,
-      },
-    })
-
-    const toggleBtn = findButton(wrapper, 'Operación')
-    expect(toggleBtn.exists()).toBe(true)
-  })
-
-  it('emits toggleMode when mode button is clicked', async () => {
-    const comp = await loadComponent()
-    const wrapper = mount(comp, {
-      props: {
-        selectedMesa: null,
-        aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canDesign: true,
-        designMode: false,
-      },
-    })
-
-    await findButton(wrapper, 'Operación').trigger('click')
-    expect(wrapper.emitted('toggleMode')).toBeTruthy()
-  })
-
-  it('shows Operación label when in diseño mode', async () => {
-    const comp = await loadComponent()
-    const wrapper = mount(comp, {
-      props: {
-        selectedMesa: null,
-        aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        canDesign: true,
-        designMode: true,
-      },
-    })
-
-    const toggleBtn = findButton(wrapper, 'Diseño')
-    expect(toggleBtn.exists()).toBe(true)
-  })
-
-  it('hides fusion buttons in diseño mode', async () => {
-    const comp = await loadComponent()
-    const wrapper = mount(comp, {
-      props: {
-        selectedMesa: null,
-        aforoInfo: makeAforoInfo(),
-        canFuse: true,
-        canUnfuse: true,
-        canFusionar: true,
-        canDesign: true,
-        designMode: true,
       },
     })
 
@@ -451,17 +372,16 @@ describe('TableToolbar', () => {
     expect(wrapper.text()).not.toContain('Desfusionar')
   })
 
-  it('hides add/delete/save buttons in operación mode', async () => {
+  it('hides add/delete/save buttons in operacion mode', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
         canFusionar: true,
-        canDesign: true,
-        designMode: false,
       },
     })
 
@@ -470,29 +390,28 @@ describe('TableToolbar', () => {
     expect(wrapper.text()).not.toContain('Guardar')
   })
 
-  it('renders turn filter in both modes', async () => {
+  it('renders turn filter only in operacion mode', async () => {
     const comp = await loadComponent()
-    // Test in diseño mode
+    // Test in diseno mode — should NOT show turn filter
     const wrapper1 = mount(comp, {
       props: {
+        mode: 'diseno',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
-        canFuse: false,
-        canUnfuse: false,
-        designMode: true,
       },
     })
-    expect(wrapper1.text()).toContain('Comida')
-    expect(wrapper1.text()).toContain('Cena')
+    expect(wrapper1.text()).not.toContain('Comida')
+    expect(wrapper1.text()).not.toContain('Cena')
 
-    // Test in operación mode
+    // Test in operacion mode — should show turn filter
     const wrapper2 = mount(comp, {
       props: {
+        mode: 'operacion',
         selectedMesa: null,
         aforoInfo: makeAforoInfo(),
         canFuse: false,
         canUnfuse: false,
-        designMode: false,
+        activeTurno: 'todos',
       },
     })
     expect(wrapper2.text()).toContain('Comida')

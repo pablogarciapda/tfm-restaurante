@@ -40,6 +40,8 @@ const props = defineProps<{
   fusionLabel?: string
   turnoStatus?: { comida: boolean; cena: boolean }
   activeTurno?: TurnoFilter
+  /** Bound function for Konva drag constraints (stage/zone limits) */
+  dragBoundFunc?: (pos: { x: number; y: number }) => { x: number; y: number }
 }>()
 
 const emit = defineEmits<{
@@ -249,6 +251,7 @@ const groupConfig = computed(() => ({
   y: props.mesa.posicion_y,
   rotation: props.mesa.rotacion,
   draggable: props.designMode,
+  dragBoundFunc: props.dragBoundFunc,
   onClick: () => emit('click'),
   onDragStart: () => emit('dragstart'),
   onDragEnd: () => emit('dragend'),

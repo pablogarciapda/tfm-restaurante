@@ -237,4 +237,32 @@ describe('useCanvasStore', () => {
     store.isDragging = false
     expect(store.isDragging).toBe(false)
   })
+
+  // ── isDrawing / straightLine ──
+
+  it('isDrawing starts false', () => {
+    const store = useCanvasStore()
+    expect(store.isDrawing).toBe(false)
+  })
+
+  it('toggleDrawing toggles isDrawing', () => {
+    const store = useCanvasStore()
+    store.toggleDrawing()
+    expect(store.isDrawing).toBe(true)
+    store.toggleDrawing()
+    expect(store.isDrawing).toBe(false)
+  })
+
+  it('straightLine starts false (freehand default)', () => {
+    const store = useCanvasStore()
+    expect(store.straightLine).toBe(false)
+  })
+
+  it('toggleStraightLine toggles straightLine', () => {
+    const store = useCanvasStore()
+    store.toggleStraightLine()
+    expect(store.straightLine).toBe(true)
+    store.toggleStraightLine()
+    expect(store.straightLine).toBe(false)
+  })
 })

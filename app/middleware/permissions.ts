@@ -14,6 +14,7 @@ const ROUTE_RESOURCE_MAP: Record<string, string> = {
   '/cocina/menu-diario': 'menu_diario',
   '/cocina/eventos': 'eventos',
   '/cocina/reservas': 'reservas',
+  '/cocina/diseno': 'reservas',
   '/cocina/configuracion': 'configuracion',
   '/cocina/usuarios': 'usuarios',
   '/cocina/clientes': 'clientes',

@@ -1,8 +1,12 @@
 <!--
-  /cocina/reservas — Interactive table manager (MCA-008, Slice 4: fusion)
+  /cocina/reservas — Interactive table manager with reservation operations (MCA-008, Slice 4: fusion)
 
   Permission-controlled SPA-only page (ssr:false via routeRules).
-  Wires: TableCanvas, TableToolbar, FusionConfirmDialog, StandbyBanner.
+  Operación mode only: zone tabs with "Todas", table viewing, click-to-reserve,
+  fusion/desfusion, hover tooltip, standby banner, reservation list.
+  No design/editing functionality — use /cocina/diseno for layout editing.
+
+  Wires: TableCanvas, TableToolbar (mode='operacion'), FusionConfirmDialog, StandbyBanner.
   Realtime sync from useMesas composable.
 -->
 <script setup lang="ts">
@@ -25,7 +29,7 @@ definePageMeta({
 
 const client = useSupabaseClient()
 const store = useCanvasStore()
-const { loadMesas, createMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { loadMesas, subscribeRealtime, unsubscribeRealtime } = useMesas()
 const {
   fuseMesas,
   unfuseMesas,
@@ -57,8 +61,6 @@ const standbyReservations = ref<Array<{
 }>>([])
 
 // ── Multi-select helpers (Slice 4) ──
-// Note: _toggleSelection is used by TableCanvas via callback/event
-// for multi-select with shift+click on canvas tables.
 function _toggleSelection(mesaId: string) {
   const idx = selectedIds.value.indexOf(mesaId)
   if (idx >= 0) {
@@ -81,9 +83,7 @@ const canFuse = computed(() => {
 })
 
 const canUnfuse = computed(() => {
-  // Can unfuse if selected mesa has id_fusion
   if (store.selectedMesa && store.selectedMesa.id_fusion) return true
-  // or if multi-selected mesas all share same fusion
   const mesas = selectedMesas()
   if (mesas.length < 2) return false
   const fusionIds = new Set(mesas.filter((m) => m.id_fusion).map((m) => m.id_fusion))
@@ -119,18 +119,17 @@ const aforoInfo = computed<AforoInfo>(() => {
   }
 })
 
-// ── Mode state ──
+// ── Permissions ──
 
 const role = useState<string>('cocina-role')
 const permissions = useState<Record<string, boolean>>('cocina-permissions')
 
-const canDesign = computed(() => role.value === 'admin')
 const canFusionar = computed(() => {
   if (role.value === 'admin') return true
   return permissions.value?.fusionar === true
 })
 
-// ── Reservation modal state (operación mode) ──
+// ── Reservation modal state ──
 
 const reservaModalShow = ref(false)
 const reservaModalMesa = ref<Mesa | null>(null)
@@ -191,7 +190,6 @@ async function handleReservaSubmit() {
       return
     }
 
-    // Assign mesa_id to the reservation
     if (result.reserva_id) {
       const client = useSupabaseClient()
       await client.from('reservas').update({ mesa_id: reservaModalMesa.value.id }).eq('id', result.reserva_id)
@@ -204,35 +202,6 @@ async function handleReservaSubmit() {
   } finally {
     reservaSaving.value = false
   }
-}
-
-// ── Toolbar event handlers ──
-
-async function handleAddMesa(forma?: string) {
-  const nextNumero = store.mesas.length > 0
-    ? Math.max(...store.mesas.map((m) => m.numero_mesa)) + 1
-    : 1
-
-  await createMesa({
-    numero_mesa: nextNumero,
-    capacidad_base: 4,
-    posicion_x: 50,
-    posicion_y: 50,
-    ancho: 100,
-    alto: 100,
-    rotacion: 0,
-    zona: 'Principal',
-    forma: (forma as Mesa['forma']) ?? 'rectangular',
-  })
-}
-
-async function handleDeleteMesa() {
-  if (!store.selectedMesaId) return
-  await deleteMesa(store.selectedMesaId)
-}
-
-function handleSaveMesa() {
-  // No-op: auto-save on dragend/transformend
 }
 
 // ── Fusion event handlers (Slice 4) ──
@@ -253,7 +222,6 @@ async function handleUnfuse() {
   const result = await unfuseMesas(fusionId)
 
   if (result.hasReservations && result.reservations) {
-    // Show confirmation dialog
     fusionDialogReservations.value = result.reservations
     fusionDialogFusionId.value = fusionId
     fusionDialogShow.value = true
@@ -286,36 +254,10 @@ async function refreshStandbyReservations() {
 }
 
 async function handleReassignStandby(reservaId: string) {
-  // Pick the first available mesa (Libre) for reassignment
-  // In a real UI, this would open a mesa selector
   const libreMesa = store.mesas.find((m) => m.id_fusion === null && m.mesa_padre_id === null)
   if (libreMesa) {
     await reassignStandbyReservation(reservaId, libreMesa.id)
     await refreshStandbyReservations()
-  }
-}
-
-// ── Background image upload ──
-
-async function handleBackgroundImageUpload(url: string) {
-  if (!url || !store.activeZona) return
-
-  // Update zonas_config with the new image URL for the active zone
-  const zonas = zonasConfig.value.map((z) => {
-    if (z.nombre === store.activeZona) {
-      return { ...z, imagen_url: url }
-    }
-    return z
-  })
-
-  try {
-    await $fetch('/api/config', {
-      method: 'POST',
-      body: { zonas_config: zonas },
-    })
-    zonasConfig.value = zonas as ZonaOption[]
-  } catch (err) {
-    console.error('Failed to save zone background image:', err)
   }
 }
 
@@ -480,7 +422,6 @@ const filteredReservas = computed(() => {
     list = list.filter((r) => r.fecha_hora >= filterDesde.value)
   }
   if (filterHasta.value) {
-    // Include the full end day: fecha_hora <= filterHasta + 1 day
     const endDate = new Date(filterHasta.value)
     endDate.setDate(endDate.getDate() + 1)
     list = list.filter((r) => r.fecha_hora < endDate.toISOString().slice(0, 10))
@@ -648,32 +589,21 @@ onUnmounted(() => {
       @assign="handleReassignStandby"
     />
 
-    <!-- Toolbar with mode toggle + conditional buttons -->
+    <!-- Toolbar in operación mode — no design toggle, no design buttons -->
     <TableToolbar
+      mode="operacion"
       :selected-mesa="store.selectedMesa"
       :aforo-info="aforoInfo"
       :can-fuse="canFuse"
       :can-unfuse="canUnfuse"
-      :active-turno="store.activeTurno"
-      :design-mode="store.isDesignMode"
-      :can-design="canDesign"
       :can-fusionar="canFusionar"
-      :is-drawing="store.isDrawing"
-      :wall-lines-count="store.wallLines.length"
-      :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
+      :active-turno="store.activeTurno"
       @update:active-turno="(v: any) => store.activeTurno = v"
-      @add="(forma: string) => handleAddMesa(forma)"
-      @delete="handleDeleteMesa"
-      @save="handleSaveMesa"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
-      @toggle-mode="store.toggleDesignMode()"
-      @toggle-drawing="store.toggleDrawing()"
-      @clear-walls="store.clearWallLines()"
-      @background-image-uploaded="handleBackgroundImageUpload"
     />
 
-    <!-- Zone tabs -->
+    <!-- Zone tabs — includes "Todas" + per zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
         class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
@@ -693,7 +623,7 @@ onUnmounted(() => {
       </button>
     </nav>
 
-    <!-- Konva canvas -->
+    <!-- Konva canvas — designMode always false (no Transformer) -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
         :reservas="reservasForCanvas"
@@ -702,7 +632,7 @@ onUnmounted(() => {
         :fusion-labels="fusionLabels"
         :horarios-config="horariosConfig"
         :zonas-config="zonasConfig"
-        :design-mode="store.isDesignMode"
+        :design-mode="false"
         @table-click-reservation="openReservaModal"
       />
     </div>
@@ -862,7 +792,7 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <!-- Mesa dropdown (simplified: no mesas list loaded, just a text hint) -->
+          <!-- Mesa dropdown -->
           <div class="mb-3">
             <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-mesa">
               Nueva mesa (opcional)

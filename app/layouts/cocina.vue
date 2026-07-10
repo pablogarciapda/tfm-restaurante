@@ -12,8 +12,8 @@ const { nombre } = useRestaurantConfig()
 import { computed } from 'vue'
 const route = useRoute()
 
-/** Hide the sidebar on the reservas page to maximize canvas space */
-const hideSidebar = computed(() => route.path === '/cocina/reservas')
+/** Hide the sidebar on full-screen canvas pages to maximize space */
+const hideSidebar = computed(() => ['/cocina/reservas', '/cocina/diseno'].includes(route.path))
 
 function closeMobileMenu() {
   showMobileMenu.value = false
