@@ -126,6 +126,8 @@ const imagePreview = ref<string | null>(
   toProxyUrl(props.initialPlato?.imagen_url as string | null | undefined) ?? null,
 )
 
+const lightboxOpen = ref(false)
+
 // Load image optimization config from DB (reactive ref — useImageUpload picks up changes)
 const uploadOpts = ref<ImageUploadOptions>({})
 const { uploading, uploadError, uploadFromFile, uploadFromUrl } = useImageUpload(uploadOpts)
@@ -433,12 +435,32 @@ const TIPO_MENU_OPTIONS = ['carta', 'menu_diario', 'ambos']
         </button>
       </div>
 
-      <!-- Image preview -->
-      <div v-if="imagePreview" class="mt-3">
+      <!-- Image preview with lightbox trigger -->
+      <div v-if="imagePreview" class="relative mt-3 inline-block">
         <img
           :src="imagePreview"
           alt="Previsualización"
           class="h-32 w-48 rounded-lg border object-cover"
+        />
+        <!-- Magnifying glass overlay -->
+        <button
+          class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 text-white transition-colors hover:bg-black/40"
+          aria-label="Ver imagen ampliada"
+          type="button"
+          @click="lightboxOpen = true"
+        >
+          <svg class="h-8 w-8 opacity-0 transition-opacity hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l-6 6" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 10l6 6" />
+          </svg>
+        </button>
+
+        <ImageLightbox
+          :src="imagePreview"
+          alt="Imagen del plato"
+          :open="lightboxOpen"
+          @close="lightboxOpen = false"
         />
       </div>
     </div>

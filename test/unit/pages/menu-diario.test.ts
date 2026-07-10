@@ -20,9 +20,11 @@ const mockUseMenuDiario = () => ({
   items: mockItemsRef,
   precio: mockPrecioRef,
   isHoliday: mockIsHolidayRef,
+  dayLabel: ref('Lunes a Viernes'),
   data: ref(null),
   error: ref(null),
   pending: ref(false),
+  refresh: vi.fn(),
 })
 
 const g = globalThis as Record<string, unknown>

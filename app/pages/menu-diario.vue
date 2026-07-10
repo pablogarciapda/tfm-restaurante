@@ -29,7 +29,7 @@ interface SeccionConfig {
   titulo: string
 }
 
-const { config, items, precio, isHoliday } = useMenuDiario()
+const { config, items, precio, isHoliday, dayLabel } = useMenuDiario()
 
 // Whether the menu is available today
 const isAvailable = computed(() => config.value !== null && precio.value !== null)
@@ -108,7 +108,7 @@ const formattedDate = computed(() => {
         <!-- Price display -->
         <div class="mb-10 text-center">
           <span class="inline-block rounded-full bg-terracotta px-6 py-2 text-2xl font-bold text-white">
-            Menú del día — {{ precio }}€
+            Menú {{ dayLabel }} — {{ precio }}€
           </span>
         </div>
 

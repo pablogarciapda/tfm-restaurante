@@ -42,6 +42,7 @@ interface ConfigFormData {
   capacidad_total_local: number
   precio_menu_diario: number | null
   precio_menu_sabado: number | null
+  precio_menu_domingo: number | null
   modo_ocupacion: OcupacionModo
   ocupacion_manual: number
   mostrar_recomendados: boolean
@@ -97,6 +98,7 @@ const form = reactive<ConfigFormData>({
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
   precio_menu_diario: props.currentConfig.precio_menu_diario ?? null,
   precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
+  precio_menu_domingo: (props.currentConfig as any).precio_menu_domingo ?? null,
   modo_ocupacion: (props.currentConfig.modo_ocupacion as OcupacionModo) ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
   mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
@@ -366,6 +368,7 @@ watch(
     if (cfg.capacidad_total_local !== undefined) form.capacidad_total_local = cfg.capacidad_total_local
     if (cfg.precio_menu_diario !== undefined) form.precio_menu_diario = cfg.precio_menu_diario
     if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
+    if ((cfg as any).precio_menu_domingo !== undefined) form.precio_menu_domingo = (cfg as any).precio_menu_domingo
     if (cfg.modo_ocupacion !== undefined) form.modo_ocupacion = cfg.modo_ocupacion as OcupacionModo
     if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
     if (cfg.mostrar_recomendados !== undefined) form.mostrar_recomendados = cfg.mostrar_recomendados
@@ -567,6 +570,20 @@ const checkboxClass = 'h-4 w-4 rounded'
             min="0"
             class="w-32 rounded-lg border border-gray-300 px-3 py-2"
           />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-domingo">
+            Precio Menú Domingo y Festivos (€)
+          </label>
+          <input
+            id="cfg-precio-domingo"
+            v-model.number="form.precio_menu_domingo"
+            type="number"
+            step="0.01"
+            min="0"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+          />
+          <p class="mt-1 text-xs text-gray-400">Si es 0 o vacío, no hay menú los domingos.</p>
         </div>
       </div>
     </div>
