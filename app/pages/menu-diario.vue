@@ -29,7 +29,7 @@ interface SeccionConfig {
   titulo: string
 }
 
-const { config, items, precio, isHoliday } = useMenuDiario()
+const { config, items, precio, isHoliday, refresh: refreshMenu } = useMenuDiario()
 
 // Realtime: refresh menu when config or items change
 const todayStr = new Date().toISOString().slice(0, 10)
@@ -40,11 +40,11 @@ onMounted(() => {
     .channel('menu-realtime')
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'menu_diario_config' },
-      () => refreshNuxtData(`menu-diario-${todayStr}`),
+      () => refreshMenu(),
     )
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'menu_diario_items' },
-      () => refreshNuxtData(`menu-diario-${todayStr}`),
+      () => refreshMenu(),
     )
     .subscribe()
 })

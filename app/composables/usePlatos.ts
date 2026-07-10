@@ -7,7 +7,7 @@
 export function usePlatos() {
   const client = useSupabaseClient()
 
-  const { data, error, pending } = useAsyncData('platos', async () => {
+  const { data, error, pending, refresh } = useAsyncData('platos', async () => {
     const { data, error } = await client
       .from('platos')
       .select('*')
@@ -18,5 +18,5 @@ export function usePlatos() {
     return data
   })
 
-  return { data, error, pending }
+  return { data, error, pending, refresh }
 }

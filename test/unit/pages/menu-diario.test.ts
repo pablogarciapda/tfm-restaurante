@@ -23,6 +23,7 @@ const mockUseMenuDiario = () => ({
   data: ref(null),
   error: ref(null),
   pending: ref(false),
+  refresh: vi.fn(),
 })
 
 const g = globalThis as Record<string, unknown>

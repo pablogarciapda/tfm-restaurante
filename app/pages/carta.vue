@@ -73,7 +73,7 @@ interface CategoriaRow {
 }
 
 const client = useSupabaseClient()
-const { data: platos, error, pending } = usePlatos()
+const { data: platos, error, pending, refresh: refreshPlatos } = usePlatos()
 
 // Load config for the synthetic recomendados section
 const { data: sysConfig } = useAsyncData('carta-config', async () => {
@@ -106,7 +106,7 @@ onMounted(() => {
     .channel('carta-realtime')
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'platos' },
-      () => refreshNuxtData('platos'),
+      () => refreshPlatos(),
     )
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'categorias' },

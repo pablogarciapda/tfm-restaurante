@@ -18,6 +18,7 @@ const mockUsePlatos = () => ({
   data: mockPlatosRef,
   error: mockErrorRef,
   pending: mockPendingRef,
+  refresh: vi.fn(),
 })
 
 // --------------- GlobalThis injections ---------------
