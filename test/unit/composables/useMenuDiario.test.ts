@@ -46,7 +46,7 @@ const fromSpies: ChainSpy[] = []
 let mockConfig: unknown = null
 const mockDishes: unknown[] = []
 
-const mockConfiguracion = { precio_menu_diario: 14, precio_menu_sabado: 18 }
+const mockConfiguracion = { precio_menu_diario: 14, precio_menu_sabado: 18, precio_menu_domingo: 20 }
 
 const mockUseSupabaseClient = () => ({
   from: (table: string) => {

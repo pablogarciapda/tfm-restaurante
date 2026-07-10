@@ -107,6 +107,7 @@ export type Database = {
           ocupacion_manual: number
           precio_menu_diario: number | null
           precio_menu_sabado: number | null
+          precio_menu_domingo: number | null
           public_config: Json
           restaurant_direccion: string
           restaurant_icon_url: string | null
@@ -146,6 +147,7 @@ export type Database = {
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
+          precio_menu_domingo?: number | null
           public_config?: Json
           restaurant_direccion?: string
           restaurant_icon_url?: string | null
@@ -185,6 +187,7 @@ export type Database = {
           ocupacion_manual?: number
           precio_menu_diario?: number | null
           precio_menu_sabado?: number | null
+          precio_menu_domingo?: number | null
           public_config?: Json
           restaurant_direccion?: string
           restaurant_icon_url?: string | null
@@ -327,6 +330,7 @@ export type Database = {
           activo: boolean | null
           created_at: string
           day_of_week: number
+          es_festivo: boolean | null
           fecha: string | null
           id: string
           precio: string
@@ -337,6 +341,7 @@ export type Database = {
           activo?: boolean | null
           created_at?: string
           day_of_week: number
+          es_festivo?: boolean | null
           fecha?: string | null
           id?: string
           precio: string
@@ -347,6 +352,7 @@ export type Database = {
           activo?: boolean | null
           created_at?: string
           day_of_week?: number
+          es_festivo?: boolean | null
           fecha?: string | null
           id?: string
           precio?: string
@@ -357,6 +363,7 @@ export type Database = {
       }
       menu_diario_items: {
         Row: {
+          agotado: boolean
           config_id: string
           descripcion: string | null
           id: string
@@ -365,6 +372,7 @@ export type Database = {
           seccion: string
         }
         Insert: {
+          agotado?: boolean
           config_id: string
           descripcion?: string | null
           id?: string
@@ -373,6 +381,7 @@ export type Database = {
           seccion: string
         }
         Update: {
+          agotado?: boolean
           config_id?: string
           descripcion?: string | null
           id?: string

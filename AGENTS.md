@@ -47,6 +47,7 @@
 | `ocupacion_manual` | `integer` | 0 | >= 0 |
 | `precio_menu_diario` | `numeric` | null | Precio menú diario (lun-vie) |
 | `precio_menu_sabado` | `numeric` | null | Precio menú sábado |
+| `precio_menu_domingo` | `numeric` | null | Precio menú domingo/festivos. Si null/0, no hay menú dominical |
 | `mostrar_recomendados` | `boolean` | true | Muestra sección recomendados en carta |
 | `titulo_recomendados` | `varchar` | 'Nuestras Recomendaciones' | Título personalizable |
 | `max_ancho_imagen` | `integer` | 1200 | Check 200..4096. Ancho máximo compresión imágenes |
@@ -58,12 +59,28 @@
 | `smtp_user` | `text` | null | Usuario SMTP |
 | `smtp_from_email` | `text` | null | Email remitente |
 | `smtp_password` | `text` | null | Write-only desde admin, nunca se expone en API |
+| `smtp_security` | `text` | 'auto' | 'auto' \| 'tls' \| 'starttls' |
+| `smtp_from_name` | `text` | 'Restaurante La Zíngara' | Nombre remitente emails |
 | `texto_proteccion_datos` | `text` | null | Texto GDPR para formulario reservas |
-| `modo_reserva` | `text` | 'automatica' | 'automatica' \| 'verificada' (con SMS) |
+| `modo_reserva` | `text` | 'automatica' | 'automatica' \| 'verificada' |
 | `cliente_elige_zona` | `text` | 'none' | 'none' \| 'zona' \| 'zona_mesa' |
+| `captcha_habilitado` | `boolean` | false | Cloudflare Turnstile toggle |
+| `sms_verificacion` | `boolean` | false | Requerir verificación SMS independiente |
+| `notificacion_reserva` | `text` | 'email' | 'email' \| 'sms' \| 'ambos' |
 | `horarios_config` | `jsonb` | '{}' | Horarios apertura (comida/cena, intervalo) |
 | `zonas_config` | `jsonb` | '{}' | Zonas del local (nombre, capacidad, enabled) |
 | `public_config` | `jsonb` | '{}' | Cache de datos públicos (horarios, zonas, GDPR) |
+| `restaurant_nombre` | `text` | 'La Zíngara' | Nombre del restaurante (multi-tenant) |
+| `restaurant_direccion` | `text` | 'Plaza Mayor...' | Dirección completa |
+| `restaurant_telefono` | `text` | '987 123 456' | Teléfono de contacto |
+| `restaurant_maps_url` | `text` | '(Google Maps URL)' | URL Google Maps |
+| `restaurant_logo_url` | `text` | null | Logo del restaurante |
+| `restaurant_icon_url` | `text` | null | Favicon/icono |
+| `site_url` | `text` | null | Dominio público (ej: https://www.lazingara.es). Usado en emails |
+| `restaurant_email` | `text` | null | Email público de contacto |
+| `restaurant_instagram_url` | `text` | null | URL perfil Instagram |
+| `restaurant_facebook_url` | `text` | null | URL página Facebook |
+| `poblacion` | `text` | null | Localidad para subtítulos |
 
 ### `platos`
 | Columna | Tipo | Notas |
@@ -80,6 +97,7 @@
 | `alergenos` | `text[]` | Nullable |
 | `puesto` | `integer` | Orden dentro de categoría |
 | `recomendado` | `boolean` | Default false |
+| `familia_id` | `uuid` | Nullable, FK → familias. Subcategoría (ej: D.O. vino) |
 | `created_at` / `updated_at` | `timestamptz` | |
 
 ### `categorias`
@@ -98,6 +116,15 @@
 | `puesto` | `integer` | Orden de aparición |
 | `created_at` | `timestamptz` | |
 
+### `familias`
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | `uuid` | PK |
+| `nombre` | `text` | Nombre de la familia (ej: TINTOS D.O. LEÓN) |
+| `categoria_id` | `uuid` | FK → categorias. Categoría padre |
+| `puesto` | `integer` | Orden de aparición |
+| `created_at` | `timestamptz` | |
+
 ### `menu_diario_config`
 | Columna | Tipo | Default | Notas |
 |---------|------|---------|-------|
@@ -107,6 +134,7 @@
 | `activo` | `boolean` | false | |
 | `fecha` | `date` | null | Nullable |
 | `secciones_config` | `jsonb` | '{}' | Activación por sección + títulos personalizados |
+| `es_festivo` | `boolean` | false | Usa precio_menu_domingo aunque no sea domingo |
 | `created_at` / `updated_at` | `timestamptz` | | |
 
 ### `menu_diario_items`
@@ -118,6 +146,7 @@
 | `plato_nombre` | `text` | |
 | `descripcion` | `text` | Nullable |
 | `puesto` | `integer` | Orden dentro de sección |
+| `agotado` | `boolean` | Default false. Marcar plato como agotado del día |
 
 ### `mesas`
 | Columna | Tipo | Notas |
@@ -129,6 +158,8 @@
 | `ancho/alto` | `numeric` | Min 40 |
 | `rotacion` | `numeric` | Default 0 |
 | `zona` | `text` | 'Principal' \| 'Zingaro' \| 'Privado' \| 'Terraza' \| 'Bar' |
+| `zona_nombre` | `text` | Nullable, nombre de zona editable |
+| `forma` | `text` | 'rectangular' \| 'cuadrada' \| 'redonda' \| 'ovalada' |
 | `mesa_padre_id` | `uuid` | FK → mesas (autoreferencial, para fusiones) |
 | `id_fusion` | `uuid` | Nullable, grupo de fusión |
 | `capacidad_actual` | `integer` | >= 0 |
@@ -143,6 +174,8 @@
 | `mesa_id` | `uuid` | FK → mesas, nullable |
 | `cliente_id` | `uuid` | FK → clientes, nullable |
 | `zona_id` | `text` | Nullable, id de zona desde zonas_config |
+| `cancel_token` | `uuid` | Nullable, unique. Token para cancelación sin auth |
+| `cancelado_en` | `timestamptz` | Nullable, momento de la cancelación |
 | `created_at` | `timestamptz` | Default now() |
 
 ### `clientes`
@@ -153,6 +186,8 @@
 | `apellidos` | `text` | Nullable |
 | `telefono` | `text` | Unique |
 | `email` | `text` | Nullable |
+| `gdpr_aceptado` | `boolean` | Default false |
+| `gdpr_aceptado_at` | `timestamptz` | Nullable |
 | `created_at` / `updated_at` | `timestamptz` | Default now() |
 
 ### `dias_bloqueados`
@@ -197,11 +232,12 @@
 ### Públicas (SSR, SEO)
 
 - `/` -> Inicio
-- `/carta` -> Carta con filtro por alérgenos, info calórica, y sección recomendados configurable
-- `/menu-diario` -> Menú del Día (precio desde Configuración)
+- `/carta` -> Carta con filtro por alérgenos, info calórica, sección recomendados configurable, subcategorías (familias)
+- `/menu-diario` -> Menú del Día (precio desde Configuración, agotado toggle en vivo via Realtime)
 - `/reservas` -> Formulario con slot grid (15min), selector de zona/mesa según `configuracion`, GDPR, verificación SMS
 - `/eventos` -> Eventos
 - `/contacto` -> Contacto
+- `/cancelar` -> Cancelación de reserva por token (sin auth, desde email)
 
 ### Administración (SPA, protegidas tras login en `/cocina`)
 
@@ -212,7 +248,7 @@
 - `/cocina/eventos` -> CRUD eventos (categorías dinámicas desde DB)
 - `/cocina/reservas` -> Mapa interactivo Konva + fusiones + sync Realtime + lista de reservas + modal reasignar zona/mesa
 - `/cocina/clientes` -> CRUD clientes con historial de reservas
-- `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, horarios, zonas, días bloqueados, categorías CRUD, SMTP) con toast de confirmación
+- `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, horarios, zonas, días bloqueados, categorías CRUD, SMTP, datos restaurante multi-tenant, precio menú domingo) con toast de confirmación
 - `/cocina/usuarios` -> Gestión de usuarios y permisos
 
 ## 6. Funcionalidades Clave
@@ -220,11 +256,12 @@
 ### Vista pública
 
 - Home con filosofía y accesos directos.
-- Carta con filtros de alérgenos y calorías, categorías ordenadas por `categorias.puesto`, sección recomendados configurable (título + toggle desde admin).
-- Menú diario dinámico (precio desde Configuración).
+- Carta con filtros de alérgenos y calorías, categorías ordenadas por `categorias.puesto`, sección recomendados configurable (título + toggle desde admin), subcategorías (familias) con FamilySelector horizontal scroll.
+- Menú diario dinámico (precio desde Configuración), con Realtime para toggle agotado en vivo, soporte domingo/festivos.
 - Reservas inteligentes: modo "cliente elige mesa" (selector sobre plano) o "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona/mesa según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
 - Eventos en cartelera.
 - Contacto con mapa y formulario.
+- Cancelación de reservas: página `/cancelar` con token único desde email, preview de datos, confirmación antes de cancelar.
 
 ### Panel `/cocina`
 
@@ -235,11 +272,15 @@
   - **Modo Fusión:** unión lógica con `id_fusion`, recalculo de capacidad, ID de mesa unida.
   - Resta automática del aforo total del restaurante.
   - Sincronización Realtime vía WebSockets.
-- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password).
-- **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆).
+  - Formas de mesa configurables (rectangular, cuadrada, redonda, ovalada).
+  - Filtro por zonas con ZoneSection y AforoIndicator.
+  - StandbyBanner para reservas pendientes de reasignación por fusión.
+  - FusionConfirmDialog para manejar reservas afectadas por fusión.
+- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, precio menú domingo, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password), **datos restaurante multi-tenant** (nombre, dirección, teléfono, email, redes sociales, logo).
+- **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 - **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
-- **Reservas Admin:** Lista de reservas + modal de reasignación (cambiar zona/mesa en una reserva existente con motivo obligatorio).
+- **Reservas Admin:** Lista de reservas con filtro por fecha + modal de reasignación (cambiar zona/mesa en una reserva existente con motivo obligatorio) + modal de confirmación de reservas pendientes con notificación configurable.
 
 ## 7. Roadmap / MVP — Estado Actual
 
@@ -247,7 +288,7 @@
 |------|--------|-------------|
 | **Fase 1 — MVP Usuario** | ✅ **Completado** | Maquetación frontend pública, SEO local, carta/menú dinámicos, reservas por formulario, eventos, contacto |
 | **Fase 2 — Panel & Auth** | ✅ **Completado** | Ruta `/cocina`, Supabase Auth, CRUDs platos/eventos/usuarios, configuración del sistema con notificaciones, sticky layout, categorías reales, sección recomendados configurable |
-| **Fase 3 — Motor de Mesas** | 📋 **Planificado** | Plano Konva.js, lógica de fusiones en BD, sincronización Realtime |
+| **Fase 3 — Motor de Mesas** | 🔄 **En Progreso (Parcial)** | Plano Konva.js (TableCanvas, TableToolbar), formas de mesa, fusión lógica con FusionConfirmDialog, StandbyBanner para reservas standby, AforoIndicator, sincronización Realtime, filtro por zonas |
 
 ### Detalle de lo completado en Fase 2
 
@@ -282,6 +323,17 @@
 - **Días bloqueados:** tabla `dias_bloqueados` con soporte para fecha única, recurrente (MM-DD) y rangos
 - **Rate limiting SMS:** 1 request/phone/min + 5 request/IP/min
 - **Phone normalization:** shared/utils/phone.ts (disponible client+server)
+- **Multi-tenant (Datos Restaurante):** Todos los datos del restaurante (nombre, dirección, teléfono, email, redes sociales, logo) son configurables desde admin via `useRestaurantConfig` + `RestaurantConfig` contract en `shared/`. Header y footer públicos leen estos datos dinámicamente.
+- **Realtime Carta:** Subscripción Realtime en `onMounted` para actualizar platos en vivo (INSERT/UPDATE/DELETE). También escucha cambios en `categorias` y `familias`.
+- **Realtime Menú Diario:** Subscripción Realtime para actualizar platos del menú y precio en vivo cuando admin marca items como `agotado`.
+- **D.O. Vinos/Subcategorías (familias):** Tabla `familias` con FK → `categorias`. `platos.familia_id` permite asignar plato a subcategoría. `FamilySelector` como segundo scroll horizontal en carta pública. `PlatoForm` carga familias dinámicamente según categoría seleccionada.
+- **Cancelación por token:** Página `/cancelar` con token UUID único por reserva. Endpoints GET `/api/reservas/cancelar-info` y POST `/api/reservas/cancelar`. Preview de datos antes de confirmar. Token se envía en email de confirmación.
+- **Precio menú domingo:** `configuracion.precio_menu_domingo` para menú dominical. Si null/0, no hay menú los domingos. `menu_diario_config.es_festivo` permite aplicar precio dominical a festivos entre semana.
+- **Agotado en menú diario:** Columna `agotado` en `menu_diario_items`. Toggle en vivo desde admin. Se muestra visualmente (tachado + indicador rojo) en front público en tiempo real via Realtime.
+- **useImageUpload:** Composable de subida de imágenes con compresión client-side WebP vía Canvas (strips metadatos, sanitiza SVG). Subida a Supabase Storage via proxy URL. Soporta upload desde file y desde URL externa.
+- **ImageLightbox:** Modal de previsualización de imagen ampliada en PlatoForm.
+- **Configuración restauante multi-tenant:** Sección "Datos del Restaurante" en Configuración con nombre, dirección, teléfono, URL mapa, email, Instagram, Facebook, logo, site_url, población. Todos configurables y persistidos en `configuracion` row.
+- **HTTP security headers:** Cabeceras de seguridad vía Nitro hook en `server/plugins/security-headers.ts`.
 
 ## 8. Reglas para agentes IA
 
@@ -302,14 +354,15 @@ tfm-restaurant/
 │   ├── app.vue                # Entry point Nuxt
 │   ├── assets/                # Imágenes, estilos globales
 │   ├── components/            # 29 componentes (ver listado abajo)
-│   ├── composables/           # useAuth, usePlatos, useMenuDiario, useEventos
-│   ├── features/              # Módulos feature (futuro)
+│   ├── composables/           # useAuth, usePlatos, useMenuDiario, useEventos, useRestaurantConfig, useImageUpload
+│   ├── features/              # Módulos feature
+│   │   └── mesas/             # Motor de mesas (stores, components, composables)
 │   ├── layouts/               # Layouts Nuxt
 │   ├── middleware/             # Protección rutas admin
-│   ├── pages/                 # 6 páginas (ver rutas sección 5)
+│   ├── pages/                 # 7 páginas (ver rutas sección 5)
 │   │   └── cocina/            # 9 páginas admin
 │   ├── plugins/               # Plugins Nuxt (Supabase, Konva, etc.)
-│   ├── stores/                # Pinia stores (pendiente de implementar)
+│   ├── stores/                # Pinia stores
 │   ├── types/                 # database.types.ts (generado desde Supabase)
 │   └── utils/                 # Utilidades
 ├── capturas web/              # Assets de diseño (referencia visual)
@@ -326,13 +379,16 @@ tfm-restaurant/
 │   │   ├── cocina/smtp/       # Test conexión SMTP
 │   │   ├── cocina/usuarios/   # Gestión usuarios
 │   │   ├── dias-bloqueados/   # CRUD días bloqueados
+│   │   ├── reservas/          # Cancelación por token (cancelar-info.get, cancelar.post)
 │   │   ├── config.get.ts      # GET /api/config (admin-only)
 │   │   ├── config.post.ts     # POST /api/config (admin)
 │   │   ├── config.handlers.ts # Lógica compartida config
 │   │   ├── public-config.get.ts # GET /api/public-config (público)
 │   │   ├── reservas.handlers.ts # Lógica compartida reservas
+│   │   ├── images/[...path].get.ts # Proxy de imágenes Supabase Storage
+│   │   ├── fetch-image.get.ts # Proxy para descargar imágenes externas
 │   │   └── ...                # Endpoints existentes
-│   ├── plugins/               # Hooks server (Supabase admin client, etc.)
+│   ├── plugins/               # Hooks server (Supabase admin client, security-headers, etc.)
 │   ├── sms/                   # Lógica SMS (verificación)
 │   └── utils/                 # email.ts, rate-limit.ts, validation.ts, sms-*.ts, image-security.ts
 ├── shared/                    # Contratos, tipos, utilidades compartidas (ambos lados)
@@ -368,19 +424,20 @@ tfm-restaurant/
 | `CategorySelector` | Selector de categorías |
 | `ClienteForm` | CRUD formulario clientes |
 | `ClientesTable` | Tabla clientes admin |
-| `ConfiguracionForm` | Formulario configuración sistema (precios, capacidad, categorías CRUD, horarios, zonas, días bloqueados, SMTP) |
+| `ConfiguracionForm` | Formulario configuración sistema (precios, capacidad, categorías CRUD, horarios, zonas, días bloqueados, SMTP, datos restaurante) |
 | `ContactForm` | Formulario de contacto |
 | `EventCard` | Card de evento público |
 | `EventoForm` | CRUD formulario eventos |
 | `EventosTable` | Tabla eventos admin |
+| `FamilySelector` | Scroll horizontal segundo nivel para subcategorías (familias) |
 | `GdprConsentModal` | Modal consentimiento GDPR para reservas |
 | `MapEmbed` | Mapa embebido contacto |
 | `MenuDiarioEditor` | Editor menú diario admin |
 | `MetricCard` | Card métrica dashboard |
 | `PageHero` | Hero sección pública |
 | `PermissionsEditor` | Editor permisos usuarios |
-| `PlatoForm` | CRUD formulario platos |
-| `PlatosTable` | Tabla platos admin (sticky, Recom solo ★) |
+| `PlatoForm` | CRUD formulario platos (con familias, ImageLightbox, upload imágenes) |
+| `PlatosTable` | Tabla platos admin (sticky, Recom solo ★, columna familia) |
 | `ProductCard` | Card plato público |
 | `ProductGrid` | Grid platos público |
 | `ReservationForm` | Formulario reservas con slot grid + selector zona/mesa |
@@ -420,3 +477,11 @@ tfm-restaurant/
 | **SMTP Security** | Sin control de tipo de conexión SMTP | Selector TLS/STARTTLS en configuración, se pasa directo a nodemailer |
 | **CAPTCHA Turnstile** | Sin protección contra bots en formulario público | Cloudflare Turnstile, toggle en config, invisible por defecto, fallback a checkbox si bloquea |
 | **Admin confirm reservation** | Admin no podía confirmar reservas pendientes desde el panel | Modal en `/cocina/reservas` con asignación opcional de mesa, envía notificación según config |
+| **useState for hydration safety** | useRestaurantConfig needed server & client to return the same initial HTML | useState with fallback + Object.assign in SSR render; client defers to onMounted to avoid mismatch |
+| **Realtime via onMounted** | Suscripciones Postgres Changes en SSR no funcionan (WebSocket no disponible) | Canal se subscribe en onMounted, se unsubscribe en onUnmounted. Payload modifica el ref directamente; NO llamar a refreshNuxtData |
+| **Multi-tenant desde configuracion** | Nombre, logo, dirección hardcodeados en layout | `useRestaurantConfig` composable + `RestaurantConfig` contract en shared. GET /api/public-config expone datos. Admin los edita en ConfiguracionForm |
+| **Image upload security** | Subir imágenes con riesgo de SVG malicioso, metadatos EXIF, polyglot | Canvas re-encode pipeline: validate → drawImage strips metadata → toBlob WebP → upload. SVG bloqueado por drawImage SecurityError |
+| **Cancelación por token** | Cliente necesita cancelar sin login | UUID único por reserva (cancel_token). GET preview + POST confirm. Endpoints públicos con service role. Token en email de confirmación |
+| **Plato familia/subcategoría** | Vinos y postres necesitaban agrupación secundaria | Tabla `familias` con FK → categorias. `platos.familia_id`. FamilySelector como segundo scroll horizontal. PlatoForm carga familias por categoría |
+| **Agotado en menú diario** | Admin necesita marcar platos no disponibles en el día sin borrarlos | Columna `agotado` en menu_diario_items. Toggle visual en vivo desde admin. Realtime actualiza front público (tachado + indicador rojo) |
+| **HTTP security headers** | Cabeceras de seguridad faltantes (X-Frame-Options, CSP, etc.) | Nitro hook en `server/plugins/security-headers.ts` que añade headers a todas las respuestas |

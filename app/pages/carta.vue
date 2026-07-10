@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 
 /**
  * Carta page — Category-based browsing with Supabase data (CN-006)
@@ -97,6 +97,43 @@ const { data: familiasRows } = useAsyncData('carta-familias', async () => {
     .select('id, nombre, categoria_id, puesto')
     .order('puesto')
   return (data ?? []) as FamiliaRow[]
+})
+
+// Realtime: actualizar platos directamente con el payload del evento
+let realtimeChannel: ReturnType<typeof client.channel>
+onMounted(() => {
+  realtimeChannel = client
+    .channel('carta-realtime')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'platos' },
+      (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
+        if (!platos.value) return
+        const list = [...platos.value] as PlatoSupabase[]
+        if (payload.eventType === 'INSERT' && payload.new) {
+          list.push(payload.new as unknown as PlatoSupabase)
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          const idx = list.findIndex((p) => p.id === payload.new!.id)
+          if (idx >= 0) Object.assign(list[idx], payload.new)
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          const idx = list.findIndex((p) => p.id === payload.old!.id)
+          if (idx >= 0) list.splice(idx, 1)
+        }
+        platos.value = list.sort((a, b) => (a.puesto ?? 99) - (b.puesto ?? 99))
+      },
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'categorias' },
+      () => refreshNuxtData('carta-categorias'),
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'familias' },
+      () => refreshNuxtData('carta-familias'),
+    )
+    .subscribe()
+})
+
+onUnmounted(() => {
+  realtimeChannel?.unsubscribe()
 })
 
 // Map categoria nombre → puesto
@@ -265,7 +302,7 @@ const familiaMap = computed(() => {
     <!-- Hero -->
     <PageHero
       title="Nuestra Carta"
-      subtitle="Sabores tradicionales de la tierra leonesa"
+      subtitle="Descubre nuestra selección de platos"
     />
 
     <!-- Loading state -->
@@ -278,12 +315,7 @@ const familiaMap = computed(() => {
       <p class="text-lg">Error al cargar la carta</p>
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="categories.length === 0" class="py-20 text-center text-gray-500">
-      <p class="text-lg">Carta no disponible</p>
-    </div>
-
-    <!-- Categories -->
+    <!-- Categories — always visible when data is loaded -->
     <div v-else>
       <!-- First scroll: categories -->
       <CategorySelector
@@ -298,7 +330,13 @@ const familiaMap = computed(() => {
         :families="familiesForActive"
       />
 
-      <ProductGrid :categories="filteredCategories" />
+      <!-- Empty state (filters active but no results) -->
+      <div v-if="categories.length === 0" class="py-20 text-center text-gray-500">
+        <p class="text-lg">No hay productos en esta categoría</p>
+        <p class="mt-2 text-sm">Selecciona otra categoría o familia para ver los platos.</p>
+      </div>
+
+      <ProductGrid v-else :categories="filteredCategories" />
     </div>
   </div>
 </template>

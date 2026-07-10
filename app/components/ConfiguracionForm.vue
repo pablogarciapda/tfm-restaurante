@@ -43,6 +43,7 @@ interface ConfigFormData {
   capacidad_total_local: number
   precio_menu_diario: number | null
   precio_menu_sabado: number | null
+  precio_menu_domingo: number | null
   modo_ocupacion: OcupacionModo
   ocupacion_manual: number
   mostrar_recomendados: boolean
@@ -72,7 +73,7 @@ interface ConfigFormData {
   restaurant_email: string
   restaurant_instagram_url: string
   restaurant_facebook_url: string
-  restaurant_poblacion: string
+  poblacion: string
   restaurant_logo_url: string
   restaurant_icon_url: string
   site_url: string
@@ -98,6 +99,7 @@ const form = reactive<ConfigFormData>({
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
   precio_menu_diario: props.currentConfig.precio_menu_diario ?? null,
   precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
+  precio_menu_domingo: (props.currentConfig as any).precio_menu_domingo ?? null,
   modo_ocupacion: (props.currentConfig.modo_ocupacion as OcupacionModo) ?? 'auto',
   ocupacion_manual: props.currentConfig.ocupacion_manual ?? 0,
   mostrar_recomendados: props.currentConfig.mostrar_recomendados ?? true,
@@ -139,7 +141,7 @@ const form = reactive<ConfigFormData>({
   restaurant_email: (props.currentConfig as any).restaurant_email ?? '',
   restaurant_instagram_url: (props.currentConfig as any).restaurant_instagram_url ?? '',
   restaurant_facebook_url: (props.currentConfig as any).restaurant_facebook_url ?? '',
-  restaurant_poblacion: (props.currentConfig as any).restaurant_poblacion ?? '',
+  poblacion: (props.currentConfig as any).poblacion ?? '',
   restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
   restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
   site_url: (props.currentConfig as any).site_url ?? '',
@@ -164,6 +166,21 @@ const slotPreview = computed(() => {
   } catch {
     return []
   }
+})
+
+// Split slots into morning (comida) and evening (cena) for visual separation
+const slotsComida = computed(() => {
+  const [comidaStart] = form.horarios_config.comida_inicio.split(':').map(Number)
+  return slotPreview.value.filter((s) => {
+    const h = parseInt(s.hora.split(':')[0]!)
+    return h >= comidaStart! && h < 17 // before 17:00 = morning
+  })
+})
+const slotsCena = computed(() => {
+  return slotPreview.value.filter((s) => {
+    const h = parseInt(s.hora.split(':')[0]!)
+    return h >= 17 // 17:00 and later = evening
+  })
 })
 
 const totalCapacidadZonas = computed(() =>
@@ -376,6 +393,7 @@ watch(
     if (cfg.capacidad_total_local !== undefined) form.capacidad_total_local = cfg.capacidad_total_local
     if (cfg.precio_menu_diario !== undefined) form.precio_menu_diario = cfg.precio_menu_diario
     if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
+    if ((cfg as any).precio_menu_domingo !== undefined) form.precio_menu_domingo = (cfg as any).precio_menu_domingo
     if (cfg.modo_ocupacion !== undefined) form.modo_ocupacion = cfg.modo_ocupacion as OcupacionModo
     if (cfg.ocupacion_manual !== undefined) form.ocupacion_manual = cfg.ocupacion_manual
     if (cfg.mostrar_recomendados !== undefined) form.mostrar_recomendados = cfg.mostrar_recomendados
@@ -404,7 +422,7 @@ watch(
     if ((cfg as any).restaurant_email !== undefined) form.restaurant_email = (cfg as any).restaurant_email as string
     if ((cfg as any).restaurant_instagram_url !== undefined) form.restaurant_instagram_url = (cfg as any).restaurant_instagram_url as string
     if ((cfg as any).restaurant_facebook_url !== undefined) form.restaurant_facebook_url = (cfg as any).restaurant_facebook_url as string
-    if ((cfg as any).restaurant_poblacion !== undefined) form.restaurant_poblacion = (cfg as any).restaurant_poblacion as string
+    if ((cfg as any).poblacion !== undefined) form.poblacion = (cfg as any).poblacion as string
     if ((cfg as any).restaurant_logo_url !== undefined) {
       form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
       logoPreview.value = toProxyUrl(form.restaurant_logo_url) ?? null
@@ -432,7 +450,12 @@ function validate(): boolean {
 
 function handleSubmit() {
   if (!validate()) return
-  emit('submit', { ...form })
+  const data = { ...form }
+  // Normalize: convert empty string numeric fields to null (v-model.number quirk)
+  if (data.precio_menu_diario === '') data.precio_menu_diario = null
+  if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
+  if (data.precio_menu_domingo === '') data.precio_menu_domingo = null
+  emit('submit', data)
 }
 
 function handleSmtpTest() {
@@ -515,15 +538,33 @@ const checkboxClass = 'h-4 w-4 rounded'
       <!-- Preview -->
       <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
         <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="slot in slotPreview"
-            :key="slot.hora"
-            class="rounded-md bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
-            data-testid="slot-preview"
-          >
-            {{ slot.hora }}
-          </span>
+        <!-- Comida row -->
+        <div v-if="slotsComida.length > 0" class="mb-2">
+          <span class="mr-2 text-xs font-medium text-amber-700">☀️ Comida</span>
+          <div class="mt-1 flex flex-wrap gap-1">
+            <span
+              v-for="slot in slotsComida"
+              :key="slot.hora"
+              class="rounded-md bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+              data-testid="slot-preview"
+            >
+              {{ slot.hora }}
+            </span>
+          </div>
+        </div>
+        <!-- Cena row -->
+        <div v-if="slotsCena.length > 0">
+          <span class="mr-2 text-xs font-medium text-indigo-700">🌙 Cena</span>
+          <div class="mt-1 flex flex-wrap gap-1">
+            <span
+              v-for="slot in slotsCena"
+              :key="slot.hora"
+              class="rounded-md bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800"
+              data-testid="slot-preview"
+            >
+              {{ slot.hora }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -559,6 +600,20 @@ const checkboxClass = 'h-4 w-4 rounded'
             min="0"
             class="w-32 rounded-lg border border-gray-300 px-3 py-2"
           />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-precio-domingo">
+            Precio Menú Domingo y Festivos (€)
+          </label>
+          <input
+            id="cfg-precio-domingo"
+            v-model.number="form.precio_menu_domingo"
+            type="number"
+            step="0.01"
+            min="0"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+          />
+          <p class="mt-1 text-xs text-gray-400">Si es 0 o vacío, no hay menú los domingos.</p>
         </div>
       </div>
     </div>
@@ -1029,7 +1084,7 @@ const checkboxClass = 'h-4 w-4 rounded'
           </label>
           <input
             id="cfg-rest-poblacion"
-            v-model="form.restaurant_poblacion"
+            v-model="form.poblacion"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             placeholder="Santa María del Páramo, León"
@@ -1320,15 +1375,17 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Submit -->
-    <div class="pt-4">
-      <button
-        type="submit"
-        :disabled="saving"
-        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
-      >
-        {{ saving ? 'Guardando...' : 'Guardar configuración' }}
-      </button>
+    <!-- Submit — sticky floating button -->
+    <div class="sticky bottom-0 -mx-6 bg-gradient-to-t from-cream via-cream to-transparent pb-4 pt-8">
+      <div class="flex justify-end px-6">
+        <button
+          type="submit"
+          :disabled="saving"
+          class="rounded-lg bg-terracotta px-6 py-3 text-sm font-medium text-white shadow-lg hover:bg-terracotta/90 disabled:opacity-50 transition-all"
+        >
+          {{ saving ? 'Guardando...' : 'Guardar configuración' }}
+        </button>
+      </div>
     </div>
   </form>
 </template>

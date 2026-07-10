@@ -311,11 +311,119 @@ async function saveEventCategories() {
   finally { eventCatSaving.value = false }
 }
 
+// ── Subcategory (familia) management ──
+
+interface FamiliaRow { id?: string; nombre: string; categoria_id: string; puesto: number; _deleted?: boolean; _key?: number }
+const familias = ref<(FamiliaRow)[]>([])
+const selectedCategoriaId = ref('')
+const familiaError = ref('')
+const familiaSaving = ref(false)
+let familiaKeyCounter = 0
+
+const familiasParaCategoria = computed(() => {
+  if (!selectedCategoriaId.value) return []
+  return familias.value.filter(f => f.categoria_id === selectedCategoriaId.value && !f._deleted)
+})
+
+async function loadFamilias() {
+  const { data } = await client.from('familias').select('*').order('puesto')
+  if (data) familias.value = data.map((f) => ({ ...f, _deleted: false }))
+}
+
+function addFamilia() {
+  if (!selectedCategoriaId.value) {
+    familiaError.value = 'Selecciona una categoría primero'
+    return
+  }
+  familiaError.value = ''
+  const current = familiasParaCategoria.value
+  const maxPuesto = current.reduce((max, f) => Math.max(max, f.puesto || 0), 0)
+  familias.value.push({
+    nombre: '',
+    categoria_id: selectedCategoriaId.value,
+    puesto: maxPuesto + 10,
+    _deleted: false,
+    _key: ++familiaKeyCounter,
+  })
+}
+
+function removeFamilia(displayIdx: number) {
+  const displayed = familiasParaCategoria.value
+  const fam = displayed[displayIdx]
+  if (!fam) return
+  if (confirm('¿Eliminar esta subcategoría?')) {
+    if (fam.id) {
+      const real = familias.value.find(f => f.id === fam.id)
+      if (real) real._deleted = true
+    } else {
+      const realIdx = familias.value.findIndex(f => f._key === fam._key)
+      if (realIdx !== -1) familias.value.splice(realIdx, 1)
+    }
+  }
+}
+
+function onFamiliaDrop(event: DragEvent, dropIndex: number) {
+  event.preventDefault()
+  const d = drag.value
+  if (d.index === null || d.index === dropIndex) { resetDrag(); return }
+
+  const displayed = familiasParaCategoria.value
+  const fromItem = displayed[d.index]
+  const toItem = displayed[dropIndex]
+  if (!fromItem || !toItem) { resetDrag(); return }
+
+  const getActualIdx = (item: FamiliaRow): number =>
+    familias.value.findIndex(f => (f.id || f._key) === (item.id || item._key))
+
+  const fromActual = getActualIdx(fromItem)
+  let toActual = getActualIdx(toItem)
+  if (fromActual === -1 || toActual === -1) { resetDrag(); return }
+
+  const [moved] = familias.value.splice(fromActual, 1)
+  if (fromActual < toActual) toActual--
+  familias.value.splice(toActual, 0, moved)
+
+  // Recalculate puestos for all items in the selected category
+  const catId = selectedCategoriaId.value
+  const catItems = familias.value.filter(f => f.categoria_id === catId && !f._deleted)
+  catItems.forEach((item, i) => { item.puesto = (i + 1) * 10 })
+
+  resetDrag()
+}
+
+async function saveFamilias() {
+  familiaSaving.value = true; familiaError.value = ''
+  try {
+    const toDelete = familias.value.filter(f => f._deleted && f.id)
+    const categoryFams = familias.value.filter(f => !f._deleted && f.categoria_id === selectedCategoriaId.value)
+    const toUpsert = categoryFams.map((f, i) => ({ ...f, puesto: (i + 1) * 10 }))
+
+    for (const f of toUpsert) {
+      if (!f.nombre.trim()) {
+        familiaError.value = 'Todas las subcategorías deben tener nombre'
+        familiaSaving.value = false; return
+      }
+    }
+
+    for (const f of toDelete) await client.from('familias').delete().eq('id', f.id!)
+    for (const f of toUpsert) {
+      const payload = { nombre: f.nombre.trim().toUpperCase(), categoria_id: f.categoria_id, puesto: f.puesto }
+      if (f.id) await client.from('familias').update(payload).eq('id', f.id)
+      else await client.from('familias').insert(payload)
+    }
+    await loadFamilias()
+    showToast('Subcategorías guardadas correctamente', 'success')
+  } catch {
+    familiaError.value = 'Error al guardar subcategorías'
+  } finally { familiaSaving.value = false }
+}
+
 onMounted(() => {
   loadConfig()
   loadCategories()
   loadEventCategorias()
   loadDiasBloqueados()
+  loadFamilias()
 })
 </script>
 
@@ -363,6 +471,56 @@ onMounted(() => {
       <button type="button" class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta" @click="addCategory">+ Añadir categoría</button>
       <div class="mt-6">
         <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="categorySaving" @click="saveCategories">{{ categorySaving ? 'Guardando...' : 'Guardar categorías' }}</button>
+      </div>
+    </div>
+
+    <!-- Subcategory (Familia) Management Card -->
+    <div class="rounded-lg bg-white p-6 shadow">
+      <h2 class="mb-4 text-xl font-bold text-slate">Subcategorías (Familias)</h2>
+      <p class="mb-4 text-xs text-gray-400">
+        Gestiona las subcategorías para cada categoría de platos. Arrastra para reordenar.
+      </p>
+
+      <!-- Category selector -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-slate">Categoría</label>
+        <select
+          v-model="selectedCategoriaId"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="">Selecciona una categoría</option>
+          <option v-for="cat in categorias.filter(c => !c._deleted)" :key="cat.id || ''" :value="cat.id">
+            {{ cat.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Familias list -->
+      <div v-if="selectedCategoriaId" class="space-y-1">
+        <div
+          v-for="(fam, index) in familiasParaCategoria" :key="fam.id || fam._key"
+          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', dragClasses(index)]"
+          draggable="true"
+          @dragstart="onDragStart(index)" @dragenter="onDragEnter(index)" @dragover="onDragOver" @dragleave="onDragLeave"
+          @drop="onFamiliaDrop($event, index)" @dragend="onDragEnd"
+        >
+          <span class="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing select-none text-lg">⠿</span>
+          <input
+            :value="fam.nombre"
+            @input="fam.nombre = ($event.target as HTMLInputElement).value.toUpperCase()"
+            type="text"
+            class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase"
+            placeholder="Nombre de subcategoría"
+          />
+          <button type="button" class="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600" @click="removeFamilia(index)">Eliminar</button>
+        </div>
+      </div>
+      <p v-else class="py-4 text-center text-sm text-gray-400">Selecciona una categoría para gestionar sus subcategorías</p>
+
+      <p v-if="familiaError" class="mt-2 text-sm text-red-600">{{ familiaError }}</p>
+      <button type="button" class="mt-4 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:border-terracotta hover:text-terracotta" @click="addFamilia">+ Añadir subcategoría</button>
+      <div class="mt-6">
+        <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="familiaSaving" @click="saveFamilias">{{ familiaSaving ? 'Guardando...' : 'Guardar subcategorías' }}</button>
       </div>
     </div>
 

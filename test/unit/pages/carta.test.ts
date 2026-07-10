@@ -18,15 +18,22 @@ const mockUsePlatos = () => ({
   data: mockPlatosRef,
   error: mockErrorRef,
   pending: mockPendingRef,
+  refresh: vi.fn(),
 })
 
 // --------------- GlobalThis injections ---------------
 const g = globalThis as Record<string, unknown>
 g.usePlatos = mockUsePlatos
-g.useSupabaseClient = () => ({
+g.refreshNuxtData = vi.fn()
+const mockClient = {
   from: vi.fn(),
   auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
-})
+  channel: vi.fn(() => ({
+    on: vi.fn().mockReturnThis(),
+    subscribe: vi.fn(),
+  })),
+}
+g.useSupabaseClient = () => mockClient
 g.useSupabaseUser = () => ref({ id: '1', email: 'test@test.com' })
 const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' })
 const mockCategoriasRef = ref([
@@ -146,7 +153,7 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const wrapper = await mountCarta()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Carta no disponible')
+    expect(wrapper.text()).toContain('No hay productos')
   })
 
   it('shows error state when Supabase fetch fails', async () => {

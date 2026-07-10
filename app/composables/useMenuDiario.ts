@@ -14,20 +14,16 @@ export function useMenuDiario() {
   const todayStr = today.toISOString().slice(0, 10)
   const dayOfWeek = today.getDay()
 
-  const { data, error, pending } = useAsyncData(
+  const { data, error, pending, refresh } = useAsyncData(
     `menu-diario-${todayStr}`,
     async () => {
-      // 1) Load price from configuracion (always — never from menu_diario_config)
+      // 1) Load prices from configuracion
       const { data: sysConfig, error: sysError } = await client
         .from('configuracion')
-        .select('precio_menu_diario, precio_menu_sabado')
+        .select('precio_menu_diario, precio_menu_sabado, precio_menu_domingo')
         .single()
 
       if (sysError && sysError.code !== 'PGRST116') throw sysError
-
-      const menuPrice = dayOfWeek === 6
-        ? sysConfig?.precio_menu_sabado
-        : sysConfig?.precio_menu_diario
 
       // 2) Try exact date match first
       const { data: exactConfig, error: exactError } = await client
@@ -57,12 +53,35 @@ export function useMenuDiario() {
         matchType = dayConfig ? 'day' : null
       }
 
+      // 4) Determine price based on day + festivo flag on config
+      let menuPrice: number | null = null
+      const esFestivo = (config as any)?.es_festivo === true
+      if (esFestivo || dayOfWeek === 0) {
+        menuPrice = sysConfig?.precio_menu_domingo ?? null
+      } else if (dayOfWeek === 6) {
+        menuPrice = sysConfig?.precio_menu_sabado ?? null
+      } else {
+        menuPrice = sysConfig?.precio_menu_diario ?? null
+      }
+
+      // Build day range label based on configured prices
+      const hasDiario = sysConfig?.precio_menu_diario && Number(sysConfig.precio_menu_diario) > 0
+      const hasSabado = sysConfig?.precio_menu_sabado && Number(sysConfig.precio_menu_sabado) > 0
+      const hasDomingo = sysConfig?.precio_menu_domingo && Number(sysConfig.precio_menu_domingo) > 0
+      let dayLabel: string
+      if (hasDiario && hasSabado && hasDomingo) dayLabel = 'Lunes a Domingo'
+      else if (hasDiario && hasSabado) dayLabel = 'Lunes a Sábado'
+      else if (hasDiario) dayLabel = 'Lunes a Viernes'
+      else if (hasSabado) dayLabel = 'Sábados'
+      else if (hasDomingo) dayLabel = 'Domingos y festivos'
+      else dayLabel = ''
+
       // 4) No config at all → show price-only fallback
       if (!config) {
         return {
           config: null, items: null,
           precio: menuPrice != null ? String(menuPrice) : null,
-          matchType: null, isHoliday: false,
+          matchType: null, isHoliday: false, dayLabel,
         }
       }
 
@@ -101,6 +120,7 @@ export function useMenuDiario() {
         plato_nombre: string
         descripcion?: string
         puesto: number
+        agotado: boolean
       }
 
       const grouped = {
@@ -126,6 +146,7 @@ export function useMenuDiario() {
         precio: menuPrice != null ? String(menuPrice) : null,
         matchType,
         isHoliday,
+        dayLabel,
       }
     },
   )
@@ -134,6 +155,6 @@ export function useMenuDiario() {
   const items = computed(() => (data.value as { items: unknown } | null)?.items ?? null)
   const precio = computed(() => (data.value as { precio: unknown } | null)?.precio ?? null)
   const isHoliday = computed(() => (data.value as { isHoliday: boolean } | null)?.isHoliday ?? false)
-
-  return { config, items, precio, isHoliday, data, error, pending }
+  const dayLabel = computed(() => (data.value as { dayLabel: string } | null)?.dayLabel ?? '')
+  return { config, items, precio, isHoliday, dayLabel, data, error, pending, refresh }
 }
