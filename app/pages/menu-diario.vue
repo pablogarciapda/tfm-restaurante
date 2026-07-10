@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted } from 'vue'
 
 /** Normalize any text to sentence case: first letter uppercase, rest lowercase */
 function sentenceCase(text: string): string {
@@ -30,6 +30,25 @@ interface SeccionConfig {
 }
 
 const { config, items, precio, isHoliday } = useMenuDiario()
+
+// Realtime: refresh menu when config or items change
+const todayStr = new Date().toISOString().slice(0, 10)
+const client = useSupabaseClient()
+const realtimeChannel = client
+  .channel('menu-realtime')
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'menu_diario_config' },
+    () => refreshNuxtData(`menu-diario-${todayStr}`),
+  )
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'menu_diario_items' },
+    () => refreshNuxtData(`menu-diario-${todayStr}`),
+  )
+  .subscribe()
+
+onUnmounted(() => {
+  realtimeChannel.unsubscribe()
+})
 
 // Whether the menu is available today
 const isAvailable = computed(() => config.value !== null && precio.value !== null)
