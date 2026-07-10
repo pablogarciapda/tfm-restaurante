@@ -4,7 +4,7 @@
   Image: supports file upload (with mobile camera) + URL paste → auto-download to Supabase Storage.
 -->
 <script setup lang="ts">
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { ImageUploadOptions } from '~/composables/useImageUpload'
 
 // Explicit import for test compatibility (unit tests don't auto-import composables)
@@ -154,6 +154,15 @@ onMounted(async () => {
  */
 const urlInputTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 const autoUploading = ref(false)
+const urlInputRef = ref<HTMLInputElement | null>(null)
+
+function clearUrlInput() {
+  form.imagen_url = ''
+  imagePreview.value = null
+  autoUploading.value = false
+  // Focus the input after clearing
+  nextTick(() => urlInputRef.value?.focus())
+}
 
 watch(
   () => form.imagen_url,
@@ -352,14 +361,28 @@ const TIPO_MENU_OPTIONS = ['carta', 'menu_diario', 'ambos']
       <!-- URL input -->
       <div class="relative">
         <input
+          ref="urlInputRef"
           v-model="form.imagen_url"
           data-testid="plato-imagen"
           type="text"
           class="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm"
           placeholder="https://... o selecciona archivo abajo"
         />
+        <!-- Clear button (x) to erase URL and refocus -->
+        <button
+          v-if="form.imagen_url"
+          type="button"
+          class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+          aria-label="Borrar URL"
+          @click="clearUrlInput"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <!-- Uploading indicator -->
         <span
-          v-if="autoUploading || uploading"
+          v-else-if="autoUploading || uploading"
           class="absolute right-3 top-2.5 text-xs text-terracotta animate-pulse"
         >
           Subiendo...
