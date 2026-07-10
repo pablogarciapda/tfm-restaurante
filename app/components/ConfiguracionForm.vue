@@ -72,7 +72,7 @@ interface ConfigFormData {
   restaurant_email: string
   restaurant_instagram_url: string
   restaurant_facebook_url: string
-  restaurant_poblacion: string
+  poblacion: string
   restaurant_logo_url: string
   restaurant_icon_url: string
   site_url: string
@@ -140,7 +140,7 @@ const form = reactive<ConfigFormData>({
   restaurant_email: (props.currentConfig as any).restaurant_email ?? '',
   restaurant_instagram_url: (props.currentConfig as any).restaurant_instagram_url ?? '',
   restaurant_facebook_url: (props.currentConfig as any).restaurant_facebook_url ?? '',
-  restaurant_poblacion: (props.currentConfig as any).restaurant_poblacion ?? '',
+  poblacion: (props.currentConfig as any).poblacion ?? '',
   restaurant_logo_url: (props.currentConfig as any).restaurant_logo_url ?? '',
   restaurant_icon_url: (props.currentConfig as any).restaurant_icon_url ?? '',
   site_url: (props.currentConfig as any).site_url ?? '',
@@ -397,7 +397,7 @@ watch(
     if ((cfg as any).restaurant_email !== undefined) form.restaurant_email = (cfg as any).restaurant_email as string
     if ((cfg as any).restaurant_instagram_url !== undefined) form.restaurant_instagram_url = (cfg as any).restaurant_instagram_url as string
     if ((cfg as any).restaurant_facebook_url !== undefined) form.restaurant_facebook_url = (cfg as any).restaurant_facebook_url as string
-    if ((cfg as any).poblacion !== undefined) form.restaurant_poblacion = (cfg as any).poblacion as string
+    if ((cfg as any).poblacion !== undefined) form.poblacion = (cfg as any).poblacion as string
     if ((cfg as any).restaurant_logo_url !== undefined) {
       form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
       logoPreview.value = toProxyUrl(form.restaurant_logo_url) ?? null
@@ -426,8 +426,6 @@ function validate(): boolean {
 function handleSubmit() {
   if (!validate()) return
   const data = { ...form }
-  // Remove form-only fields that don't exist in DB
-  delete (data as any).restaurant_poblacion
   // Normalize: convert empty string numeric fields to null (v-model.number quirk)
   if (data.precio_menu_diario === '') data.precio_menu_diario = null
   if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
@@ -1026,7 +1024,7 @@ const checkboxClass = 'h-4 w-4 rounded'
           </label>
           <input
             id="cfg-rest-poblacion"
-            v-model="form.restaurant_poblacion"
+            v-model="form.poblacion"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             placeholder="Santa María del Páramo, León"
