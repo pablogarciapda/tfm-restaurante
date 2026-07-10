@@ -73,7 +73,7 @@ interface CategoriaRow {
 }
 
 const client = useSupabaseClient()
-const { data: platos, error, pending, refresh: refreshPlatos } = usePlatos()
+const { data: platos, error, pending } = usePlatos()
 
 // Load config for the synthetic recomendados section
 const { data: sysConfig } = useAsyncData('carta-config', async () => {
@@ -99,14 +99,27 @@ const { data: familiasRows } = useAsyncData('carta-familias', async () => {
   return (data ?? []) as FamiliaRow[]
 })
 
-// Realtime: refresh carta when platos, categorias or familias change
+// Realtime: actualizar platos directamente con el payload del evento
 let realtimeChannel: ReturnType<typeof client.channel>
 onMounted(() => {
   realtimeChannel = client
     .channel('carta-realtime')
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'platos' },
-      () => refreshPlatos(),
+      (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
+        if (!platos.value) return
+        const list = [...platos.value] as PlatoSupabase[]
+        if (payload.eventType === 'INSERT' && payload.new) {
+          list.push(payload.new as unknown as PlatoSupabase)
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          const idx = list.findIndex((p) => p.id === payload.new!.id)
+          if (idx >= 0) Object.assign(list[idx], payload.new)
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          const idx = list.findIndex((p) => p.id === payload.old!.id)
+          if (idx >= 0) list.splice(idx, 1)
+        }
+        platos.value = list.sort((a, b) => (a.puesto ?? 99) - (b.puesto ?? 99))
+      },
     )
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'categorias' },
