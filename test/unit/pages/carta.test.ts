@@ -23,16 +23,10 @@ const mockUsePlatos = () => ({
 // --------------- GlobalThis injections ---------------
 const g = globalThis as Record<string, unknown>
 g.usePlatos = mockUsePlatos
-g.refreshNuxtData = vi.fn()
-const mockClient = {
+g.useSupabaseClient = () => ({
   from: vi.fn(),
   auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
-  channel: vi.fn(() => ({
-    on: vi.fn().mockReturnThis(),
-    subscribe: vi.fn(),
-  })),
-}
-g.useSupabaseClient = () => mockClient
+})
 g.useSupabaseUser = () => ref({ id: '1', email: 'test@test.com' })
 const mockConfigRef = ref({ mostrar_recomendados: true, titulo_recomendados: 'NUESTRAS RECOMENDACIONES' })
 const mockCategoriasRef = ref([
