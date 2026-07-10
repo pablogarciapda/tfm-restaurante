@@ -467,7 +467,10 @@ function updateCanvasSize() {
   const rect = canvasContainer.value.getBoundingClientRect()
   if (rect.width <= 0) return
   const newWidth = Math.floor(rect.width)
-  const newHeight = Math.floor(newWidth / (BASE_WIDTH / BASE_HEIGHT))
+  const ratioHeight = Math.floor(newWidth / (BASE_WIDTH / BASE_HEIGHT))
+  // In singleZone mode, use at least 1200px height for scrollable design
+  const minH = props.singleZone ? 1200 : 400
+  const newHeight = Math.max(minH, ratioHeight)
   store.stageWidth = newWidth
   store.stageHeight = newHeight
 }
