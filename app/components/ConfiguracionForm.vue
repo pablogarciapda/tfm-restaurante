@@ -1315,15 +1315,17 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Submit -->
-    <div class="pt-4">
-      <button
-        type="submit"
-        :disabled="saving"
-        class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
-      >
-        {{ saving ? 'Guardando...' : 'Guardar configuración' }}
-      </button>
+    <!-- Submit — sticky floating button -->
+    <div class="sticky bottom-0 -mx-6 bg-gradient-to-t from-cream via-cream to-transparent pb-4 pt-8">
+      <div class="flex justify-end px-6">
+        <button
+          type="submit"
+          :disabled="saving"
+          class="rounded-lg bg-terracotta px-6 py-3 text-sm font-medium text-white shadow-lg hover:bg-terracotta/90 disabled:opacity-50 transition-all"
+        >
+          {{ saving ? 'Guardando...' : 'Guardar configuración' }}
+        </button>
+      </div>
     </div>
   </form>
 </template>

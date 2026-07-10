@@ -87,7 +87,7 @@ const formattedDate = computed(() => {
 <template>
   <div class="min-h-screen">
     <!-- Hero -->
-    <PageHero title="Menú del Día" subtitle="Cocina casera de lunes a sábado" />
+    <PageHero title="Menú del Día" :subtitle="dayLabel || 'Cocina casera'" />
 
     <div class="mx-auto max-w-3xl px-4 py-12">
       <!-- No menu today: Sunday, holiday, or no active config -->

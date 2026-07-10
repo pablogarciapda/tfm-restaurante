@@ -265,7 +265,7 @@ const familiaMap = computed(() => {
     <!-- Hero -->
     <PageHero
       title="Nuestra Carta"
-      subtitle="Sabores tradicionales de la tierra leonesa"
+      subtitle="Descubre nuestra selección de platos"
     />
 
     <!-- Loading state -->
