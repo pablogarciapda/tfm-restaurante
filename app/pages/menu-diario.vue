@@ -140,7 +140,7 @@ onUnmounted(() => {
 <template>
   <div class="min-h-screen">
     <!-- Hero -->
-    <PageHero title="Menú del Día" :subtitle="dayLabel || 'Cocina casera'" />
+    <PageHero title="Menú del Día" subtitle="Cocina casera, platos de siempre" />
 
     <div class="mx-auto max-w-3xl px-4 py-12">
       <!-- No menu today: Sunday, holiday, or no active config -->
