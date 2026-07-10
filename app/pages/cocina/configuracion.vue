@@ -98,6 +98,7 @@ async function loadConfig() {
 
 async function handleSubmit(formData: ConfigUpdatePayload) {
   saving.value = true
+  console.log('[config] sending:', JSON.stringify({ diario: formData.precio_menu_diario, sabado: formData.precio_menu_sabado, domingo: (formData as any).precio_menu_domingo }))
   try {
     const result = await $fetch<ConfigData>('/api/config', {
       method: 'POST',

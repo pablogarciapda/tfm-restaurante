@@ -60,6 +60,7 @@ export async function handleUpdateConfig(
 
   // Build update payload
   const updateData: Record<string, unknown> = { ...body }
+  console.log('[config] server received:', { diario: updateData.precio_menu_diario, sabado: updateData.precio_menu_sabado, domingo: updateData.precio_menu_domingo })
   delete updateData.id // never allow id override
 
   // Validate horarios_config with Zod if provided
