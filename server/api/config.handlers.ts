@@ -100,7 +100,9 @@ export async function handleUpdateConfig(
   }
 
   // Upsert
+  console.log('[config] current row:', current?.id || 'none — will insert')
   if (current?.id) {
+    console.log('[config] updating with:', Object.keys(updateData).filter(k => k.startsWith('precio')))
     const { error: updateError } = await supabase
       .from('configuracion')
       .update(updateData as any)

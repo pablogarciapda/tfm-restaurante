@@ -397,7 +397,7 @@ watch(
     if ((cfg as any).restaurant_email !== undefined) form.restaurant_email = (cfg as any).restaurant_email as string
     if ((cfg as any).restaurant_instagram_url !== undefined) form.restaurant_instagram_url = (cfg as any).restaurant_instagram_url as string
     if ((cfg as any).restaurant_facebook_url !== undefined) form.restaurant_facebook_url = (cfg as any).restaurant_facebook_url as string
-    if ((cfg as any).restaurant_poblacion !== undefined) form.restaurant_poblacion = (cfg as any).restaurant_poblacion as string
+    if ((cfg as any).poblacion !== undefined) form.restaurant_poblacion = (cfg as any).poblacion as string
     if ((cfg as any).restaurant_logo_url !== undefined) {
       form.restaurant_logo_url = (cfg as any).restaurant_logo_url as string
       logoPreview.value = toProxyUrl(form.restaurant_logo_url) ?? null
@@ -426,6 +426,8 @@ function validate(): boolean {
 function handleSubmit() {
   if (!validate()) return
   const data = { ...form }
+  // Remove form-only fields that don't exist in DB
+  delete (data as any).restaurant_poblacion
   // Normalize: convert empty string numeric fields to null (v-model.number quirk)
   if (data.precio_menu_diario === '') data.precio_menu_diario = null
   if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
