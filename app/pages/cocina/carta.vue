@@ -3,7 +3,7 @@
   Middleware: auth → role → permissions
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import type { Database } from '~/types/database.types'
 
 definePageMeta({
@@ -56,6 +56,7 @@ const familiasMap = computed(() => {
 // ── Filters ──
 const searchTerm = ref('')
 const categoriaFilter = ref('')
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // Drag mode: enabled only when filtering by a single category (no search active)
 const isDraggable = computed(() => !!categoriaFilter.value && !searchTerm.value.trim() && !showForm.value)
@@ -219,11 +220,21 @@ watch(showForm, (isOpen) => {
       <div class="flex flex-wrap gap-3">
         <div class="relative flex-1 min-w-[200px]">
           <input
+            ref="searchInputRef"
             v-model="searchTerm"
             type="text"
             placeholder="Buscar por nombre…"
-            class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate placeholder-gray-400 focus:border-terracotta focus:outline-none"
+            class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-slate placeholder-gray-400 focus:border-terracotta focus:outline-none"
           />
+          <button
+            v-if="searchTerm"
+            type="button"
+            class="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Limpiar búsqueda"
+            @click="searchTerm = ''; nextTick(() => (searchInputRef as any)?.focus())"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
         </div>
         <select
           v-model="categoriaFilter"

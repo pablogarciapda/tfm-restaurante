@@ -334,7 +334,7 @@ async function loadReservas() {
       .from('reservas')
       .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cliente:cliente_id(nombre)')
       .order('fecha_hora', { ascending: true })
-      .limit(100)
+      .limit(200)
 
     if (error) throw error
     reservasList.value = (data || []) as unknown as ReservaRow[]
@@ -342,6 +342,35 @@ async function loadReservas() {
     reservasList.value = []
   }
 }
+
+// ── Date filter ──
+const filterDesde = ref('')
+const filterHasta = ref('')
+
+function setToday() {
+  const today = new Date().toISOString().slice(0, 10)
+  filterDesde.value = today
+  filterHasta.value = today
+}
+
+function clearDateFilter() {
+  filterDesde.value = ''
+  filterHasta.value = ''
+}
+
+const filteredReservas = computed(() => {
+  let list = reservasList.value
+  if (filterDesde.value) {
+    list = list.filter((r) => r.fecha_hora >= filterDesde.value)
+  }
+  if (filterHasta.value) {
+    // Include the full end day: fecha_hora <= filterHasta + 1 day
+    const endDate = new Date(filterHasta.value)
+    endDate.setDate(endDate.getDate() + 1)
+    list = list.filter((r) => r.fecha_hora < endDate.toISOString().slice(0, 10))
+  }
+  return list
+})
 
 async function loadZonasConfig() {
   try {
@@ -463,10 +492,41 @@ onUnmounted(() => {
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
       <div class="border-b border-gray-100 px-4 py-3">
         <h2 class="text-lg font-bold text-slate">Listado de Reservas</h2>
+        <!-- Date filter -->
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <label class="text-xs text-gray-500">Desde</label>
+          <input
+            v-model="filterDesde"
+            type="date"
+            class="rounded border border-gray-300 px-2 py-1 text-xs"
+          />
+          <label class="text-xs text-gray-500">Hasta</label>
+          <input
+            v-model="filterHasta"
+            type="date"
+            class="rounded border border-gray-300 px-2 py-1 text-xs"
+          />
+          <button
+            type="button"
+            class="rounded bg-terracotta px-2 py-1 text-xs text-white hover:bg-terracotta/90"
+            @click="setToday"
+          >
+            Hoy
+          </button>
+          <button
+            v-if="filterDesde || filterHasta"
+            type="button"
+            class="rounded bg-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-300"
+            @click="clearDateFilter"
+          >
+            ✕ Limpiar
+          </button>
+          <span class="text-xs text-gray-400">{{ filteredReservas.length }} de {{ reservasList.length }}</span>
+        </div>
       </div>
 
-      <div v-if="reservasList.length === 0" class="p-6 text-center text-sm text-gray-400">
-        No hay reservas registradas.
+      <div v-if="filteredReservas.length === 0" class="p-6 text-center text-sm text-gray-400">
+        No hay reservas{{ filterDesde || filterHasta ? ' en este periodo' : ' registradas' }}.
       </div>
 
       <div v-else class="overflow-x-auto">
@@ -483,7 +543,7 @@ onUnmounted(() => {
           </thead>
           <tbody>
             <tr
-              v-for="reserva in reservasList"
+              v-for="reserva in filteredReservas"
               :key="reserva.id"
               class="border-b border-gray-50 hover:bg-gray-50/50"
             >

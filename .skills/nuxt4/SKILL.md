@@ -447,6 +447,53 @@ Admin routes (`/cocina/**`) use three middleware in sequence:
 
 Use `toProxyUrl(url)` from `app/utils/image-url.ts` for Supabase Storage images. Server-side image security in `server/utils/image-security.ts`.
 
+### Supabase Realtime — Lecciones Aprendidas
+
+**Habilitar tablas para Realtime**: Las tablas deben añadirse a la publicación `supabase_realtime`:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE nombre_tabla;
+```
+
+Verificar con:
+```sql
+SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
+```
+
+**REPLICA IDENTITY FULL**: Necesario para que los eventos UPDATE incluyan la fila completa (no solo el ID):
+
+```sql
+ALTER TABLE nombre_tabla REPLICA IDENTITY FULL;
+```
+
+**PostgREST schema cache**: Al añadir columnas nuevas via `ALTER TABLE`, PostgREST puede tener el schema cacheado sin la columna nueva. Refrescar con:
+
+```sql
+NOTIFY pgrst, 'reload schema';
+```
+
+**TypeScript types**: Después de añadir columnas, regenerar `app/types/database.types.ts` con `supabase-zingara_generate_typescript_types`. Si la columna no está en los tipos, el `$fetch` o cliente Supabase puede filtrarla silenciosamente.
+
+**Patrón de suscripción en Vue**:
+```ts
+const client = useSupabaseClient()
+let channel: ReturnType<typeof client.channel>
+
+onMounted(() => {
+  channel = client.channel('nombre-canal')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tabla' },
+      (payload) => {
+        // Actualizar datos directamente con el payload
+        // NO llamar a refreshNuxtData — no funciona en este contexto
+      })
+    .subscribe()
+})
+
+onUnmounted(() => channel?.unsubscribe())
+```
+
+**IMPORTANTE**: La suscripción debe ir en `onMounted` (solo cliente). Si se hace durante SSR (setup), el WebSocket no se conecta y al hidratar en cliente no se reconecta.
+
 ## Decision Gates
 
 | Need                        | Action                                                                           |
