@@ -14,7 +14,7 @@ export function useMenuDiario() {
   const todayStr = today.toISOString().slice(0, 10)
   const dayOfWeek = today.getDay()
 
-  const { data, error, pending } = useAsyncData(
+  const { data, error, pending, refresh } = useAsyncData(
     `menu-diario-${todayStr}`,
     async () => {
       // 1) Load price from configuracion (always — never from menu_diario_config)
@@ -135,5 +135,5 @@ export function useMenuDiario() {
   const precio = computed(() => (data.value as { precio: unknown } | null)?.precio ?? null)
   const isHoliday = computed(() => (data.value as { isHoliday: boolean } | null)?.isHoliday ?? false)
 
-  return { config, items, precio, isHoliday, data, error, pending }
+  return { config, items, precio, isHoliday, data, error, pending, refresh }
 }

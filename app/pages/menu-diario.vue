@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 
 /** Normalize any text to sentence case: first letter uppercase, rest lowercase */
 function sentenceCase(text: string): string {
@@ -29,7 +29,29 @@ interface SeccionConfig {
   titulo: string
 }
 
-const { config, items, precio, isHoliday } = useMenuDiario()
+const { config, items, precio, isHoliday, refresh: refreshMenu } = useMenuDiario()
+
+// Realtime: refresh menu when config or items change
+const todayStr = new Date().toISOString().slice(0, 10)
+const client = useSupabaseClient()
+let realtimeChannel: ReturnType<typeof client.channel>
+onMounted(() => {
+  realtimeChannel = client
+    .channel('menu-realtime')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'menu_diario_config' },
+      () => refreshMenu(),
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'menu_diario_items' },
+      () => refreshMenu(),
+    )
+    .subscribe()
+})
+
+onUnmounted(() => {
+  realtimeChannel?.unsubscribe()
+})
 
 // Whether the menu is available today
 const isAvailable = computed(() => config.value !== null && precio.value !== null)
