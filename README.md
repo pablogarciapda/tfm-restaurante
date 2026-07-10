@@ -1,75 +1,51 @@
-# Nuxt Minimal Starter
+# Restaurante La Zíngara — Web Platform
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+> Plataforma web integral del Restaurante La Zíngara (Santa María del Páramo, León, España).  
+> Escaparate digital público + panel de administración con gestor interactivo de mesas.
 
-## Setup
+**Dominio:** https://www.lazingara.es  
+**Stack:** Nuxt 4.4 + Supabase + Konva.js + Tailwind CSS
 
-Make sure to install dependencies:
+---
+
+## Overview
+
+| Área | Descripción |
+|------|-------------|
+| **Público (SSR)** | Inicio, Carta con filtros, Menú del Día, Reservas con selección de zona/mesa, Eventos, Contacto, Cancelación por token |
+| **Admin (SPA)** | `/cocina/**` — Dashboard, CRUD platos/eventos/usuarios/clientes, Editor menú diario, Configuración del sistema, Gestor de mesas Konva con fusión Realtime |
+
+## Quick Start
 
 ```bash
-# npm
-npm install
-
-# pnpm
+# Install dependencies (pnpm only)
 pnpm install
 
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
+# Start dev server on http://localhost:3000
 pnpm dev
 
-# yarn
-yarn dev
+# Run tests
+pnpm test
 
-# bun
-bun run dev
+# Lint & typecheck
+pnpm lint
+pnpm typecheck
 ```
 
-## Production
+## Key Features
 
-Build the application for production:
+- **Carta dinámica** con categorías reales desde DB, sección recomendados configurable, subcategorías (familias) para vinos/postres
+- **Menú diario** con precio configurable por día, soporte domingo/festivos, toggle agotado en vivo vía Realtime
+- **Reservas inteligentes** con slot grid de 15min, selector de zona/mesa, verificación SMS, CAPTCHA Turnstile, consentimiento GDPR
+- **Cancelación por token** desde email, sin login
+- **Multi-tenant** — todos los datos del restaurante configurables desde admin
+- **Motor de mesas Konva.js** — canvas interactivo drag & drop, fusión de mesas, aforo, filtro por zonas
+- **Subida segura de imágenes** con compresión WebP client-side, sanitización Canvas, proxy de seguridad
 
-```bash
-# npm
-npm run build
+## Deployment
 
-# pnpm
-pnpm build
+See [INSTALLATION.md](./INSTALLATION.md) for VPS deployment guide.
 
-# yarn
-yarn build
+## Project Context
 
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Full project documentation is in [AGENTS.md](./AGENTS.md) — maintained as the source of truth for AI agent context.

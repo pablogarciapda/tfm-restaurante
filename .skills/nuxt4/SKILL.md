@@ -4,7 +4,7 @@ description: 'Trigger: Nuxt 4, Nuxt 4.4, app/ directory, Nuxt config, SSR, SPA, 
 license: MIT
 metadata:
   author: gentleman-programming
-  version: '2.0'
+  version: '2.1'
   target: 'Nuxt 4.4.8'
   source: 'https://nuxt.com/docs/4.x'
 ---
@@ -33,21 +33,21 @@ tfm-restaurant/
 │   ├── app.vue                  # root component
 │   ├── pages/                   # file-based routing (SSR public + SPA admin)
 │   │   └── cocina/              # admin section (dashboard, carta, reservas, config, etc.)
-│   ├── components/              # auto-imported (PascalCase, 29 components)
-│   ├── composables/             # auto-imported (usePlatos, useAuth, useMenuDiario, useEventos)
+│   ├── components/              # auto-imported (PascalCase, 30 components)
+│   ├── composables/             # auto-imported (usePlatos, useAuth, useMenuDiario, useEventos, useRestaurantConfig, useImageUpload)
 │   ├── layouts/                 # default.vue, cocina.vue (admin sidebar layout)
 │   ├── middleware/               # auth, role, permissions — protect /cocina/**
 │   ├── plugins/                 # Supabase client, Konva, Turnstile
-│   ├── features/                # feature modules (futuro: mesas/stores/)
+│   ├── features/                # feature modules (mesas/stores/, mesas/components/, mesas/composables/)
 │   ├── stores/                  # Pinia stores (auto-imported via imports.dirs)
 │   ├── types/                   # database.types.ts (Supabase-generated)
 │   ├── utils/                   # auto-imported (image-url, etc.)
 │   └── assets/                  # processed by Vite (css, images, fonts)
 ├── server/                      # Nitro server (at root, not inside app/)
-│   ├── api/                     # /api/* endpoints (config, reservas, clientes, admin, etc.)
-│   ├── plugins/                 # Supabase admin client, SMS, email
+│   ├── api/                     # /api/* endpoints (config, reservas, clientes, admin, images, etc.)
+│   ├── plugins/                 # Supabase admin client, SMS, email, security-headers
 │   ├── sms/                     # SMS verification logic
-│   └── utils/                   # email.ts, rate-limit.ts, validation.ts, image-security.ts
+│   └── utils/                   # email.ts, rate-limit.ts, validation.ts, image-security.ts, sms-*.ts
 ├── shared/                      # shared between app and server
 │   ├── contracts/               # module boundary contracts (mesas.contract.ts, reservation.contract.ts)
 │   ├── db/                      # shared DB access
@@ -287,11 +287,15 @@ Ref: https://nuxt.com/docs/4.x/guide/concepts/server-engine
 | `platos` | Carta items with `categoria`, `familia_id` FK, `precio`, `puesto` |
 | `familias` | Sub-categories (13 wine DOs, 2 postres families). FK via `categoria_id` → `categorias` |
 | `categorias` | Menu categories with `puesto` ordering |
-| `reservas` | Reservations with `mesa_id`, `cliente_id`, `zona_id` FKs |
-| `clientes` | Customer records with GDPR consent tracking |
-| `configuracion` | System settings (single-row config table) |
-| `mesas` | Table definitions for Konva canvas manager |
+| `categorias_eventos` | Event categories (festivo, espectaculo, etc.) |
+| `reservas` | Reservations with `mesa_id`, `cliente_id`, `zona_id` FKs, `cancel_token` for token-based cancellation |
+| `clientes` | Customer records with GDPR consent tracking (`gdpr_aceptado`, `gdpr_aceptado_at`) |
+| `configuracion` | System settings (single-row config table) — includes multi-tenant restaurant data, SMTP, horarios, zonas |
+| `mesas` | Table definitions for Konva canvas manager with fusion support |
+| `menu_diario_config` | Daily menu configuration (per day-of-week, secciones, festivo support) |
+| `menu_diario_items` | Daily menu items with `agotado` toggle per dish |
 | `eventos` | Events with FK to `categorias_eventos` |
+| `dias_bloqueados` | Blocked/closed days (single, recurrent, ranges) |
 
 ## Built-in Components
 
@@ -411,7 +415,33 @@ For the interactive table map in `/cocina/reservas`:
 - Target 60 FPS with hardware-accelerated Canvas 2D
 - Tables are `<v-rect>`, `<v-circle>`, or `<v-group>` shapes on a `<v-stage>`
 - Drag, resize, rotate via Konva `Transformer`
-- Fusion logic in `shared/utils/fusion-math.ts`
+- Fusion logic in `shared/utils/fusion-math.ts` (capacity: `sum(capacidad_base) * 0.75`)
+- 6 feature components: TableCanvas, TableToolbar, TableNode, ZoneSection, AforoIndicator, FusionConfirmDialog, StandbyBanner
+- Pinia store (`canvas-store`) for canvas state management
+- Realtime sync via `useMesas` composable
+
+### useRestaurantConfig (Multi-tenant)
+
+Composable in `app/composables/useRestaurantConfig.ts`:
+- Fetches restaurant info (name, address, phone, logo, social links) from `/api/public-config`
+- SSR-safe via `useState` + `Object.assign` in SSR render + deferred `onMounted` client hydration
+- Used by `AppHeader` and `AppFooter` for dynamic branding
+- Admin editable from `/cocina/configuracion` → "Datos del Restaurante" section
+
+### useImageUpload (Image Upload with Security)
+
+Composable in `app/composables/useImageUpload.ts`:
+- Client-side compression to WebP via Canvas re-encode (strips EXIF, metadata, polyglot data)
+- SVG blocked by browser SecurityError on Canvas drawImage
+- Upload via proxy URL (`/api/images/...`) to hide Supabase project ID
+- Supports upload from file and from external URL (via `/api/fetch-image` proxy with SSRF protection)
+- Configurable quality, max width, max size from configuracion
+
+### ImageLightbox
+
+Inline template component used inside `PlatoForm.vue` for image preview:
+- Modal overlay with full-size image view
+- Activated by magnifying glass icon on image thumbnail
 
 ### Module Contracts (`shared/contracts/`)
 
@@ -493,6 +523,32 @@ onUnmounted(() => channel?.unsubscribe())
 ```
 
 **IMPORTANTE**: La suscripción debe ir en `onMounted` (solo cliente). Si se hace durante SSR (setup), el WebSocket no se conecta y al hidratar en cliente no se reconecta.
+
+**Realtime en Carta Pública** (`app/pages/carta.vue`):
+```ts
+// Escucha cambios en platos (INSERT/UPDATE/DELETE), categorías y familias
+channel = client.channel('carta-realtime')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'platos' },
+    (payload) => {
+      // Modificar directo el ref (no refreshNuxtData)
+      // Manejar INSERT: push, UPDATE: find+assign, DELETE: find+splice
+    })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' },
+    () => refreshNuxtData('carta-categorias'))
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'familias' },
+    () => refreshNuxtData('carta-familias'))
+  .subscribe()
+```
+
+**Realtime en Menú Diario** (`app/pages/menu-diario.vue`):
+```ts
+// Escucha cambios en menu_diario_items (agotado toggle en vivo)
+channel = client.channel('menu-diario-realtime')
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'menu_diario_items' },
+    (payload) => { /* actualizar displayItems en vivo */ })
+  .subscribe()
+```
 
 ## Decision Gates
 
