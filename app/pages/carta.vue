@@ -278,12 +278,7 @@ const familiaMap = computed(() => {
       <p class="text-lg">Error al cargar la carta</p>
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="categories.length === 0" class="py-20 text-center text-gray-500">
-      <p class="text-lg">Carta no disponible</p>
-    </div>
-
-    <!-- Categories -->
+    <!-- Categories — always visible when data is loaded -->
     <div v-else>
       <!-- First scroll: categories -->
       <CategorySelector
@@ -298,7 +293,13 @@ const familiaMap = computed(() => {
         :families="familiesForActive"
       />
 
-      <ProductGrid :categories="filteredCategories" />
+      <!-- Empty state (filters active but no results) -->
+      <div v-if="categories.length === 0" class="py-20 text-center text-gray-500">
+        <p class="text-lg">No hay productos en esta categoría</p>
+        <p class="mt-2 text-sm">Selecciona otra categoría o familia para ver los platos.</p>
+      </div>
+
+      <ProductGrid v-else :categories="filteredCategories" />
     </div>
   </div>
 </template>

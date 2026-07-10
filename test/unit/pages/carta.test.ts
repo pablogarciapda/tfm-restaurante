@@ -146,7 +146,7 @@ describe('Carta page — migrated to usePlatos (CN-006)', () => {
     const wrapper = await mountCarta()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Carta no disponible')
+    expect(wrapper.text()).toContain('No hay productos')
   })
 
   it('shows error state when Supabase fetch fails', async () => {
