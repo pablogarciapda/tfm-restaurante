@@ -34,12 +34,14 @@ interface SeccionConfig {
 }
 
 const client = useSupabaseClient()
-const { config, items, precio, isHoliday, dayLabel, refresh: refreshMenu } = useMenuDiario()
+const { config, items, precio, isHoliday, dayLabel } = useMenuDiario()
 const liveItems = ref<Record<string, MenuDish[]> | null>(null)
+const livePrecio = ref<string | null>(null)
 const channelRef = ref<RealtimeChannel | null>(null)
 
 // Use Realtime-updated items when available, fall back to SSR data
 const displayItems = computed(() => liveItems.value ?? items.value)
+const displayPrecio = computed(() => livePrecio.value ?? precio.value)
 
 // Whether the menu is available today
 const isAvailable = computed(() => config.value !== null && precio.value !== null)
@@ -128,8 +130,23 @@ onMounted(() => {
     )
     .on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'configuracion' },
-      () => refreshMenu(),
+      { event: '*', schema: 'public', table: 'configuracion' },
+      async () => {
+        // Refetch prices directly from configuracion
+        const { data: sysConfig } = await client
+          .from('configuracion')
+          .select('precio_menu_diario, precio_menu_sabado, precio_menu_domingo')
+          .single()
+        if (!sysConfig) return
+        const dow = new Date().getDay()
+        let p: number | null = null
+        if (dow === 6) p = (sysConfig as any).precio_menu_sabado
+        else if (dow === 0) p = (sysConfig as any).precio_menu_domingo
+        else p = (sysConfig as any).precio_menu_diario
+        if (p != null) {
+          livePrecio.value = String(p)
+        }
+      },
     )
     .subscribe()
   })
@@ -166,7 +183,7 @@ onUnmounted(() => {
         <!-- Price display -->
         <div class="mb-10 text-center">
           <span class="inline-block rounded-full bg-terracotta px-6 py-2 text-2xl font-bold text-white">
-            Menú del día — {{ precio }}€
+            Menú del día — {{ displayPrecio }}€
           </span>
         </div>
 
