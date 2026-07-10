@@ -140,7 +140,7 @@ onUnmounted(() => {
 <template>
   <div class="min-h-screen">
     <!-- Hero -->
-    <PageHero title="Menú del Día" subtitle="Cocina casera, platos de siempre" />
+    <PageHero title="Menú del Día" :subtitle="dayLabel || 'Cocina casera'" />
 
     <div class="mx-auto max-w-3xl px-4 py-12">
       <!-- No menu today: Sunday, holiday, or no active config -->
@@ -163,7 +163,6 @@ onUnmounted(() => {
           <span class="inline-block rounded-full bg-terracotta px-6 py-2 text-2xl font-bold text-white">
             Menú del día — {{ precio }}€
           </span>
-          <p v-if="dayLabel" class="mt-1 text-sm text-gray-500">{{ dayLabel }}</p>
         </div>
 
         <!-- Sections (only active ones) -->
