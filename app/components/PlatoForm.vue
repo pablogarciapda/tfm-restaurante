@@ -167,7 +167,8 @@ function clearUrlInput() {
 watch(
   () => form.imagen_url,
   async (newUrl) => {
-    if (!newUrl || newUrl.startsWith(supabaseUrl())) return
+    // Skip: empty, already a Supabase URL, or our own proxy URL (file upload)
+    if (!newUrl || newUrl.startsWith(supabaseUrl()) || newUrl.startsWith('/api/images/')) return
 
     // Debounce: wait until user stops typing
     if (urlInputTimeout.value) clearTimeout(urlInputTimeout.value)
