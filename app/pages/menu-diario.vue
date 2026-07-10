@@ -29,7 +29,7 @@ interface SeccionConfig {
   titulo: string
 }
 
-const { config, items, precio, isHoliday } = useMenuDiario()
+const { config, items, precio, isHoliday, dayLabel } = useMenuDiario()
 
 // Whether the menu is available today
 const isAvailable = computed(() => config.value !== null && precio.value !== null)
@@ -110,6 +110,7 @@ const formattedDate = computed(() => {
           <span class="inline-block rounded-full bg-terracotta px-6 py-2 text-2xl font-bold text-white">
             Menú del día — {{ precio }}€
           </span>
+          <p v-if="dayLabel" class="mt-1 text-sm text-gray-500">{{ dayLabel }}</p>
         </div>
 
         <!-- Sections (only active ones) -->

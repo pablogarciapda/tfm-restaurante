@@ -64,12 +64,24 @@ export function useMenuDiario() {
         menuPrice = sysConfig?.precio_menu_diario ?? null
       }
 
+      // Build day range label based on configured prices
+      const hasDiario = sysConfig?.precio_menu_diario && Number(sysConfig.precio_menu_diario) > 0
+      const hasSabado = sysConfig?.precio_menu_sabado && Number(sysConfig.precio_menu_sabado) > 0
+      const hasDomingo = sysConfig?.precio_menu_domingo && Number(sysConfig.precio_menu_domingo) > 0
+      let dayLabel: string
+      if (hasDiario && hasSabado && hasDomingo) dayLabel = 'Lunes a Domingo'
+      else if (hasDiario && hasSabado) dayLabel = 'Lunes a Sábado'
+      else if (hasDiario) dayLabel = 'Lunes a Viernes'
+      else if (hasSabado) dayLabel = 'Sábados'
+      else if (hasDomingo) dayLabel = 'Domingos y festivos'
+      else dayLabel = ''
+
       // 4) No config at all → show price-only fallback
       if (!config) {
         return {
           config: null, items: null,
           precio: menuPrice != null ? String(menuPrice) : null,
-          matchType: null, isHoliday: false,
+          matchType: null, isHoliday: false, dayLabel,
         }
       }
 
@@ -133,6 +145,7 @@ export function useMenuDiario() {
         precio: menuPrice != null ? String(menuPrice) : null,
         matchType,
         isHoliday,
+        dayLabel,
       }
     },
   )
@@ -141,5 +154,6 @@ export function useMenuDiario() {
   const items = computed(() => (data.value as { items: unknown } | null)?.items ?? null)
   const precio = computed(() => (data.value as { precio: unknown } | null)?.precio ?? null)
   const isHoliday = computed(() => (data.value as { isHoliday: boolean } | null)?.isHoliday ?? false)
-  return { config, items, precio, isHoliday, data, error, pending }
+  const dayLabel = computed(() => (data.value as { dayLabel: string } | null)?.dayLabel ?? '')
+  return { config, items, precio, isHoliday, dayLabel, data, error, pending }
 }
