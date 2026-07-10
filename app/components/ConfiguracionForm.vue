@@ -425,7 +425,12 @@ function validate(): boolean {
 
 function handleSubmit() {
   if (!validate()) return
-  emit('submit', { ...form })
+  const data = { ...form }
+  // Normalize: convert empty string numeric fields to null (v-model.number quirk)
+  if (data.precio_menu_diario === '') data.precio_menu_diario = null
+  if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
+  if (data.precio_menu_domingo === '') data.precio_menu_domingo = null
+  emit('submit', data)
 }
 
 function handleSmtpTest() {
