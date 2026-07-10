@@ -34,7 +34,7 @@ interface SeccionConfig {
 }
 
 const client = useSupabaseClient()
-const { config, items, precio, isHoliday, dayLabel } = useMenuDiario()
+const { config, items, precio, isHoliday, dayLabel, refresh: refreshMenu } = useMenuDiario()
 const liveItems = ref<Record<string, MenuDish[]> | null>(null)
 const channelRef = ref<RealtimeChannel | null>(null)
 
@@ -93,7 +93,7 @@ const formattedDate = computed(() => {
   return `${dayName} ${day}/${month}/${year}`
 })
 
-// ── Realtime subscription for menu_diario_items changes ──
+// ── Realtime subscription for menu_diario_items + config changes ──
 onMounted(() => {
   channelRef.value = client.channel('menu-diario-items-realtime')
   channelRef.value
@@ -126,8 +126,13 @@ onMounted(() => {
         liveItems.value = grouped
       },
     )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'configuracion' },
+      () => refreshMenu(),
+    )
     .subscribe()
-})
+  })
 
 onUnmounted(() => {
   if (channelRef.value) {
