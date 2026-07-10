@@ -60,7 +60,6 @@ export async function handleUpdateConfig(
 
   // Build update payload
   const updateData: Record<string, unknown> = { ...body }
-  console.log('[config] server received:', { diario: updateData.precio_menu_diario, sabado: updateData.precio_menu_sabado, domingo: updateData.precio_menu_domingo })
   delete updateData.id // never allow id override
 
   // Validate horarios_config with Zod if provided
@@ -100,22 +99,17 @@ export async function handleUpdateConfig(
   }
 
   // Upsert
-  console.log('[config] current row:', current?.id || 'none — will insert')
   if (current?.id) {
-    console.log('[config] updating with:', Object.keys(updateData).filter(k => k.startsWith('precio')))
     const { error: updateError } = await supabase
       .from('configuracion')
       .update(updateData as any)
       .eq('id', current.id)
     if (updateError) {
-      console.error('[config] update error:', updateError)
       return { status: 500, body: { error: updateError.message } }
     }
   } else {
     await supabase.from('configuracion').insert(updateData as any)
   }
-  console.log('[config] update success, fetching fresh config...')
-
   // Return redacted updated config
   return handleGetConfig(supabase)
 }
