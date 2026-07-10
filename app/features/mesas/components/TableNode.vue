@@ -150,7 +150,8 @@ const shapeConfig = computed(() => {
 // Text width depends on shape: for circle/ellipse use smaller max width
 const textWidth = computed(() => {
   if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') {
-    return Math.min(props.mesa.ancho, props.mesa.alto)
+    // Text must fit inside inscribed rectangle: diameter * 0.6
+    return Math.min(props.mesa.ancho, props.mesa.alto) * 0.55
   }
   return props.mesa.ancho
 })

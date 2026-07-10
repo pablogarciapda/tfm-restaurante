@@ -100,6 +100,34 @@ const aforoInfo = computed<AforoInfo>(() => {
 
 // ── Handlers ──
 
+// Editable properties for selected mesa
+const editNumero = ref<number | null>(null)
+const editCapacidad = ref<number | null>(null)
+const editError = ref('')
+
+function startEditMesa() {
+  const mesa = store.selectedMesa
+  if (!mesa) return
+  editNumero.value = mesa.numero_mesa
+  editCapacidad.value = mesa.capacidad_base
+  editError.value = ''
+}
+
+async function saveEditMesa() {
+  const mesa = store.selectedMesa
+  if (!mesa || editNumero.value == null || editCapacidad.value == null) return
+  if (editNumero.value < 1 || editCapacidad.value < 1) {
+    editError.value = 'Número y capacidad deben ser >= 1'
+    return
+  }
+  await updateMesa(mesa.id, {
+    numero_mesa: editNumero.value,
+    capacidad_base: editCapacidad.value,
+    capacidad_actual: editCapacidad.value,
+  } as unknown as Partial<Mesa>)
+  showToast('Mesa actualizada', 'success')
+}
+
 async function handleAddMesa(forma: string) {
   const activeZone = store.activeZona || zonasConfig.value[0]?.nombre || 'Principal'
   const nextNumero = store.mesas.length > 0
@@ -231,6 +259,37 @@ onUnmounted(() => {
       @clear-walls="store.clearWallLines()"
       @background-image-uploaded="handleBackgroundImageUpload"
     />
+
+    <!-- Edit panel for selected mesa -->
+    <div
+      v-if="store.selectedMesa"
+      class="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 px-4 py-2 text-sm"
+    >
+      <span class="text-xs font-medium text-amber-800">Mesa {{ store.selectedMesa.numero_mesa }}</span>
+      <label class="text-xs text-amber-700">
+        Nº <input
+          v-model.number="editNumero"
+          type="number" min="1" max="99"
+          class="ml-1 w-14 rounded border border-amber-300 px-1 py-0.5 text-xs"
+          @focus="startEditMesa"
+        />
+      </label>
+      <label class="text-xs text-amber-700">
+        Cap. <input
+          v-model.number="editCapacidad"
+          type="number" min="1" max="20"
+          class="ml-1 w-12 rounded border border-amber-300 px-1 py-0.5 text-xs"
+          @focus="startEditMesa"
+        />
+      </label>
+      <button
+        class="rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
+        @click="saveEditMesa"
+      >
+        Actualizar
+      </button>
+      <span v-if="editError" class="text-xs text-red-600">{{ editError }}</span>
+    </div>
 
     <!-- Drawing mode toggle (only visible when drawing is active) -->
     <div v-if="store.isDrawing" class="flex items-center gap-2">
