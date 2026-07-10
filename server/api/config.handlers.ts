@@ -101,13 +101,18 @@ export async function handleUpdateConfig(
 
   // Upsert
   if (current?.id) {
-    await supabase
+    const { error: updateError } = await supabase
       .from('configuracion')
       .update(updateData as any)
       .eq('id', current.id)
+    if (updateError) {
+      console.error('[config] update error:', updateError)
+      return { status: 500, body: { error: updateError.message } }
+    }
   } else {
     await supabase.from('configuracion').insert(updateData as any)
   }
+  console.log('[config] update success, fetching fresh config...')
 
   // Return redacted updated config
   return handleGetConfig(supabase)
