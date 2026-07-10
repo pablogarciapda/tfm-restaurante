@@ -120,6 +120,7 @@ export function useMenuDiario() {
         plato_nombre: string
         descripcion?: string
         puesto: number
+        agotado: boolean
       }
 
       const grouped = {

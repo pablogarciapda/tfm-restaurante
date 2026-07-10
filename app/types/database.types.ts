@@ -363,6 +363,7 @@ export type Database = {
       }
       menu_diario_items: {
         Row: {
+          agotado: boolean
           config_id: string
           descripcion: string | null
           id: string
@@ -371,6 +372,7 @@ export type Database = {
           seccion: string
         }
         Insert: {
+          agotado?: boolean
           config_id: string
           descripcion?: string | null
           id?: string
@@ -379,6 +381,7 @@ export type Database = {
           seccion: string
         }
         Update: {
+          agotado?: boolean
           config_id?: string
           descripcion?: string | null
           id?: string

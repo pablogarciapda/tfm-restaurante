@@ -28,9 +28,12 @@ const mockUseMenuDiario = () => ({
 
 const g = globalThis as Record<string, unknown>
 g.useMenuDiario = mockUseMenuDiario
+const mockRealtimeChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
 g.useSupabaseClient = () => ({
   from: vi.fn(),
   auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
+  channel: vi.fn().mockReturnValue(mockRealtimeChannel),
+  removeChannel: vi.fn(),
 })
 
 describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005)', () => {
