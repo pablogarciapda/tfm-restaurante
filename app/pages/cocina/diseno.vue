@@ -229,7 +229,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-4">
+  <div class="flex h-full flex-col">
+    <!-- Sticky header: zone tabs + toolbar + edit panel + drawing controls -->
+    <div class="flex-shrink-0 space-y-3 bg-cream pb-2">
     <!-- Zone tabs — only enabled zones, no "Todas" -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
@@ -310,9 +312,10 @@ onUnmounted(() => {
         Dibujo libre
       </button>
     </div>
+    </div> <!-- end sticky header -->
 
-    <!-- Canvas — fills available space -->
-    <div class="min-h-0 flex-1 rounded-lg border border-gray-200 bg-white shadow-sm">
+    <!-- Scrollable canvas -->
+    <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
         ref="canvasRef"
         :zonas-config="zonasConfig"
