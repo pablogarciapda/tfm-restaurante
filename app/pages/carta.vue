@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 
 /**
  * Carta page — Category-based browsing with Supabase data (CN-006)
@@ -100,24 +100,27 @@ const { data: familiasRows } = useAsyncData('carta-familias', async () => {
 })
 
 // Realtime: refresh carta when platos, categorias or familias change
-const realtimeChannel = client
-  .channel('carta-realtime')
-  .on('postgres_changes',
-    { event: '*', schema: 'public', table: 'platos' },
-    () => refreshNuxtData('platos'),
-  )
-  .on('postgres_changes',
-    { event: '*', schema: 'public', table: 'categorias' },
-    () => refreshNuxtData('carta-categorias'),
-  )
-  .on('postgres_changes',
-    { event: '*', schema: 'public', table: 'familias' },
-    () => refreshNuxtData('carta-familias'),
-  )
-  .subscribe()
+let realtimeChannel: ReturnType<typeof client.channel>
+onMounted(() => {
+  realtimeChannel = client
+    .channel('carta-realtime')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'platos' },
+      () => refreshNuxtData('platos'),
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'categorias' },
+      () => refreshNuxtData('carta-categorias'),
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'familias' },
+      () => refreshNuxtData('carta-familias'),
+    )
+    .subscribe()
+})
 
 onUnmounted(() => {
-  realtimeChannel.unsubscribe()
+  realtimeChannel?.unsubscribe()
 })
 
 // Map categoria nombre → puesto
