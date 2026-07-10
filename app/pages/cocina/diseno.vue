@@ -26,7 +26,7 @@ definePageMeta({
 
 const client = useSupabaseClient()
 const store = useCanvasStore()
-const { loadMesas, createMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { loadMesas, createMesa, updateMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
 
 // ── Admin guard ──
 const role = useState<string>('cocina-role')
