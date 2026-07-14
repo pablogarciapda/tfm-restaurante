@@ -839,6 +839,7 @@ onUnmounted(() => {
                      Confirmar
                    </button>
                    <button
+                     v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada'"
                      type="button"
                      class="rounded bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
                      @click="openEditarReserva(reserva)"
@@ -854,6 +855,7 @@ onUnmounted(() => {
                      Cancelar
                    </button>
                    <button
+                     v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada'"
                      type="button"
                      data-testid="reasignar-btn"
                      class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
