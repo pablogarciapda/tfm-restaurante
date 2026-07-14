@@ -535,7 +535,7 @@ async function loadReservas() {
 }
 
 // ── Date filter ──
-const filterDesde = ref('')
+const filterDesde = ref(new Date().toISOString().slice(0, 10))
 const filterHasta = ref('')
 
 function setToday() {
@@ -545,7 +545,7 @@ function setToday() {
 }
 
 function clearDateFilter() {
-  filterDesde.value = ''
+  filterDesde.value = new Date().toISOString().slice(0, 10)
   filterHasta.value = ''
 }
 
