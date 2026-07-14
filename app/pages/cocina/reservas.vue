@@ -115,6 +115,41 @@ const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 const horariosConfig = ref<HorarioConfig | null>(null)
 
+// Generate time slots from horarios_config for the reservation modal
+const timeSlots = computed(() => {
+  const h = horariosConfig.value
+  if (!h) return []
+  try {
+    const { generateTurnSlots } = await_import_slots() ? null : null
+    const slots: string[] = []
+    // Generate all slots manually from config
+    const interval = h.intervalo_minutos || 15
+    // Comida
+    const [cIniH, cIniM] = (h.comida_inicio || '13:30').split(':').map(Number)
+    const [cFinH, cFinM] = (h.comida_fin || '15:30').split(':').map(Number)
+    const comidaStart = cIniH! * 60 + cIniM!
+    const comidaEnd = cFinH! * 60 + cFinM!
+    for (let m = comidaStart; m <= comidaEnd; m += interval) {
+      const hh = Math.floor(m / 60).toString().padStart(2, '0')
+      const mm = (m % 60).toString().padStart(2, '0')
+      slots.push(`${hh}:${mm}`)
+    }
+    // Cena
+    const [dIniH, dIniM] = (h.cena_inicio || '21:00').split(':').map(Number)
+    const [dFinH, dFinM] = (h.cena_fin || '23:30').split(':').map(Number)
+    const cenaStart = dIniH! * 60 + dIniM!
+    const cenaEnd = dFinH! * 60 + dFinM!
+    for (let m = cenaStart; m <= cenaEnd; m += interval) {
+      const hh = Math.floor(m / 60).toString().padStart(2, '0')
+      const mm = (m % 60).toString().padStart(2, '0')
+      slots.push(`${hh}:${mm}`)
+    }
+    return slots
+  } catch {
+    return []
+  }
+})
+
 const aforoInfo = computed<AforoInfo>(() => {
   const disponible = getAforoDisponible(
     store.mesas,
@@ -1155,11 +1190,13 @@ onUnmounted(() => {
              </div>
              <div>
                <label class="mb-1 block text-sm font-medium text-slate">Hora</label>
-               <input
+               <select
                  v-model="reservaHora"
-                 type="time"
                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-               />
+               >
+                 <option value="">Selecciona hora</option>
+                 <option v-for="slot in timeSlots" :key="slot" :value="slot">{{ slot }}</option>
+               </select>
              </div>
 
              <p v-if="reservaError" class="text-sm" :class="reservaDisponible === false ? 'text-red-600' : 'text-gray-500'">{{ reservaError }}</p>
