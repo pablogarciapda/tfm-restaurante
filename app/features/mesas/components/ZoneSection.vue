@@ -37,6 +37,7 @@ const ZONE_COLORS: Record<string, string> = {
 }
 
 const fillColor = computed(() => props.zoneColor || ZONE_COLORS[props.zona] || '#D4C5B9')
+const showBackground = computed(() => !props.imageUrl) // Only show colored rect if no image
 
 /** Image config with scale factor for zoom control */
 const imageConfig = computed(() => {
@@ -100,7 +101,7 @@ watch(() => props.imageUrl, (url) => loadImage(url))
       width,
       height,
       fill: fillColor,
-      opacity: 0.3,
+      opacity: 0,
       stroke: 'transparent',
       listening: false,
     }"

@@ -579,7 +579,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <div class="flex flex-col -mt-6">
     <!-- Standby Banner (Slice 4) -->
     <StandbyBanner
       :reservations="standbyReservations"
@@ -587,7 +587,7 @@ onUnmounted(() => {
     />
 
     <!-- Sticky header: toolbar + zone tabs -->
-    <div class="sticky top-14 z-20 bg-cream/95 backdrop-blur-sm pb-2">
+    <div class="sticky top-0 z-20 -mx-6 bg-cream/95 px-6 pb-2 pt-6 backdrop-blur-sm">
     <!-- Toolbar in operación mode -->
     <TableToolbar
       mode="operacion"
