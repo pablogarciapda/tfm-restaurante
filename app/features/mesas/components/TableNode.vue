@@ -320,7 +320,7 @@ const groupConfig = computed(() => ({
     <!-- Mesa number — bold, centered, larger font -->
     <v-text
       :config="{
-        x: 0,
+        x: -textWidth / 2,
         y: textOffsetY,
         width: textWidth,
         align: 'center',
@@ -338,7 +338,7 @@ const groupConfig = computed(() => ({
     <v-text
       v-if="!isSmall"
       :config="{
-        x: 0,
+        x: -textWidth / 2,
         y: paxOffsetY,
         width: textWidth,
         align: 'center',

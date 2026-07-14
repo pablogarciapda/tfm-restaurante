@@ -437,11 +437,20 @@ function handleTransformEnd(mesaId: string) {
   const scaleX = group.scaleX()
   const scaleY = group.scaleY()
 
-  // Apply scale to the inner rect
+  // Apply scale to the inner shape
   const rect = group.findOne('Rect')
+  const circle = group.findOne('Circle')
+  const ellipse = group.findOne('Ellipse')
   if (rect) {
     rect.width(rect.width() * scaleX)
     rect.height(rect.height() * scaleY)
+  }
+  if (circle) {
+    circle.radius(circle.radius() * Math.max(scaleX, scaleY))
+  }
+  if (ellipse) {
+    ellipse.radiusX(ellipse.radiusX() * scaleX)
+    ellipse.radiusY(ellipse.radiusY() * scaleY)
   }
 
   // Reset scale on the group
@@ -452,8 +461,8 @@ function handleTransformEnd(mesaId: string) {
   const mesa = store.mesas.find((m) => m.id === mesaId)
   if (!mesa) return
 
-  const newWidth = rect ? rect.width() : mesa.ancho
-  const newHeight = rect ? rect.height() : mesa.alto
+  const newWidth = (rect ? rect.width() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusX() * 2 : mesa.ancho)
+  const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
   const newRotation = group.rotation()
 
   // Persist
