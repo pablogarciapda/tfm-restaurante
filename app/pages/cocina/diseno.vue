@@ -296,35 +296,36 @@ onUnmounted(() => {
       @font-size-change="(size: number) => store.fontSize = size"
     />
 
-    <!-- Edit panel for selected mesa -->
-    <div
-      v-if="store.selectedMesa"
-      class="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 px-4 py-2 text-sm"
+    <!-- Edit panel — reserves space so canvas doesn't jump -->
+    <div class="flex items-center gap-2 rounded-lg px-3 py-1 text-sm h-8"
+      :class="store.selectedMesa ? 'bg-amber-50' : ''"
     >
-      <span class="text-xs font-medium text-amber-800">Mesa {{ store.selectedMesa.numero_mesa }}</span>
-      <label class="text-xs text-amber-700">
-        Nº <input
-          v-model.number="editNumero"
-          type="number" min="0" max="99"
-          class="ml-1 w-14 rounded border border-amber-300 px-1 py-0.5 text-xs"
-          @focus="startEditMesa"
-        />
-      </label>
-      <label class="text-xs text-amber-700">
-        Cap. <input
-          v-model.number="editCapacidad"
-          type="number" min="1" max="20"
-          class="ml-1 w-12 rounded border border-amber-300 px-1 py-0.5 text-xs"
-          @focus="startEditMesa"
-        />
-      </label>
-      <button
-        class="rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
-        @click="saveEditMesa"
-      >
-        Actualizar
-      </button>
-      <span v-if="editError" class="text-xs text-red-600">{{ editError }}</span>
+      <template v-if="store.selectedMesa">
+        <span class="text-xs font-medium text-amber-800">Mesa {{ store.selectedMesa.numero_mesa }}</span>
+        <label class="text-xs text-amber-700">
+          Nº <input
+            v-model.number="editNumero"
+            type="number" min="0" max="99"
+            class="ml-1 w-12 rounded border border-amber-300 px-1 py-0.5 text-xs"
+            @focus="startEditMesa"
+          />
+        </label>
+        <label class="text-xs text-amber-700">
+          Cap. <input
+            v-model.number="editCapacidad"
+            type="number" min="1" max="20"
+            class="ml-1 w-12 rounded border border-amber-300 px-1 py-0.5 text-xs"
+            @focus="startEditMesa"
+          />
+        </label>
+        <button
+          class="rounded bg-amber-600 px-2 py-0.5 text-xs text-white hover:bg-amber-700"
+          @click="saveEditMesa"
+        >
+          ✓
+        </button>
+        <span v-if="editError" class="text-xs text-red-600">{{ editError }}</span>
+      </template>
     </div>
 
     <!-- Background image controls (when a zone has an image) -->
