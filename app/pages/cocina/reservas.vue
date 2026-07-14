@@ -29,6 +29,8 @@ definePageMeta({
 
 const client = useSupabaseClient()
 const store = useCanvasStore()
+// Default to first zone immediately (prevents flash of all mesas)
+store.activeZona = 'Principal'
 const { loadMesas, subscribeRealtime, unsubscribeRealtime } = useMesas()
 const {
   fuseMesas,
@@ -625,8 +627,8 @@ onMounted(async () => {
   await refreshStandbyReservations()
   await loadReservas()
   await loadZonasConfig()
-  // Default to first enabled zone
-  if (!store.activeZona && zonasConfig.value.length > 0) {
+  // Update to actual first enabled zone
+  if (zonasConfig.value.length > 0) {
     store.activeZona = zonasConfig.value[0]!.nombre
   }
 })
