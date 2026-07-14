@@ -62,7 +62,23 @@ const standbyReservations = ref<Array<{
   mesa_id: string
 }>>([])
 
-// ── Multi-select helpers (Slice 4) ──
+// ── Multi-select toggle ──
+const multiSelectMode = ref(false)
+
+function toggleMultiSelect() {
+  multiSelectMode.value = !multiSelectMode.value
+  if (!multiSelectMode.value) {
+    selectedIds.value = []
+  }
+}
+
+function handleTableClickWithMode(mesa: Mesa) {
+  if (multiSelectMode.value) {
+    toggleSelection(mesa.id)
+  } else {
+    openReservaModal(mesa)
+  }
+}
 function toggleSelection(mesaId: string) {
   const idx = selectedIds.value.indexOf(mesaId)
   if (idx >= 0) {
@@ -662,6 +678,19 @@ onUnmounted(() => {
       @unfuse="handleUnfuse"
     />
 
+    <!-- Multi-select toggle -->
+    <div class="flex items-center gap-2 py-1">
+      <button
+        type="button"
+        class="rounded-full px-4 py-1 text-xs font-medium transition-colors"
+        :class="multiSelectMode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'"
+        @click="toggleMultiSelect"
+      >
+        {{ multiSelectMode ? `Selección (${selectedIds.length}) — Click para salir` : 'Seleccionar mesas' }}
+      </button>
+      <span v-if="multiSelectMode" class="text-xs text-gray-400">Click en mesas para seleccionar/deseleccionar</span>
+    </div>
+
     <!-- Zone tabs — no "Todas", one per enabled zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
@@ -686,8 +715,7 @@ onUnmounted(() => {
         :horarios-config="horariosConfig"
         :zonas-config="zonasConfig"
         :design-mode="false"
-        @table-click-reservation="openReservaModal"
-        @table-select="toggleSelection"
+        @table-click-reservation="handleTableClickWithMode"
       />
     </div>
 

@@ -329,18 +329,13 @@ async function updateTransformer() {
 
 // ── Event handlers ──
 
-function handleTableClick(mesa: Mesa, e?: MouseEvent) {
+function handleTableClick(mesa: Mesa, _e?: MouseEvent) {
   if (props.designMode === true) {
     store.selectMesa(mesa.id)
     updateTransformer()
   } else {
-    // Operación mode — Shift+Click=select for fusion, normal=reservation
     store.selectMesa(mesa.id)
-    if (e?.shiftKey) {
-      emit('table-select', mesa)
-    } else {
-      emit('table-click-reservation', mesa)
-    }
+    emit('table-click-reservation', mesa)
   }
 }
 
