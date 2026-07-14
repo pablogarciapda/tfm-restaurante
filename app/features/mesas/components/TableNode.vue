@@ -46,7 +46,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  click: []
+  click: [e?: any]
   dragstart: []
   dragend: []
   transformend: []
@@ -267,7 +267,7 @@ const groupConfig = computed(() => ({
   rotation: props.mesa.rotacion,
   draggable: props.designMode,
   dragBoundFunc: props.dragBoundFunc,
-  onClick: () => emit('click'),
+  onClick: (e: any) => emit('click', e?.evt),
   onDragStart: () => emit('dragstart'),
   onDragEnd: () => emit('dragend'),
   onTransformEnd: () => emit('transformend'),

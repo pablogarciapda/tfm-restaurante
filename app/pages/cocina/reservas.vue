@@ -656,18 +656,11 @@ onUnmounted(() => {
       @unfuse="handleUnfuse"
     />
 
-    <!-- Zone tabs — includes "Todas" + per zone -->
+    <!-- Zone tabs — no "Todas", one per enabled zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
-        class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-        :class="store.activeZona === '' ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-        @click="store.activeZona = ''"
-      >
-        Todas
-      </button>
-      <button
         v-for="zona in zonasConfig"
-        :key="zona.id"
+        :key="zona.nombre"
         class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
         :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
         @click="store.activeZona = zona.nombre"

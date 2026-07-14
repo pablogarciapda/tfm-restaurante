@@ -59,17 +59,6 @@ const emit = defineEmits<{
   'table-select': [mesa: Mesa]
 }>()
 
-// Track keyboard state for multi-select
-const shiftHeld = ref(false)
-
-if (import.meta.client) {
-  onMounted(() => {
-    window.addEventListener('keydown', (e) => { if (e.shiftKey) shiftHeld.value = true })
-    window.addEventListener('keyup', () => { shiftHeld.value = false })
-  })
-  onUnmounted(() => { shiftHeld.value = false })
-}
-
 const BASE_WIDTH = 1200
 const BASE_HEIGHT = 800
 
@@ -340,15 +329,14 @@ async function updateTransformer() {
 
 // ── Event handlers ──
 
-function handleTableClick(mesa: Mesa) {
+function handleTableClick(mesa: Mesa, e?: MouseEvent) {
   if (props.designMode === true) {
-    // Diseño mode — select for editing
     store.selectMesa(mesa.id)
     updateTransformer()
   } else {
     // Operación mode — Shift+Click=select for fusion, normal=reservation
     store.selectMesa(mesa.id)
-    if (shiftHeld.value) {
+    if (e?.shiftKey) {
       emit('table-select', mesa)
     } else {
       emit('table-click-reservation', mesa)
