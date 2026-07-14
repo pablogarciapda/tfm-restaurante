@@ -85,6 +85,15 @@ const zoneImageMap = computed(() => {
   return map
 })
 
+/** Build a map of zona nombre → image scale (zoom) */
+const zoneImageScaleMap = computed(() => {
+  const map: Record<string, number> = {}
+  for (const z of props.zonasConfig ?? []) {
+    map[z.nombre] = (z as any).imagen_scale ?? 1
+  }
+  return map
+})
+
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
 
@@ -526,6 +535,7 @@ defineExpose({ getMesaPositions })
           :height="zone.h"
           :zone-color="ZONE_COLORS[zone.zona]"
           :image-url="zoneImageMap[zone.zona]"
+          :image-scale="zoneImageScaleMap[zone.zona]"
         />
       </v-layer>
 

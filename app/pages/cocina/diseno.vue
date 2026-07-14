@@ -184,12 +184,43 @@ function showToast(msg: string, type: 'success' | 'error') {
   setTimeout(() => { toastMessage.value = '' }, 3000)
 }
 
+// ── Background image controls ──
+const activeZoneImage = computed(() => {
+  const zone = zonasConfig.value.find(z => z.nombre === store.activeZona)
+  return { url: zone?.imagen_url ?? null, scale: (zone as any)?.imagen_scale ?? 1 }
+})
+
+function setBackgroundScale(delta: number) {
+  const idx = zonasConfig.value.findIndex(z => z.nombre === store.activeZona)
+  if (idx < 0) return
+  const current = (zonasConfig.value[idx] as any).imagen_scale ?? 1
+  const newScale = Math.max(0.2, Math.min(5, current + delta))
+  ;(zonasConfig.value[idx] as any).imagen_scale = newScale
+}
+
+async function handleDeleteBackground() {
+  if (!store.activeZona) return
+  const zonas = zonasConfig.value.map((z) => {
+    if (z.nombre === store.activeZona) {
+      return { ...z, imagen_url: null, imagen_scale: 1 }
+    }
+    return z
+  })
+  try {
+    await $fetch('/api/config', { method: 'POST', body: { zonas_config: zonas } })
+    zonasConfig.value = zonas
+    showToast('Fondo eliminado', 'success')
+  } catch {
+    showToast('Error al eliminar fondo', 'error')
+  }
+}
+
 async function handleBackgroundImageUpload(url: string) {
   if (!url || !store.activeZona) return
 
   const zonas = zonasConfig.value.map((z) => {
     if (z.nombre === store.activeZona) {
-      return { ...z, imagen_url: url }
+      return { ...z, imagen_url: url, imagen_scale: 1 }
     }
     return z
   })
@@ -291,6 +322,34 @@ onUnmounted(() => {
         Actualizar
       </button>
       <span v-if="editError" class="text-xs text-red-600">{{ editError }}</span>
+    </div>
+
+    <!-- Background image controls (when a zone has an image) -->
+    <div
+      v-if="activeZoneImage.url"
+      class="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm"
+    >
+      <span class="text-xs font-medium text-blue-800">Fondo</span>
+      <button
+        class="rounded bg-blue-200 px-2 py-0.5 text-xs text-blue-800 hover:bg-blue-300"
+        @click="setBackgroundScale(-0.2)"
+        title="Alejar"
+      >−</button>
+      <span class="text-xs text-blue-700">{{ Math.round(activeZoneImage.scale * 100) }}%</span>
+      <button
+        class="rounded bg-blue-200 px-2 py-0.5 text-xs text-blue-800 hover:bg-blue-300"
+        @click="setBackgroundScale(0.2)"
+        title="Acercar"
+      >+</button>
+      <button
+        class="rounded bg-blue-200 px-2 py-0.5 text-xs text-blue-800 hover:bg-blue-300"
+        @click="setBackgroundScale(-activeZoneImage.scale + 1)"
+        title="Tamaño original"
+      >↺</button>
+      <button
+        class="ml-auto rounded bg-red-100 px-3 py-1 text-xs text-red-700 hover:bg-red-200"
+        @click="handleDeleteBackground"
+      >Borrar fondo</button>
     </div>
 
     <!-- Drawing mode toggle (only visible when drawing is active) -->

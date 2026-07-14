@@ -24,6 +24,8 @@ const props = defineProps<{
   zoneColor?: string
   /** Optional background image URL for the zone. When provided, renders v-image instead of v-rect. */
   imageUrl?: string | null
+  /** Image scale factor (zoom). Default 1. Used from zonasConfig.imagen_scale */
+  imageScale?: number
 }>()
 
 const ZONE_COLORS: Record<string, string> = {
@@ -35,6 +37,25 @@ const ZONE_COLORS: Record<string, string> = {
 }
 
 const fillColor = computed(() => props.zoneColor || ZONE_COLORS[props.zona] || '#D4C5B9')
+
+/** Image config with scale factor for zoom control */
+const imageConfig = computed(() => {
+  if (!konvaImage.value) return null
+  const scale = props.imageScale ?? 1
+  const imgW = konvaImage.value.naturalWidth * scale
+  const imgH = konvaImage.value.naturalHeight * scale
+  // Center the image in the zone
+  const offsetX = (props.width - imgW) / 2
+  const offsetY = (props.height - imgH) / 2
+  return {
+    x: props.x + (scale === 1 ? 0 : offsetX),
+    y: props.y + (scale === 1 ? 0 : offsetY),
+    width: scale === 1 ? props.width : imgW,
+    height: scale === 1 ? props.height : imgH,
+    image: konvaImage.value,
+    listening: false,
+  }
+})
 
 /** Konva Image instance — loaded from imageUrl */
 const konvaImage = ref<HTMLImageElement | null>(null)
@@ -69,14 +90,7 @@ watch(() => props.imageUrl, (url) => loadImage(url))
   <!-- Zone background: image if available, fallback to semi-transparent rect -->
   <v-image
     v-if="konvaImage && !imageLoading"
-    :config="{
-      x,
-      y,
-      width,
-      height,
-      image: konvaImage,
-      listening: false,
-    }"
+    :config="imageConfig"
   />
   <v-rect
     v-else
