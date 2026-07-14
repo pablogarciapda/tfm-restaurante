@@ -183,7 +183,7 @@ const reservaModalMesa = ref<Mesa | null>(null)
 const reservaModalStep = ref<'datetime' | 'form' | 'success'>('datetime')
 const reservaFecha = ref(new Date().toISOString().split('T')[0] ?? '')
 const reservaHora = ref('')
-const reservaDisponible = ref<boolean | null>(null) // null=no checked, true=free, false=occupied
+const reservaError = ref('')
 const reservaForm = ref({
   nombre: '',
   telefono: '',
@@ -199,7 +199,7 @@ function openReservaModal(mesa: Mesa) {
   reservaModalStep.value = 'datetime'
   reservaFecha.value = new Date().toISOString().split('T')[0]!
   reservaHora.value = ''
-  reservaDisponible.value = null
+  reservaError.value = ''
   reservaForm.value = {
     nombre: '',
     telefono: '',
@@ -218,13 +218,11 @@ function closeReservaModal() {
   reservaModalStep.value = 'datetime'
   reservaSuccess.value = false
   reservaError.value = ''
-  reservaDisponible.value = null
 }
 
 async function checkDisponibilidad() {
   if (!reservaModalMesa.value || !reservaFecha.value || !reservaHora.value) return
   reservaError.value = ''
-  reservaDisponible.value = null
 
   const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00`
   const client = useSupabaseClient()
@@ -241,10 +239,8 @@ async function checkDisponibilidad() {
   }
 
   if (data && data.length > 0) {
-    reservaDisponible.value = false
     reservaError.value = `Mesa ocupada el ${reservaFecha.value} a las ${reservaHora.value}`
   } else {
-    reservaDisponible.value = true
     reservaModalStep.value = 'form'
   }
 }
@@ -257,7 +253,6 @@ function continuarReserva() {
 
 function volverDatetime() {
   reservaModalStep.value = 'datetime'
-  reservaDisponible.value = null
   reservaError.value = ''
 }
 
@@ -1211,7 +1206,7 @@ onUnmounted(() => {
                </select>
              </div>
 
-             <p v-if="reservaError" class="text-sm" :class="reservaDisponible === false ? 'text-red-600' : 'text-gray-500'">{{ reservaError }}</p>
+             <p v-if="reservaError" class="text-sm text-red-600">{{ reservaError }}</p>
              <p v-else-if="!reservaFecha || !reservaHora" class="text-sm text-gray-400">Selecciona fecha y hora para verificar disponibilidad</p>
 
              <div class="flex justify-end gap-3">
