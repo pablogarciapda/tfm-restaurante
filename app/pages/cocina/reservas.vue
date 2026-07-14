@@ -579,17 +579,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <!-- Page title -->
-    <h1 class="font-serif text-2xl font-bold text-slate">Gestor de Mesas</h1>
-
+  <div class="flex flex-col">
     <!-- Standby Banner (Slice 4) -->
     <StandbyBanner
       :reservations="standbyReservations"
       @assign="handleReassignStandby"
     />
 
-    <!-- Toolbar in operación mode — no design toggle, no design buttons -->
+    <!-- Sticky header: toolbar + zone tabs -->
+    <div class="sticky top-14 z-20 bg-cream/95 backdrop-blur-sm pb-2">
+    <!-- Toolbar in operación mode -->
     <TableToolbar
       mode="operacion"
       :selected-mesa="store.selectedMesa"
@@ -604,7 +603,7 @@ onUnmounted(() => {
     />
 
     <!-- Zone tabs — includes "Todas" + per zone -->
-    <nav class="sticky top-[72px] z-10 flex flex-wrap gap-2 bg-cream/95 py-2 backdrop-blur-sm" aria-label="Zonas del local">
+    <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
         class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
         :class="store.activeZona === '' ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
@@ -622,6 +621,7 @@ onUnmounted(() => {
         {{ zona.nombre }}
       </button>
     </nav>
+    </div> <!-- end sticky header -->
 
     <!-- Konva canvas — designMode always false (no Transformer) -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
