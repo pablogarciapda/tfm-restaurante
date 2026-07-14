@@ -276,9 +276,6 @@ const standbyAssignShow = ref(false)
 const standbyAssignReservaId = ref('')
 const standbyAssignMesaId = ref('')
 
-const mesasDisponibles = computed(() =>
-  store.mesas.filter((m) => m.id_fusion === null && m.mesa_padre_id === null),
-)
 
 function openStandbyAssign(reservaId: string) {
   standbyAssignReservaId.value = reservaId
