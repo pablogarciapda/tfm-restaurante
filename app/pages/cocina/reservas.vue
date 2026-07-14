@@ -316,6 +316,11 @@ const reasignarSaving = ref(false)
 const reasignarError = ref('')
 const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
+function showToast(msg: string, type: 'success' | 'error') {
+  toastReasignar.value = { message: msg, type }
+  setTimeout(() => { toastReasignar.value = null }, 3000)
+}
+
 // ── Confirmar reserva pendiente ──
 const confirmarShow = ref(false)
 const confirmarReserva = ref<ReservaRow | null>(null)
@@ -455,6 +460,55 @@ function openReasignar(reserva: ReservaRow) {
 function closeReasignar() {
   reasignarShow.value = false
   reasignarReserva.value = null
+}
+
+async function cancelarReserva(reserva: ReservaRow) {
+  if (!confirm('¿Cancelar esta reserva?')) return
+  try {
+    await client.from('reservas').update({ estado: 'cancelada' }).eq('id', reserva.id)
+    await loadReservas()
+    showToast('Reserva cancelada', 'success')
+  } catch {
+    showToast('Error al cancelar', 'error')
+  }
+}
+
+// ── Editar reserva ──
+const editarShow = ref(false)
+const editarReserva = ref<ReservaRow | null>(null)
+const editarNombre = ref('')
+const editarTelefono = ref('')
+const editarComensales = ref<number | null>(null)
+const editarSaving = ref(false)
+
+function openEditarReserva(reserva: ReservaRow) {
+  editarReserva.value = reserva
+  editarNombre.value = (reserva.cliente as any)?.nombre || ''
+  editarTelefono.value = (reserva.cliente as any)?.telefono || ''
+  editarComensales.value = reserva.numero_comensales
+  editarShow.value = true
+}
+
+function closeEditarReserva() {
+  editarShow.value = false
+  editarReserva.value = null
+}
+
+async function handleEditarReserva() {
+  if (!editarReserva.value) return
+  editarSaving.value = true
+  try {
+    await client.from('reservas').update({
+      numero_comensales: editarComensales.value,
+    }).eq('id', editarReserva.value.id)
+    await loadReservas()
+    showToast('Reserva actualizada', 'success')
+    closeEditarReserva()
+  } catch {
+    showToast('Error al actualizar', 'error')
+  } finally {
+    editarSaving.value = false
+  }
 }
 
 async function handleReasignar() {
@@ -728,25 +782,40 @@ onUnmounted(() => {
                   {{ reserva.estado }}
                 </span>
               </td>
-              <td class="px-4 py-2 text-right">
-                <div class="flex justify-end gap-2">
-                  <button
-                    v-if="reserva.estado === 'pendiente'"
-                    type="button"
-                    class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
-                    @click="openConfirmar(reserva)"
-                  >
-                    Confirmar
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="reasignar-btn"
-                    class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
-                    @click="openReasignar(reserva)"
-                  >
-                    Reasignar
-                  </button>
-                </div>
+               <td class="px-4 py-2 text-right">
+                 <div class="flex justify-end gap-2">
+                   <button
+                     v-if="reserva.estado === 'pendiente'"
+                     type="button"
+                     class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
+                     @click="openConfirmar(reserva)"
+                   >
+                     Confirmar
+                   </button>
+                   <button
+                     type="button"
+                     class="rounded bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                     @click="openEditarReserva(reserva)"
+                   >
+                     Editar
+                   </button>
+                   <button
+                     v-if="reserva.estado === 'pendiente' || reserva.estado === 'confirmada'"
+                     type="button"
+                     class="rounded bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                     @click="cancelarReserva(reserva)"
+                   >
+                     Cancelar
+                   </button>
+                   <button
+                     type="button"
+                     data-testid="reasignar-btn"
+                     class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
+                     @click="openReasignar(reserva)"
+                   >
+                     Reasignar
+                   </button>
+                 </div>
               </td>
             </tr>
           </tbody>
@@ -1087,5 +1156,39 @@ onUnmounted(() => {
         {{ toastReasignar.message }}
       </div>
     </Teleport>
+
+    <!-- Edit Reserva Modal -->
+    <div
+      v-if="editarShow"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      @click.self="closeEditarReserva"
+    >
+      <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 class="mb-4 text-lg font-semibold text-slate">Editar Reserva</h3>
+        <p class="mb-4 text-sm text-gray-500">
+          {{ editarReserva ? new Date(editarReserva.fecha_hora).toLocaleString('es-ES') : '' }}
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Nombre</label>
+            <input v-model="editarNombre" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Teléfono</label>
+            <input v-model="editarTelefono" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Comensales</label>
+            <input v-model.number="editarComensales" type="number" min="1" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="closeEditarReserva">Cancelar</button>
+          <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="editarSaving" @click="handleEditarReserva">
+            {{ editarSaving ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
