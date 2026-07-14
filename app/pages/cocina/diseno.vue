@@ -157,12 +157,10 @@ const saving = ref(false)
 async function handleSaveMesa() {
   saving.value = true
   try {
-    const positions: Record<string, { x: number; y: number }> = canvasRef.value?.getMesaPositions?.() || {}
     for (const mesa of store.filteredMesas) {
-      const pos = positions[mesa.id]
       await updateMesa(mesa.id, {
-        posicion_x: pos?.x ?? mesa.posicion_x,
-        posicion_y: pos?.y ?? mesa.posicion_y,
+        posicion_x: mesa.posicion_x,
+        posicion_y: mesa.posicion_y,
         ancho: mesa.ancho,
         alto: mesa.alto,
         rotacion: mesa.rotacion,

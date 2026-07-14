@@ -412,12 +412,17 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag end: persist actual position from Konva node after drag ends */
+/** Drag end: read position from Konva and mutate mesa in-place (no new object = no ghost) */
 function handleDragEnd(mesa: Mesa) {
-  // Konva handles the visual position during drag.
-  // Don't mutate mesa.posicion_x/y here — that triggers Vue reactivity
-  // which recreates the Konva node → ghost table.
-  // Positions are saved on explicit "Guardar" button click.
+  const mainLayer = mainLayerRef.value?.getNode()
+  if (!mainLayer) { store.isDragging = false; return }
+
+  const node = mainLayer.findOne(`#${mesa.id}`)
+  if (node) {
+    // Mutate in-place — avoids Vue recreating Konva node (ghost table bug)
+    mesa.posicion_x = Math.round(node.x())
+    mesa.posicion_y = Math.round(node.y())
+  }
   store.isDragging = false
 }
 
