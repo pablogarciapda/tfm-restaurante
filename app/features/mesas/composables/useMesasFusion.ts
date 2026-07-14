@@ -11,6 +11,7 @@ import { useCanvasStore } from '../stores/canvas-store'
 import {
   canFuse as pureCanFuse,
   calculateFusedCapacity,
+  calculateFusionPositions,
   unfuseTables as pureUnfuseTables,
   getAforoDisponible,
 } from '#shared/utils/fusion-math'
@@ -80,13 +81,44 @@ export function useMesasFusion() {
       return { success: false, error: `Error al fusionar: ${error.message}` }
     }
 
-    // Update store
+    // Update store: fusion metadata
     for (const mesa of store.mesas) {
       if (selectedIds.includes(mesa.id)) {
         store.updateMesa(mesa.id, {
           id_fusion: fusionId,
           mesa_padre_id: parentId,
           capacidad_actual: fusedCapacity,
+        } as Partial<Mesa>)
+      }
+    }
+
+    // ── Reposition child tables adjacent to parent ──
+    const parentMesa = selectedMesas.find((m) => m.id === parentId)
+    const childMesas = selectedMesas.filter((m) => m.id !== parentId)
+
+    if (parentMesa && childMesas.length > 0) {
+      const positions = calculateFusionPositions(
+        parentMesa,
+        childMesas,
+        store.stageWidth,
+        store.stageHeight,
+      )
+
+      // Update DB positions for each child
+      for (const pos of positions) {
+        const { error: posError } = await client
+          .from('mesas')
+          .update({ posicion_x: pos.posicion_x, posicion_y: pos.posicion_y })
+          .eq('id', pos.id)
+
+        if (posError) {
+          console.warn(`Error updating position for mesa ${pos.id}: ${posError.message}`)
+        }
+
+        // Update store silently
+        store.updateMesa(pos.id, {
+          posicion_x: pos.posicion_x,
+          posicion_y: pos.posicion_y,
         } as Partial<Mesa>)
       }
     }

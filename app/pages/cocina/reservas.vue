@@ -167,7 +167,7 @@ function openReservaModal(mesa: Mesa) {
     nombre: '',
     telefono: '',
     email: '',
-    comensales: mesa.capacidad_base,
+    comensales: mesa.capacidad_actual, // Use capacidad_actual (fused capacity for fused tables)
   }
   reservaError.value = ''
   reservaSuccess.value = false
@@ -1063,7 +1063,7 @@ onUnmounted(() => {
             <!-- Mesa info -->
             <div class="rounded-lg bg-gray-50 p-3 text-sm text-slate">
               <p><strong>Mesa:</strong> {{ reservaModalMesa.numero_mesa }} ({{ reservaModalMesa.zona }})</p>
-              <p><strong>Capacidad:</strong> {{ reservaModalMesa.capacidad_base }} personas</p>
+              <p><strong>Capacidad:</strong> {{ reservaModalMesa.capacidad_actual }} personas</p>
             </div>
 
             <!-- Form fields -->

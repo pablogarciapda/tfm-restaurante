@@ -92,6 +92,57 @@ export function fuseTables(
 }
 
 // ---------------------------------------------------------------------------
+// calculateFusionPositions
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate positions for child tables adjacent to the parent table.
+ *
+ * Children are placed to the RIGHT of the parent (touching, same y).
+ * If they don't fit within stageWidth, they wrap to the next row below.
+ * The parent STAYS in place.
+ *
+ * @param parent — The parent Mesa (stays in position)
+ * @param children — Child mesas (repositioned)
+ * @param stageWidth — Canvas stage width for boundary checks
+ * @param stageHeight — Canvas stage height for boundary checks
+ * @returns Array of { id, posicion_x, posicion_y } for each child
+ */
+export function calculateFusionPositions(
+  parent: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto'>,
+  children: Pick<Mesa, 'id' | 'ancho' | 'alto'>[],
+  stageWidth: number,
+  _stageHeight: number,
+): Array<{ id: string; posicion_x: number; posicion_y: number }> {
+  const GAP = 0 // Touching (border strokes provide visual separation)
+  const positions: Array<{ id: string; posicion_x: number; posicion_y: number }> = []
+
+  let currentX = parent.posicion_x + parent.ancho + GAP
+  let currentY = parent.posicion_y
+  let rowMaxHeight = parent.alto
+
+  for (const child of children) {
+    // If doesn't fit in current row, wrap to next row below
+    if (currentX + child.ancho > stageWidth) {
+      currentX = parent.posicion_x
+      currentY += rowMaxHeight + GAP
+      rowMaxHeight = 0
+    }
+
+    positions.push({
+      id: child.id,
+      posicion_x: currentX,
+      posicion_y: currentY,
+    })
+
+    currentX += child.ancho + GAP
+    rowMaxHeight = Math.max(rowMaxHeight, child.alto)
+  }
+
+  return positions
+}
+
+// ---------------------------------------------------------------------------
 // unfuseTables
 // ---------------------------------------------------------------------------
 

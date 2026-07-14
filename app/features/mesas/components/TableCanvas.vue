@@ -299,6 +299,20 @@ function handleTooltipMouseLeave() {
   hoveredMesaId.value = null
 }
 
+/**
+ * All mesa IDs in the same fusion group as the currently selected mesa.
+ * When a fused table is selected, ALL tables in that fusion group highlight.
+ */
+const fusionGroupSelectedIds = computed(() => {
+  const selected = store.selectedMesa
+  if (!selected?.id_fusion) return new Set<string>()
+  return new Set(
+    store.mesas
+      .filter((m) => m.id_fusion === selected.id_fusion)
+      .map((m) => m.id),
+  )
+})
+
 // ── Drag bounds (MCA-004) — wired via TableNode group config ──
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function dragBoundFunc(pos: { x: number; y: number }) {
@@ -331,12 +345,22 @@ async function updateTransformer() {
 // ── Event handlers ──
 
 function handleTableClick(mesa: Mesa, _e?: MouseEvent) {
+  // If table is part of a fusion group, select the parent table
+  // so ALL members of the fusion group get highlighted
+  let targetMesa = mesa
+  if (mesa.id_fusion) {
+    const parent = store.mesas.find(
+      (m) => m.id_fusion === mesa.id_fusion && m.mesa_padre_id === m.id,
+    )
+    if (parent) targetMesa = parent
+  }
+
   if (props.designMode === true) {
-    store.selectMesa(mesa.id)
+    store.selectMesa(targetMesa.id)
     updateTransformer()
   } else {
-    store.selectMesa(mesa.id)
-    emit('table-click-reservation', mesa)
+    store.selectMesa(targetMesa.id)
+    emit('table-click-reservation', targetMesa)
   }
 }
 
@@ -582,7 +606,7 @@ defineExpose({ getMesaPositions })
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
-          :selected="store.selectedMesaId === mesa.id || (selectedIds?.includes(mesa.id) ?? false)"
+          :selected="store.selectedMesaId === mesa.id || (selectedIds?.includes(mesa.id) ?? false) || fusionGroupSelectedIds.has(mesa.id)"
           :design-mode="designMode === true"
           :reservas-map="reservasMap"
           :fusion-label="fusionLabels?.[mesa.id]"
@@ -591,8 +615,8 @@ defineExpose({ getMesaPositions })
           :font-size="fontSize"
           :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
-          @dragstart="designMode === true && handleDragStart(mesa)"
-          @dragend="designMode === true && handleDragEnd(mesa)"
+          @dragstart="handleDragStart(mesa)"
+          @dragend="handleDragEnd(mesa)"
           @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"
           @unhover="handleTableUnhover"

@@ -11,6 +11,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { Mesa } from '../../../shared/contracts/mesas.contract'
 import {
   calculateFusedCapacity,
+  calculateFusionPositions,
   canFuse,
   fuseTables,
   unfuseTables,
@@ -89,6 +90,62 @@ describe('calculateFusedCapacity (MFU-002)', () => {
   it('handles fractional floor correctly: [3,3] → 4 (floor(6*0.75)=4)', () => {
     const mesas = [{ capacidad_base: 3 }, { capacidad_base: 3 }]
     expect(calculateFusedCapacity(mesas)).toBe(4)
+  })
+})
+
+// ============================================================================
+// calculateFusionPositions
+// ============================================================================
+
+describe('calculateFusionPositions', () => {
+  const parent = {
+    id: 'p1',
+    posicion_x: 100,
+    posicion_y: 200,
+    ancho: 100,
+    alto: 100,
+  }
+
+  it('places one child to the right of parent (touching)', () => {
+    const child = { id: 'c1', ancho: 80, alto: 80 }
+    const result = calculateFusionPositions(parent, [child], 1200, 800)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('c1')
+    expect(result[0].posicion_x).toBe(200) // parent.x + parent.ancho
+    expect(result[0].posicion_y).toBe(200) // parent.y
+  })
+
+  it('wraps child to next row when it does not fit horizontally', () => {
+    const child = { id: 'c1', ancho: 80, alto: 80 }
+    // Stage width is just enough for the parent but not the child next to it
+    const result = calculateFusionPositions(parent, [child], 150, 800)
+
+    expect(result[0].posicion_x).toBe(100) // wrapped back to parent.x
+    expect(result[0].posicion_y).toBe(300) // parent.y + parent.alto + gap
+  })
+
+  it('positions multiple children in a row', () => {
+    const children = [
+      { id: 'c1', ancho: 80, alto: 80 },
+      { id: 'c2', ancho: 90, alto: 100 },
+      { id: 'c3', ancho: 70, alto: 70 },
+    ]
+    const result = calculateFusionPositions(parent, children, 1200, 800)
+
+    expect(result).toHaveLength(3)
+    expect(result[0].posicion_x).toBe(200) // parent.x + parent.ancho
+    expect(result[1].posicion_x).toBe(280) // c1.x + c1.ancho
+    expect(result[2].posicion_x).toBe(370) // c2.x + c2.ancho
+    // All same y (same row)
+    expect(result[0].posicion_y).toBe(200)
+    expect(result[1].posicion_y).toBe(200)
+    expect(result[2].posicion_y).toBe(200)
+  })
+
+  it('returns empty array for empty children', () => {
+    const result = calculateFusionPositions(parent, [], 1200, 800)
+    expect(result).toEqual([])
   })
 })
 

@@ -265,7 +265,7 @@ const groupConfig = computed(() => ({
   x: props.mesa.posicion_x,
   y: props.mesa.posicion_y,
   rotation: props.mesa.rotacion,
-  draggable: props.designMode,
+  draggable: true, // Always draggable (Transformer only in diseño mode)
   dragBoundFunc: props.dragBoundFunc,
   onClick: (e: any) => emit('click', e?.evt),
   onDragStart: () => emit('dragstart'),

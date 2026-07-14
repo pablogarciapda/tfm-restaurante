@@ -200,6 +200,11 @@ describe('useMesasFusion — fuseMesas', () => {
     expect(store.mesas[0].capacidad_actual).toBe(6)
     // Child retains its original capacity
     expect(store.mesas[1].capacidad_actual).toBe(6)
+
+    // Child table should be repositioned adjacent to parent
+    // Parent at (0,0), ancho=100, gap=0 → child at (100, 0)
+    expect(store.mesas[1].posicion_x).toBe(100)
+    expect(store.mesas[1].posicion_y).toBe(0)
   })
 
   it('fuseMesas rejects cross-zone tables', async () => {
