@@ -344,7 +344,7 @@ const groupConfig = computed(() => ({
     <v-text
       v-if="!isSmall"
       :config="{
-        x: -textWidth / 2,
+        x: textX,
         y: paxOffsetY,
         width: textWidth,
         align: 'center',
