@@ -470,9 +470,6 @@ function handleTransformEnd(mesaId: string) {
   mesa.posicion_y = Math.round(group.y())
 }
 
-  mainLayer.batchDraw()
-}
-
 // ── Canvas sizing: fill available width (Bug 3 fix) ──
 
 /** Recalculate stage size from container width, keeping 3:2 aspect ratio */
