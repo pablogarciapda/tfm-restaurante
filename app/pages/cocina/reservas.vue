@@ -604,7 +604,7 @@ onUnmounted(() => {
     />
 
     <!-- Zone tabs — includes "Todas" + per zone -->
-    <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
+    <nav class="sticky top-[72px] z-10 flex flex-wrap gap-2 bg-cream/95 py-2 backdrop-blur-sm" aria-label="Zonas del local">
       <button
         class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
         :class="store.activeZona === '' ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"

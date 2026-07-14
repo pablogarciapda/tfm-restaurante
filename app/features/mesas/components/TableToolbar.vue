@@ -78,7 +78,7 @@ const activeTurnoValue = computed({
 
 <template>
   <div
-    class="sticky top-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
+    class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-cream/95 p-4 shadow-sm backdrop-blur-sm"
   >
     <!-- Left: action buttons -->
     <div class="flex items-center gap-2">
