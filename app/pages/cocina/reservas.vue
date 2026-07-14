@@ -271,12 +271,34 @@ async function refreshStandbyReservations() {
   }
 }
 
+// ── Standby reassign modal ──
+const standbyAssignShow = ref(false)
+const standbyAssignReservaId = ref('')
+const standbyAssignMesaId = ref('')
+
+const mesasDisponibles = computed(() =>
+  store.mesas.filter((m) => m.id_fusion === null && m.mesa_padre_id === null),
+)
+
+function openStandbyAssign(reservaId: string) {
+  standbyAssignReservaId.value = reservaId
+  standbyAssignMesaId.value = mesasDisponibles.value[0]?.id || ''
+  standbyAssignShow.value = true
+}
+
+function closeStandbyAssign() {
+  standbyAssignShow.value = false
+}
+
+async function handleStandbyAssign() {
+  if (!standbyAssignReservaId.value || !standbyAssignMesaId.value) return
+  await reassignStandbyReservation(standbyAssignReservaId.value, standbyAssignMesaId.value)
+  await refreshStandbyReservations()
+  closeStandbyAssign()
+}
+
 async function handleReassignStandby(reservaId: string) {
-  const libreMesa = store.mesas.find((m) => m.id_fusion === null && m.mesa_padre_id === null)
-  if (libreMesa) {
-    await reassignStandbyReservation(reservaId, libreMesa.id)
-    await refreshStandbyReservations()
-  }
+  openStandbyAssign(reservaId)
 }
 
 // ── Lifecycle ──
@@ -1175,6 +1197,29 @@ onUnmounted(() => {
         {{ toastReasignar.message }}
       </div>
     </Teleport>
+
+    <!-- Standby Assign Modal -->
+    <div
+      v-if="standbyAssignShow"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      @click.self="closeStandbyAssign"
+    >
+      <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 class="mb-4 text-lg font-semibold text-slate">Asignar reserva a mesa</h3>
+        <div>
+          <label class="mb-1 block text-sm text-gray-500">Mesa</label>
+          <select v-model="standbyAssignMesaId" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            <option v-for="m in mesasDisponibles" :key="m.id" :value="m.id">
+              Mesa {{ m.numero_mesa }} — {{ m.capacidad_actual }}p ({{ m.zona }})
+            </option>
+          </select>
+        </div>
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="closeStandbyAssign">Cancelar</button>
+          <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90" @click="handleStandbyAssign">Asignar</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Edit Reserva Modal -->
     <div
