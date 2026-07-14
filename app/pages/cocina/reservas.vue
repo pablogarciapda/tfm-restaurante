@@ -358,6 +358,12 @@ function showToast(msg: string, type: 'success' | 'error') {
   setTimeout(() => { toastReasignar.value = null }, 3000)
 }
 
+function getMesaNumero(mesaId: string | null): string {
+  if (!mesaId) return '—'
+  const mesa = store.mesas.find((m) => m.id === mesaId)
+  return mesa ? `Mesa ${mesa.numero_mesa}` : '—'
+}
+
 // ── Confirmar reserva pendiente ──
 const confirmarShow = ref(false)
 const confirmarReserva = ref<ReservaRow | null>(null)
@@ -788,6 +794,7 @@ onUnmounted(() => {
               <th class="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Comensales</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Zona</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Mesa</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
               <th class="px-4 py-2 text-right font-medium text-gray-500">Acción</th>
             </tr>
@@ -806,6 +813,7 @@ onUnmounted(() => {
               </td>
               <td class="px-4 py-2">{{ reserva.numero_comensales ?? '—' }}</td>
               <td class="px-4 py-2">{{ reserva.zona_id || '—' }}</td>
+              <td class="px-4 py-2">{{ getMesaNumero(reserva.mesa_id) }}</td>
               <td class="px-4 py-2">
                 <span
                   class="rounded-full px-2 py-0.5 text-xs font-medium"
