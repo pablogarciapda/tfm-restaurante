@@ -64,22 +64,27 @@ const STATUS_COLORS: Record<MesaEstado, string> = {
 
 /** Determine the turn overlay type for this mesa */
 const turnOverlay = computed<'none' | 'half' | 'full'>(() => {
-  if (!props.turnoStatus || !props.activeTurno || props.activeTurno === 'todos') {
-    return 'none'
-  }
+  if (!props.turnoStatus) return 'none'
 
   const hasComida = props.turnoStatus.comida
   const hasCena = props.turnoStatus.cena
   const hasBoth = hasComida && hasCena
 
+  if (hasBoth) return 'full' // Both turns → full red
+
+  // 'todos' mode: show half overlay for whichever turn is reserved
+  if (!props.activeTurno || props.activeTurno === 'todos') {
+    if (hasComida) return 'half'
+    if (hasCena) return 'half'
+    return 'none'
+  }
+
   if (props.activeTurno === 'comida') {
-    if (hasBoth) return 'full'
     if (hasComida) return 'half'
     return 'none'
   }
 
   if (props.activeTurno === 'cena') {
-    if (hasBoth) return 'full'
     if (hasCena) return 'half'
     return 'none'
   }
@@ -90,8 +95,12 @@ const turnOverlay = computed<'none' | 'half' | 'full'>(() => {
 /** Label to show on the colored half: 'M' for comida, 'T' for cena */
 const turnLabel = computed<string | null>(() => {
   if (turnOverlay.value === 'none') return null
+  if (turnOverlay.value === 'full') return 'M/T'
   if (props.activeTurno === 'comida') return 'M'
   if (props.activeTurno === 'cena') return 'T'
+  // 'todos' mode: show label for whichever turn is reserved
+  if (props.turnoStatus?.comida) return 'M'
+  if (props.turnoStatus?.cena) return 'T'
   return null
 })
 
