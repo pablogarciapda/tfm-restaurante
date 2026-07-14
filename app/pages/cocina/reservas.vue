@@ -300,8 +300,18 @@ async function handleReservaSubmit() {
     // Auto-close after 3 seconds
     setTimeout(() => closeReservaModal(), 3000)
   } catch (err: any) {
-    const msg = err?.data?.error || err?.data?.statusMessage || err?.message || 'Error al crear la reserva'
-    reservaError.value = typeof msg === 'string' ? msg : String(msg)
+    const data = err?.data
+    if (data?.errors && Array.isArray(data.errors)) {
+      reservaError.value = data.errors.join(', ')
+    } else if (data?.error) {
+      reservaError.value = String(data.error)
+    } else if (data?.statusMessage) {
+      reservaError.value = String(data.statusMessage)
+    } else if (err?.message) {
+      reservaError.value = String(err.message)
+    } else {
+      reservaError.value = 'Error al crear la reserva'
+    }
   } finally {
     reservaSaving.value = false
   }
