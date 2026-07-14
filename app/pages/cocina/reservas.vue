@@ -119,11 +119,8 @@ const horariosConfig = ref<HorarioConfig | null>(null)
 const timeSlots = computed(() => {
   const h = horariosConfig.value
   if (!h) return []
-  try {
-    const { generateTurnSlots } = await_import_slots() ? null : null
-    const slots: string[] = []
-    // Generate all slots manually from config
-    const interval = h.intervalo_minutos || 15
+  const slots: string[] = []
+  const interval = h.intervalo_minutos || 15
     // Comida
     const [cIniH, cIniM] = (h.comida_inicio || '13:30').split(':').map(Number)
     const [cFinH, cFinM] = (h.comida_fin || '15:30').split(':').map(Number)
@@ -145,9 +142,6 @@ const timeSlots = computed(() => {
       slots.push(`${hh}:${mm}`)
     }
     return slots
-  } catch {
-    return []
-  }
 })
 
 const aforoInfo = computed<AforoInfo>(() => {
