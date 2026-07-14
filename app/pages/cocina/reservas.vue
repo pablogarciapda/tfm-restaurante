@@ -677,19 +677,14 @@ onUnmounted(() => {
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
     />
-
-    <!-- Multi-select toggle -->
-    <div class="flex items-center gap-2 py-1">
-      <button
-        type="button"
-        class="rounded-full px-4 py-1 text-xs font-medium transition-colors"
-        :class="multiSelectMode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'"
-        @click="toggleMultiSelect"
-      >
-        {{ multiSelectMode ? `Selección (${selectedIds.length}) — Click para salir` : 'Seleccionar mesas' }}
-      </button>
-      <span v-if="multiSelectMode" class="text-xs text-gray-400">Click en mesas para seleccionar/deseleccionar</span>
-    </div>
+    <button
+      type="button"
+      class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+      :class="multiSelectMode ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-100'"
+      @click="toggleMultiSelect"
+    >
+      {{ multiSelectMode ? `Selec. (${selectedIds.length})` : 'Selec.' }}
+    </button>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
