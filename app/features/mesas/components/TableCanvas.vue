@@ -412,17 +412,8 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag end: read position from Konva and mutate mesa in-place (no new object = no ghost) */
-function handleDragEnd(mesa: Mesa) {
-  const mainLayer = mainLayerRef.value?.getNode()
-  if (!mainLayer) { store.isDragging = false; return }
-
-  const node = mainLayer.findOne(`#${mesa.id}`)
-  if (node) {
-    // Mutate in-place — avoids Vue recreating Konva node (ghost table bug)
-    mesa.posicion_x = Math.round(node.x())
-    mesa.posicion_y = Math.round(node.y())
-  }
+/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
+function handleDragEnd(_mesa: Mesa) {
   store.isDragging = false
 }
 
@@ -471,14 +462,13 @@ function handleTransformEnd(mesaId: string) {
   const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
   const newRotation = group.rotation()
 
-  // Persist
-  updateMesa(mesaId, {
-    ancho: newWidth,
-    alto: newHeight,
-    rotacion: newRotation,
-    posicion_x: group.x(),
-    posicion_y: group.y(),
-  } as Partial<Mesa>)
+  // Mutate in-place (no store.updateMesa = no Vue re-render = no ghost)
+  mesa.ancho = newWidth
+  mesa.alto = newHeight
+  mesa.rotacion = newRotation
+  mesa.posicion_x = Math.round(group.x())
+  mesa.posicion_y = Math.round(group.y())
+}
 
   mainLayer.batchDraw()
 }
@@ -521,7 +511,9 @@ function getMesaPositions(): Record<string, { x: number; y: number }> {
   if (!layer) return positions
   for (const mesa of store.filteredMesas) {
     const node = layer.findOne(`#${mesa.id}`)
-    if (node) positions[mesa.id] = { x: Math.round(node.x()), y: Math.round(node.y()) }
+    if (node) {
+      positions[mesa.id] = { x: Math.round(node.x()), y: Math.round(node.y()) }
+    }
   }
   return positions
 }
