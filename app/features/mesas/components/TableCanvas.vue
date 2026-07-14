@@ -202,7 +202,7 @@ function mesaEstado(mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
 
 const hoveredMesaId = ref<string | null>(null)
 const TOOLTIP_WIDTH = 260
-const TOOLTIP_GAP = 12
+const TOOLTIP_GAP = 24
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null
 
 /** Derive full tooltip data from hovered mesa + related data */
@@ -648,7 +648,7 @@ defineExpose({ getMesaPositions })
     <Transition name="tooltip-fade">
       <div
         v-if="tooltipData"
-        class="absolute z-50"
+        class="pointer-events-none absolute z-50"
         :style="tooltipStyle"
         @mouseenter="handleTooltipMouseEnter"
         @mouseleave="handleTooltipMouseLeave"

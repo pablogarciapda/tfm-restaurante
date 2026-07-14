@@ -49,7 +49,7 @@ const emit = defineEmits<{
   'toggle-multi-select': []
 }>()
 
-const selectedForma = ref<FormaMesa>('rectangular')
+const selectedForma = ref<FormaMesa>('cuadrada')
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const { uploading, uploadFromFile } = useImageUpload({ bucket: 'config-images' })
@@ -96,9 +96,9 @@ const activeTurnoValue = computed({
             class="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
             title="Forma de la mesa"
           >
-            <option value="rectangular">Rectangular</option>
             <option value="cuadrada">Cuadrada</option>
             <option value="redonda">Redonda</option>
+            <option value="rectangular">Rectangular</option>
             <option value="ovalada">Ovalada</option>
           </select>
           <button
