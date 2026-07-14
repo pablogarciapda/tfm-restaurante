@@ -151,6 +151,10 @@ const canFusionar = computed(() => {
 
 const reservaModalShow = ref(false)
 const reservaModalMesa = ref<Mesa | null>(null)
+const reservaModalStep = ref<'datetime' | 'form' | 'success'>('datetime')
+const reservaFecha = ref(new Date().toISOString().split('T')[0] ?? '')
+const reservaHora = ref('')
+const reservaDisponible = ref<boolean | null>(null) // null=no checked, true=free, false=occupied
 const reservaForm = ref({
   nombre: '',
   telefono: '',
@@ -163,11 +167,15 @@ const reservaSuccess = ref(false)
 
 function openReservaModal(mesa: Mesa) {
   reservaModalMesa.value = mesa
+  reservaModalStep.value = 'datetime'
+  reservaFecha.value = new Date().toISOString().split('T')[0]!
+  reservaHora.value = ''
+  reservaDisponible.value = null
   reservaForm.value = {
     nombre: '',
     telefono: '',
     email: '',
-    comensales: mesa.capacidad_actual, // Use capacidad_actual (fused capacity for fused tables)
+    comensales: mesa.capacidad_actual,
   }
   reservaError.value = ''
   reservaSuccess.value = false
@@ -180,13 +188,53 @@ function closeReservaModal() {
   reservaModalMesa.value = null
 }
 
+async function checkDisponibilidad() {
+  if (!reservaModalMesa.value || !reservaFecha.value || !reservaHora.value) return
+  reservaError.value = ''
+  reservaDisponible.value = null
+
+  const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00`
+  const client = useSupabaseClient()
+  const { data, error } = await client
+    .from('reservas')
+    .select('id')
+    .eq('mesa_id', reservaModalMesa.value.id)
+    .eq('fecha_hora', fecha_hora)
+    .in('estado', ['pendiente', 'confirmada'])
+
+  if (error) {
+    reservaError.value = 'Error al verificar disponibilidad'
+    return
+  }
+
+  if (data && data.length > 0) {
+    reservaDisponible.value = false
+    reservaError.value = `Mesa ocupada el ${reservaFecha.value} a las ${reservaHora.value}`
+  } else {
+    reservaDisponible.value = true
+    reservaModalStep.value = 'form'
+  }
+}
+
+function continuarReserva() {
+  if (reservaDisponible.value) {
+    reservaModalStep.value = 'form'
+  }
+}
+
+function volverDatetime() {
+  reservaModalStep.value = 'datetime'
+  reservaDisponible.value = null
+  reservaError.value = ''
+}
+
 async function handleReservaSubmit() {
   if (!reservaModalMesa.value) return
   reservaError.value = ''
   reservaSaving.value = true
 
   try {
-    const fecha_hora = new Date().toISOString()
+    const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00`
 
     const result = await $fetch<{ success: boolean; reserva_id?: string; error?: string }>(
       '/api/reservas',
@@ -1079,98 +1127,96 @@ onUnmounted(() => {
     <!-- Reservation modal (operación mode) -->
     <Teleport to="body">
       <div
-        v-if="reservaModalShow"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        @click.self="closeReservaModal"
-      >
-        <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-          <h3 class="mb-4 text-lg font-bold text-slate">
-            {{ reservaSuccess ? 'Reserva creada' : 'Nueva reserva' }}
-          </h3>
+         v-if="reservaModalShow"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="closeReservaModal"
+       >
+         <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+           <h3 class="mb-4 text-lg font-bold text-slate">
+             {{ reservaSuccess ? 'Reserva creada' : 'Nueva reserva' }}
+           </h3>
 
-          <div v-if="reservaModalMesa && !reservaSuccess" class="space-y-4">
-            <!-- Mesa info -->
-            <div class="rounded-lg bg-gray-50 p-3 text-sm text-slate">
-              <p><strong>Mesa:</strong> {{ reservaModalMesa.numero_mesa }} ({{ reservaModalMesa.zona }})</p>
-              <p><strong>Capacidad:</strong> {{ reservaModalMesa.capacidad_actual }} personas</p>
-            </div>
+           <!-- Mesa info -->
+           <div v-if="reservaModalMesa && !reservaSuccess" class="mb-4 rounded-lg bg-gray-50 p-3 text-sm text-slate">
+             <p><strong>Mesa:</strong> {{ reservaModalMesa.numero_mesa }} ({{ reservaModalMesa.zona }})</p>
+             <p><strong>Capacidad:</strong> {{ reservaModalMesa.capacidad_actual }} personas</p>
+           </div>
 
-            <!-- Form fields -->
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-nombre">
-                Nombre <span class="text-red-500">*</span>
-              </label>
-              <input
-                id="reserva-nombre"
-                v-model="reservaForm.nombre"
-                type="text"
-                required
-                placeholder="Nombre del cliente"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-              />
-            </div>
+           <!-- Step 1: Date/Time -->
+           <div v-if="reservaModalStep === 'datetime' && !reservaSuccess" class="space-y-4">
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Fecha</label>
+               <input
+                 v-model="reservaFecha"
+                 type="date"
+                 :min="new Date().toISOString().split('T')[0]"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+               />
+             </div>
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Hora</label>
+               <input
+                 v-model="reservaHora"
+                 type="time"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+               />
+             </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-telefono">
-                Teléfono <span class="text-red-500">*</span>
-              </label>
-              <input
-                id="reserva-telefono"
-                v-model="reservaForm.telefono"
-                type="tel"
-                required
-                placeholder="Ej: 600123456"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-              />
-            </div>
+             <p v-if="reservaError" class="text-sm" :class="reservaDisponible === false ? 'text-red-600' : 'text-gray-500'">{{ reservaError }}</p>
+             <p v-else-if="!reservaFecha || !reservaHora" class="text-sm text-gray-400">Selecciona fecha y hora para verificar disponibilidad</p>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-email">
-                Email
-              </label>
-              <input
-                id="reserva-email"
-                v-model="reservaForm.email"
-                type="email"
-                placeholder="opcional"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-              />
-            </div>
+             <div class="flex justify-end gap-3">
+               <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="closeReservaModal">Cancelar</button>
+               <button
+                 type="button"
+                 :disabled="!reservaFecha || !reservaHora"
+                 class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
+                 @click="checkDisponibilidad"
+               >
+                 Verificar disponibilidad
+               </button>
+             </div>
+           </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate" for="reserva-comensales">
-                Comensales <span class="text-red-500">*</span>
-              </label>
-              <input
-                id="reserva-comensales"
-                v-model.number="reservaForm.comensales"
-                type="number"
-                min="1"
-                max="20"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-              />
-            </div>
+           <!-- Step 2: Form -->
+           <div v-else-if="reservaModalStep === 'form' && !reservaSuccess" class="space-y-4">
+             <p class="text-sm text-green-700">✅ Disponible — {{ reservaFecha }} {{ reservaHora }}</p>
 
-            <p v-if="reservaError" class="text-sm text-red-600">{{ reservaError }}</p>
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Nombre <span class="text-red-500">*</span></label>
+               <input v-model="reservaForm.nombre" type="text" required placeholder="Nombre del cliente"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+             </div>
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Teléfono <span class="text-red-500">*</span></label>
+               <input v-model="reservaForm.telefono" type="tel" required placeholder="Ej: 600123456"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+             </div>
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Email</label>
+               <input v-model="reservaForm.email" type="email" placeholder="opcional"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+             </div>
+             <div>
+               <label class="mb-1 block text-sm font-medium text-slate">Comensales</label>
+               <input v-model.number="reservaForm.comensales" type="number" min="1" max="20"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+             </div>
 
-            <div class="flex justify-end gap-3">
-              <button
-                type="button"
-                class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                @click="closeReservaModal"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                :disabled="reservaSaving || !reservaForm.nombre || !reservaForm.telefono"
-                class="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
-                @click="handleReservaSubmit"
-              >
-                {{ reservaSaving ? 'Creando...' : 'Crear reserva' }}
-              </button>
-            </div>
-          </div>
+             <p v-if="reservaError" class="text-sm text-red-600">{{ reservaError }}</p>
+
+             <div class="flex justify-end gap-3">
+               <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="volverDatetime">← Volver</button>
+               <button
+                 type="button"
+                 :disabled="reservaSaving || !reservaForm.nombre || !reservaForm.telefono"
+                 class="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                 @click="handleReservaSubmit"
+               >
+                 {{ reservaSaving ? 'Creando...' : 'Crear reserva' }}
+               </button>
+             </div>
+           </div>
 
           <!-- Success state -->
           <div v-else-if="reservaSuccess" class="space-y-4">
