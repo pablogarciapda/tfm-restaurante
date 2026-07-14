@@ -31,6 +31,8 @@ const props = defineProps<{
   uploading?: boolean
   saving?: boolean
   fontSize?: number
+  multiSelect?: boolean
+  multiSelectCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +46,7 @@ const emit = defineEmits<{
   clearWalls: []
   backgroundImageUploaded: [url: string]
   'font-size-change': [size: number]
+  'toggle-multi-select': []
 }>()
 
 const selectedForma = ref<FormaMesa>('rectangular')
@@ -220,6 +223,15 @@ const activeTurnoValue = computed({
           @click="canUnfuse && emit('unfuse')"
         >
           Desfusionar
+        </button>
+
+        <button
+          type="button"
+          class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+          :class="multiSelect ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-100'"
+          @click="emit('toggle-multi-select')"
+        >
+          {{ multiSelect ? `Selec. (${multiSelectCount ?? 0})` : 'Selec.' }}
         </button>
       </template>
     </div>

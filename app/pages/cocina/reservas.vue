@@ -663,7 +663,7 @@ onUnmounted(() => {
     />
 
     <!-- Sticky header: toolbar + zone tabs -->
-    <div class="sticky top-0 z-20 -mx-6 bg-cream/95 px-6 pb-2 pt-6 backdrop-blur-sm">
+    <div class="sticky top-0 z-20 -mx-6 bg-cream/95 px-6 pb-2 backdrop-blur-sm">
     <!-- Toolbar in operación mode -->
     <TableToolbar
       mode="operacion"
@@ -673,18 +673,13 @@ onUnmounted(() => {
       :can-unfuse="canUnfuse"
       :can-fusionar="canFusionar"
       :active-turno="store.activeTurno"
+      :multi-select="multiSelectMode"
+      :multi-select-count="selectedIds.length"
       @update:active-turno="(v: any) => store.activeTurno = v"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
+      @toggle-multi-select="toggleMultiSelect"
     />
-    <button
-      type="button"
-      class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-      :class="multiSelectMode ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-100'"
-      @click="toggleMultiSelect"
-    >
-      {{ multiSelectMode ? `Selec. (${selectedIds.length})` : 'Selec.' }}
-    </button>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
