@@ -61,7 +61,7 @@ const standbyReservations = ref<Array<{
 }>>([])
 
 // ── Multi-select helpers (Slice 4) ──
-function _toggleSelection(mesaId: string) {
+function toggleSelection(mesaId: string) {
   const idx = selectedIds.value.indexOf(mesaId)
   if (idx >= 0) {
     selectedIds.value.splice(idx, 1)
@@ -688,6 +688,7 @@ onUnmounted(() => {
         :zonas-config="zonasConfig"
         :design-mode="false"
         @table-click-reservation="openReservaModal"
+        @table-select="toggleSelection"
       />
     </div>
 

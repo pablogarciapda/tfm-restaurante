@@ -56,7 +56,19 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'table-click-reservation': [mesa: Mesa]
+  'table-select': [mesa: Mesa]
 }>()
+
+// Track keyboard state for multi-select
+const ctrlHeld = ref(false)
+
+if (import.meta.client) {
+  onMounted(() => {
+    window.addEventListener('keydown', (e) => { if (e.ctrlKey || e.metaKey) ctrlHeld.value = true })
+    window.addEventListener('keyup', () => { ctrlHeld.value = false })
+  })
+  onUnmounted(() => { ctrlHeld.value = false })
+}
 
 const BASE_WIDTH = 1200
 const BASE_HEIGHT = 800
@@ -334,9 +346,13 @@ function handleTableClick(mesa: Mesa) {
     store.selectMesa(mesa.id)
     updateTransformer()
   } else {
-    // Operación mode — open reservation modal
+    // Operación mode — Ctrl+Click=select for fusion, normal=reservation
     store.selectMesa(mesa.id)
-    emit('table-click-reservation', mesa)
+    if (ctrlHeld.value) {
+      emit('table-select', mesa)
+    } else {
+      emit('table-click-reservation', mesa)
+    }
   }
 }
 
