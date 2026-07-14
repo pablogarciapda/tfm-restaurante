@@ -156,10 +156,12 @@ const textWidth = computed(() => {
   return props.mesa.ancho
 })
 
-// Vertical center of the shape (accounts for shape type)
+// Vertical center of the shape relative to Group origin
+// Note: v-circle and v-ellipse are centered at (0,0) in the Group,
+//       so centerY = 0. For rects, the shape starts at (0,0).
 const centerY = computed(() => {
-  if (props.mesa.forma === 'redonda') return props.mesa.ancho / 2
-  if (props.mesa.forma === 'ovalada' || props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
+  if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') return 0
+  if (props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
   return props.mesa.alto / 2
 })
 
