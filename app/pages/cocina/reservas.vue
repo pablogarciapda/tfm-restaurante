@@ -215,6 +215,10 @@ function openReservaModal(mesa: Mesa) {
 function closeReservaModal() {
   reservaModalShow.value = false
   reservaModalMesa.value = null
+  reservaModalStep.value = 'datetime'
+  reservaSuccess.value = false
+  reservaError.value = ''
+  reservaDisponible.value = null
 }
 
 async function checkDisponibilidad() {
@@ -281,7 +285,7 @@ async function handleReservaSubmit() {
     )
 
     if (!result.success) {
-      reservaError.value = result.error || 'Error al crear la reserva'
+      reservaError.value = typeof result.error === 'string' ? result.error : 'Error al crear la reserva'
       return
     }
 
@@ -291,9 +295,13 @@ async function handleReservaSubmit() {
     }
 
     reservaSuccess.value = true
+    showToast('Reserva creada correctamente', 'success')
     await loadReservas()
+    // Auto-close after 3 seconds
+    setTimeout(() => closeReservaModal(), 3000)
   } catch (err: any) {
-    reservaError.value = err?.data?.error || err?.statusMessage || 'Error al crear la reserva'
+    const msg = err?.data?.error || err?.data?.statusMessage || err?.message || 'Error al crear la reserva'
+    reservaError.value = typeof msg === 'string' ? msg : String(msg)
   } finally {
     reservaSaving.value = false
   }
@@ -1230,7 +1238,7 @@ onUnmounted(() => {
              </div>
              <div>
                <label class="mb-1 block text-sm font-medium text-slate">Comensales</label>
-               <input v-model.number="reservaForm.comensales" type="number" min="1" max="20"
+               <input v-model.number="reservaForm.comensales" type="number" min="1" :max="reservaModalMesa?.capacidad_actual || 20"
                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
              </div>
 
