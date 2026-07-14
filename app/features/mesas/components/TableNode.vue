@@ -157,12 +157,18 @@ const textWidth = computed(() => {
 })
 
 // Vertical center of the shape relative to Group origin
-// Note: v-circle and v-ellipse are centered at (0,0) in the Group,
-//       so centerY = 0. For rects, the shape starts at (0,0).
 const centerY = computed(() => {
   if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') return 0
   if (props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
   return props.mesa.alto / 2
+})
+
+// Text X center position: differs by shape type
+// Circles/ellipses: center at Group origin → offset left to center text box
+// Rects: top-left at origin, full-width text box at x=0
+const textX = computed(() => {
+  if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') return -textWidth.value / 2
+  return 0
 })
 
 // Top text Y offset: center two-line block or single line for small tables
@@ -320,7 +326,7 @@ const groupConfig = computed(() => ({
     <!-- Mesa number — bold, centered, larger font -->
     <v-text
       :config="{
-        x: -textWidth / 2,
+        x: textX,
         y: textOffsetY,
         width: textWidth,
         align: 'center',
