@@ -116,8 +116,8 @@ function startEditMesa() {
 async function saveEditMesa() {
   const mesa = store.selectedMesa
   if (!mesa || editNumero.value == null || editCapacidad.value == null) return
-  if (editNumero.value < 1 || editCapacidad.value < 1) {
-    editError.value = 'Número y capacidad deben ser >= 1'
+  if (editNumero.value < 0 || editCapacidad.value < 1) {
+    editError.value = 'Número >= 0 y capacidad >= 1'
     return
   }
   await updateMesa(mesa.id, {
@@ -305,7 +305,7 @@ onUnmounted(() => {
       <label class="text-xs text-amber-700">
         Nº <input
           v-model.number="editNumero"
-          type="number" min="1" max="99"
+          type="number" min="0" max="99"
           class="ml-1 w-14 rounded border border-amber-300 px-1 py-0.5 text-xs"
           @focus="startEditMesa"
         />
