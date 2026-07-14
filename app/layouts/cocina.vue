@@ -25,7 +25,7 @@ function closeMobileMenu() {
     <!-- Overlay (mobile + reservas) -->
     <div
       v-if="showMobileMenu"
-      class="fixed inset-0 z-10 bg-black/30"
+      class="fixed inset-0 z-30 bg-black/30"
       :class="{ 'md:hidden': !hideSidebar }"
       @click="closeMobileMenu"
     />
@@ -35,9 +35,9 @@ function closeMobileMenu() {
       v-if="!hideSidebar || showMobileMenu"
       class="w-60 flex-shrink-0"
       :class="{
-        'max-md:fixed max-md:left-0 max-md:top-0 max-md:z-20 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200': !hideSidebar,
+        'max-md:fixed max-md:left-0 max-md:top-0 max-md:z-30 max-md:h-full max-md:-translate-x-full max-md:transition-transform max-md:duration-200': !hideSidebar,
         'max-md:translate-x-0': showMobileMenu,
-        'fixed left-0 top-0 z-20 h-full': hideSidebar && showMobileMenu,
+        'fixed left-0 top-0 z-30 h-full': hideSidebar && showMobileMenu,
       }"
     >
       <AdminSidebar @navigate="closeMobileMenu" />
