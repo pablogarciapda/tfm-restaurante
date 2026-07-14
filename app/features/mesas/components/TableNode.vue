@@ -42,6 +42,7 @@ const props = defineProps<{
   activeTurno?: TurnoFilter
   /** Bound function for Konva drag constraints (stage/zone limits) */
   dragBoundFunc?: (pos: { x: number; y: number }) => { x: number; y: number }
+  fontSize?: number
 }>()
 
 const emit = defineEmits<{
@@ -162,6 +163,11 @@ const centerY = computed(() => {
   if (props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
   return props.mesa.alto / 2
 })
+
+const baseFontSize = computed(() => props.fontSize ?? 14)
+const fontSizeNumero = computed(() => baseFontSize.value + 2)  // 16 default
+const fontSizePax = computed(() => baseFontSize.value - 3)     // 11 default
+const fontSizeLabel = computed(() => baseFontSize.value)       // 14 default
 
 // Text X center position: differs by shape type
 // Circles/ellipses: center at Group origin → offset left to center text box
@@ -313,7 +319,7 @@ const groupConfig = computed(() => ({
         x: turnLabelPos.x,
         y: turnLabelPos.y,
         text: turnLabel,
-        fontSize: 14,
+        fontSize: fontSizeLabel,
         fontStyle: 'bold',
         fontFamily: 'Inter, sans-serif',
         fill: '#FFFFFF',
@@ -332,7 +338,7 @@ const groupConfig = computed(() => ({
         align: 'center',
         verticalAlign: 'middle',
         text: displayNumber,
-        fontSize: 16,
+        fontSize: fontSizeNumero,
         fontStyle: 'bold',
         fontFamily: 'Inter, sans-serif',
         fill: '#2D3748',
@@ -350,7 +356,7 @@ const groupConfig = computed(() => ({
         align: 'center',
         verticalAlign: 'middle',
         text: bottomText,
-        fontSize: 11,
+        fontSize: fontSizePax,
         fontFamily: 'Inter, sans-serif',
         fill: '#4A5568',
         listening: false,

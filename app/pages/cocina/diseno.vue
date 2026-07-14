@@ -285,12 +285,14 @@ onUnmounted(() => {
       :wall-lines-count="store.wallLines.length"
       :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
       :saving="saving"
+      :font-size="store.fontSize"
       @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
       @toggle-drawing="store.toggleDrawing()"
       @clear-walls="store.clearWallLines()"
       @background-image-uploaded="handleBackgroundImageUpload"
+      @font-size-change="(size: number) => store.fontSize = size"
     />
 
     <!-- Edit panel for selected mesa -->
@@ -380,6 +382,7 @@ onUnmounted(() => {
         :zonas-config="zonasConfig"
         :design-mode="true"
         :single-zone="true"
+        :font-size="store.fontSize"
       />
     </div>
 

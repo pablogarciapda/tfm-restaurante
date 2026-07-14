@@ -51,6 +51,7 @@ const props = defineProps<{
   designMode?: boolean
   /** Single zone mode: active zone fills the full stage (used in design page) */
   singleZone?: boolean
+  fontSize?: number
 }>()
 
 const emit = defineEmits<{
@@ -593,6 +594,7 @@ defineExpose({ getMesaPositions })
           :fusion-label="fusionLabels?.[mesa.id]"
           :turno-status="mesaTurnoStatus[mesa.id]"
           :active-turno="store.activeTurno"
+          :font-size="fontSize"
           :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
           @dragstart="designMode === true && handleDragStart(mesa)"

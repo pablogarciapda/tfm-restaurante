@@ -30,6 +30,7 @@ const props = defineProps<{
   activeZona?: string
   uploading?: boolean
   saving?: boolean
+  fontSize?: number
 }>()
 
 const emit = defineEmits<{
@@ -42,6 +43,7 @@ const emit = defineEmits<{
   toggleDrawing: []
   clearWalls: []
   backgroundImageUploaded: [url: string]
+  'font-size-change': [size: number]
 }>()
 
 const selectedForma = ref<FormaMesa>('rectangular')
@@ -116,6 +118,17 @@ const activeTurnoValue = computed({
         >
           Eliminar
         </button>
+
+        <div class="flex items-center gap-1">
+          <label class="text-xs text-gray-500">Texto</label>
+          <select
+            :value="fontSize"
+            class="rounded border border-gray-300 px-1 py-1.5 text-xs"
+            @change="emit('font-size-change', Number(($event.target as HTMLSelectElement).value))"
+          >
+            <option v-for="s in [10,11,12,13,14,16,18,20,22,24]" :key="s" :value="s">{{ s }}px</option>
+          </select>
+        </div>
 
         <button
           class="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500/50 disabled:opacity-50"

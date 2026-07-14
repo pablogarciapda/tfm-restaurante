@@ -34,6 +34,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   const straightLine = ref(false)
   /** Wall/pencil lines drawn on canvas */
   const wallLines = ref<Array<{ points: number[] }>>([])
+  /** Font size for table text (number + capacity) */
+  const fontSize = ref(14)
 
   // ── Getters ──
 
@@ -140,6 +142,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     isDrawing,
     straightLine,
     wallLines,
+    fontSize,
     // Getters
     selectedMesa,
     mesasByZona,
