@@ -625,6 +625,10 @@ onMounted(async () => {
   await refreshStandbyReservations()
   await loadReservas()
   await loadZonasConfig()
+  // Default to first enabled zone
+  if (!store.activeZona && zonasConfig.value.length > 0) {
+    store.activeZona = zonasConfig.value[0]!.nombre
+  }
 })
 
 onUnmounted(() => {
