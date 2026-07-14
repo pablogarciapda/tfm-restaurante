@@ -715,6 +715,7 @@ onUnmounted(() => {
         :horarios-config="horariosConfig"
         :zonas-config="zonasConfig"
         :design-mode="false"
+        :selected-ids="selectedIds"
         @table-click-reservation="handleTableClickWithMode"
       />
     </div>

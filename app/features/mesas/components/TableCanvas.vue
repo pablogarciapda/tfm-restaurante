@@ -52,6 +52,7 @@ const props = defineProps<{
   /** Single zone mode: active zone fills the full stage (used in design page) */
   singleZone?: boolean
   fontSize?: number
+  selectedIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -581,7 +582,7 @@ defineExpose({ getMesaPositions })
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
-          :selected="store.selectedMesaId === mesa.id"
+          :selected="store.selectedMesaId === mesa.id || (selectedIds?.includes(mesa.id) ?? false)"
           :design-mode="designMode === true"
           :reservas-map="reservasMap"
           :fusion-label="fusionLabels?.[mesa.id]"
