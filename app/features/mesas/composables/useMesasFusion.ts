@@ -15,7 +15,7 @@ import {
   unfuseTables as pureUnfuseTables,
   getAforoDisponible,
 } from '#shared/utils/fusion-math'
-import type { Mesa } from '#shared/contracts/mesas.contract'
+import type { Mesa, CocinaRole, AforoOverflowCheck } from '#shared/contracts/mesas.contract'
 
 // ── Types ──
 
@@ -306,7 +306,8 @@ export function useMesasFusion() {
   function checkAforoOverflow(
     addedCapacity: number,
     capacidadTotal: number,
-  ): { wouldOverflow: boolean; disponible: number } {
+    role: CocinaRole,
+  ): AforoOverflowCheck {
     const disponible = getAforoDisponible(
       store.mesas,
       capacidadTotal,
@@ -314,9 +315,16 @@ export function useMesasFusion() {
       0,
     )
 
-    const wouldOverflow = addedCapacity > disponible
+    const overflow = addedCapacity > disponible
+    const projected = capacidadTotal - disponible + addedCapacity
 
-    return { wouldOverflow, disponible }
+    return {
+      overflow,
+      blocked: overflow && role !== 'admin',
+      needsOverride: overflow && role === 'admin',
+      disponible,
+      projected,
+    }
   }
 
   return {

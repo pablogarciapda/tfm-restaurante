@@ -60,4 +60,23 @@ export interface AforoInfo {
   ocupacion_manual: number
   /** Available spots: capacidad_total - (auto or manual) */
   disponible: number
+  /** MFU-008: explicit overflow flag set when an admin forces an operation past capacity */
+  overflow?: boolean
+}
+
+/** User role for role-gated operations (AD-09) */
+export type CocinaRole = 'admin' | 'editor'
+
+/** Role-gated aforo overflow check result (MFU-007 / MFU-008) */
+export interface AforoOverflowCheck {
+  /** True when addedCapacity exceeds disponible */
+  overflow: boolean
+  /** True for editor role when overflow — operation must be blocked */
+  blocked: boolean
+  /** True for admin role when overflow — UI must show "Forzar" confirm dialog */
+  needsOverride: boolean
+  /** Available spots before the operation */
+  disponible: number
+  /** Projected ocupacion after the operation (current + added) */
+  projected: number
 }

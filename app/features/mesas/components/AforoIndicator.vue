@@ -27,12 +27,19 @@ const ocupacion = computed(() => {
     : props.aforoInfo.ocupacion_auto
 })
 
+/** MFU-008: overflow when explicit flag set OR ocupacion exceeds capacidad_total */
+const overflow = computed(() => {
+  return props.aforoInfo.overflow === true
+    || ocupacion.value > props.aforoInfo.capacidad_total
+})
+
 const porcentaje = computed(() => {
   if (props.aforoInfo.capacidad_total === 0) return 0
   return Math.min(100, (ocupacion.value / props.aforoInfo.capacidad_total) * 100)
 })
 
 const barColor = computed(() => {
+  if (overflow.value) return 'bg-red-600'
   if (porcentaje.value > 90) return 'bg-red-500'
   if (porcentaje.value > 70) return 'bg-yellow-500'
   return 'bg-green-500'

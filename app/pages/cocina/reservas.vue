@@ -18,9 +18,10 @@ import StandbyBanner from '../../features/mesas/components/StandbyBanner.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
-import { getAforoDisponible } from '#shared/utils/fusion-math'
-import type { AforoInfo, Mesa } from '#shared/contracts/mesas.contract'
-import type { HorarioConfig } from '#shared/contracts/reservation.contract'
+import { getAforoDisponible, calculateFusedCapacity } from '#shared/utils/fusion-math'
+import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
+import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
+import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
@@ -39,6 +40,7 @@ const {
   moveReservationsToStandby,
   getStandbyReservations,
   reassignStandbyReservation,
+  checkAforoOverflow,
 } = useMesasFusion()
 
 // ── Fusion state ──
@@ -163,8 +165,64 @@ const aforoInfo = computed<AforoInfo>(() => {
     ocupacion_auto: ocupacionAuto,
     ocupacion_manual: ocupacionManual.value,
     disponible,
+    overflow: aforoOverflowFlag.value || ocupacionAuto > capacidadTotal.value,
   }
 })
+
+// ── MFU-007 / MFU-008: aforo overflow role-gated enforcement ──
+
+/** Set to true when an admin forces an operation past capacity — drives the red bar */
+const aforoOverflowFlag = ref(false)
+const aforoOverflowDialogShow = ref(false)
+const aforoOverflowProjected = ref(0)
+const aforoOverflowConfirmCb = ref<(() => Promise<void>) | null>(null)
+const aforoOverflowToast = ref<string | null>(null)
+
+function showAforoToast(msg: string) {
+  aforoOverflowToast.value = msg
+  setTimeout(() => { aforoOverflowToast.value = null }, 3000)
+}
+
+/**
+ * guardAforo — role-gated gate before any operation that adds aforo.
+ * Editor + overflow → toast + block.
+ * Admin + overflow → "Forzar / Cancelar" confirm dialog.
+ * No overflow → proceeds directly.
+ */
+async function guardAforo(addedCapacity: number, onProceed: () => Promise<void>) {
+  const role = (useState<string>('cocina-role').value ?? 'editor') as CocinaRole
+  const check = checkAforoOverflow(addedCapacity, capacidadTotal.value, role)
+
+  if (!check.overflow) {
+    await onProceed()
+    return
+  }
+
+  if (check.blocked) {
+    showAforoToast('Aforo completo. Libere mesas primero.')
+    return
+  }
+
+  // Admin override path (MFU-008)
+  aforoOverflowProjected.value = check.projected
+  aforoOverflowConfirmCb.value = onProceed
+  aforoOverflowDialogShow.value = true
+}
+
+async function handleAforoForce() {
+  aforoOverflowDialogShow.value = false
+  const cb = aforoOverflowConfirmCb.value
+  aforoOverflowConfirmCb.value = null
+  if (cb) {
+    await cb()
+    aforoOverflowFlag.value = true
+  }
+}
+
+function handleAforoCancel() {
+  aforoOverflowDialogShow.value = false
+  aforoOverflowConfirmCb.value = null
+}
 
 // ── Permissions ──
 
@@ -314,10 +372,19 @@ async function handleReservaSubmit() {
 // ── Fusion event handlers (Slice 4) ──
 
 async function handleFuse() {
-  const result = await fuseMesas(selectedIds.value)
-  if (!result.success && result.error) {
-    console.warn(result.error)
-  }
+  const ids = [...selectedIds.value]
+  const selected = selectedMesas()
+  // Capacity that will become the new root after fusion (treated as added aforo for the gate)
+  const addedCapacity = selected.length >= 2
+    ? calculateFusedCapacity(selected)
+    : 0
+
+  await guardAforo(addedCapacity, async () => {
+    const result = await fuseMesas(ids)
+    if (!result.success && result.error) {
+      console.warn(result.error)
+    }
+  })
   selectedIds.value = []
 }
 
@@ -393,13 +460,16 @@ async function loadConfiguracion() {
   try {
     const { data, error } = await client
       .from('configuracion')
-      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual, horarios_config, zonas_config')
+      .select('modo_ocupacion, ocupacion_manual, horarios_config, zonas_config')
       .single()
 
     if (error) throw error
 
     if (data) {
-      capacidadTotal.value = data.capacidad_total_local ?? 80
+      // MFU-007/008: capacity ceiling MUST come from zonas_config (enabled zones sum),
+      // NOT the deprecated configuracion.capacidad_total_local column (AGENTS.md §4).
+      const zonasTotal = capacidadFromZonas(data.zonas_config as ZonaConfig[] | null)
+      capacidadTotal.value = zonasTotal > 0 ? zonasTotal : 80
       modoOcupacion.value = (data.modo_ocupacion ?? 'auto') as 'auto' | 'manual'
       ocupacionManual.value = data.ocupacion_manual ?? 0
       horariosConfig.value = (data.horarios_config as HorarioConfig) ?? null
@@ -1349,6 +1419,51 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- MFU-008: Aforo overflow admin override dialog -->
+    <div
+      v-if="aforoOverflowDialogShow"
+      data-testid="aforo-overflow-dialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      @click.self="handleAforoCancel"
+    >
+      <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 class="mb-2 text-lg font-bold text-red-700">Aforo excedido</h3>
+        <p class="mb-4 text-sm text-slate">
+          Aforo excedido. La capacidad del local está superada.
+        </p>
+        <p class="mb-4 text-xs text-gray-500">
+          Ocupación proyectada: {{ aforoOverflowProjected }} plazas
+        </p>
+        <div class="flex justify-end gap-3">
+          <button
+            type="button"
+            data-testid="aforo-overflow-cancel"
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            @click="handleAforoCancel"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            data-testid="aforo-overflow-force"
+            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            @click="handleAforoForce"
+          >
+            Forzar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MFU-007: editor-blocked toast -->
+    <div
+      v-if="aforoOverflowToast"
+      data-testid="aforo-overflow-toast"
+      class="fixed right-4 top-4 z-50 rounded-lg bg-red-600 px-4 py-3 text-sm font-medium text-white shadow-lg"
+    >
+      {{ aforoOverflowToast }}
     </div>
   </div>
 </template>

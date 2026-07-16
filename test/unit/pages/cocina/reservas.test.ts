@@ -85,6 +85,13 @@ const mockFuseMesas = vi.fn().mockResolvedValue({ success: true, id_fusion: 'f1'
 const mockUnfuseMesas = vi.fn().mockResolvedValue({ success: true, hasReservations: false })
 const mockGetStandbyReservations = vi.fn().mockResolvedValue([])
 const mockReassignStandbyReservation = vi.fn().mockResolvedValue({ success: true })
+const mockCheckAforoOverflow = vi.fn().mockReturnValue({
+  overflow: false,
+  blocked: false,
+  needsOverride: false,
+  disponible: 80,
+  projected: 0,
+})
 vi.mock('../../../../app/features/mesas/composables/useMesasFusion', () => ({
   useMesasFusion: () => ({
     fuseMesas: mockFuseMesas,
@@ -93,6 +100,7 @@ vi.mock('../../../../app/features/mesas/composables/useMesasFusion', () => ({
     moveReservationsToStandby: vi.fn().mockResolvedValue({ success: true }),
     getStandbyReservations: mockGetStandbyReservations,
     reassignStandbyReservation: mockReassignStandbyReservation,
+    checkAforoOverflow: mockCheckAforoOverflow,
   }),
 }))
 
@@ -195,6 +203,33 @@ describe('/cocina/reservas — table manager page', () => {
     expect(props.aforoInfo.modo).toBe('auto')
   })
 
+  it('MFU-007/008: capacidad_total is derived from zonas_config enabled zones, NOT capacidad_total_local', async () => {
+    // zonas_config sum of enabled = 70 + 14 + 60 = 144 (disabled zone excluded)
+    // deprecated capacidad_total_local = 999 — must be ignored
+    g.useSupabaseClient = () => makeSupabaseClient({
+      configData: {
+        capacidad_total_local: 999,
+        modo_ocupacion: 'auto',
+        ocupacion_manual: 0,
+        horarios_config: null,
+        zonas_config: [
+          { id: 'z1', nombre: 'Principal', capacidad: 70, enabled: true },
+          { id: 'z2', nombre: 'Reservado', capacidad: 14, enabled: true },
+          { id: 'z3', nombre: 'Zíngaro', capacidad: 60, enabled: true },
+          { id: 'z4', nombre: 'Bar', capacidad: 20, enabled: false },
+        ],
+      },
+    })
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    const props = toolbar.props()
+    expect(props.aforoInfo.capacidad_total).toBe(144)
+    expect(props.aforoInfo.capacidad_total).not.toBe(999)
+  })
+
   it('passes selectedMesa prop to toolbar (null when nothing selected)', async () => {
     const wrapper = await mountPage()
     const toolbar = wrapper.findComponent(TableToolbarStub)
@@ -236,15 +271,22 @@ describe('/cocina/reservas — table manager page', () => {
 
   // ── Fix 3: capacidadTotal from configuracion DB ──
 
-  it('fetches configuracion from DB on mount and uses capacidad_total_local', async () => {
-    // Setup mock to return specific config
+  it('fetches configuracion from DB on mount and derives capacidad_total from zonas_config', async () => {
+    // MFU-007/008: capacity ceiling MUST come from enabled zonas_config sum,
+    // NOT the deprecated configuracion.capacidad_total_local column (AGENTS.md §4).
     g.useSupabaseClient = () => makeSupabaseClient({
       configData: {
         id: 'cfg-1',
         cliente_elige_mesa: false,
-        capacidad_total_local: 120,
+        capacidad_total_local: 999, // deprecated — must be ignored
         modo_ocupacion: 'manual',
         ocupacion_manual: 45,
+        zonas_config: [
+          { id: 'z1', nombre: 'Principal', capacidad: 70, enabled: true },
+          { id: 'z2', nombre: 'Reservado', capacidad: 14, enabled: true },
+          { id: 'z3', nombre: 'Bar', capacidad: 36, enabled: true },
+          { id: 'z4', nombre: 'Patio', capacidad: 200, enabled: false },
+        ],
       },
     })
 
@@ -253,7 +295,7 @@ describe('/cocina/reservas — table manager page', () => {
 
     const toolbar = wrapper.findComponent(TableToolbarStub)
     const props = toolbar.props()
-    expect(props.aforoInfo.capacidad_total).toBe(120)
+    expect(props.aforoInfo.capacidad_total).toBe(120) // 70 + 14 + 36
     expect(props.aforoInfo.modo).toBe('manual')
     expect(props.aforoInfo.ocupacion_manual).toBe(45)
   })
@@ -339,5 +381,136 @@ describe('/cocina/reservas — table manager page', () => {
 
     // No libre mesa → reassign should NOT be called
     expect(mockReassignStandbyReservation).not.toHaveBeenCalled()
+  })
+
+  // ── MFU-007 / MFU-008: aforo overflow role-gated enforcement ──
+
+  it('MFU-007: editor overflow → toast shown, fuseMesas NOT called', async () => {
+    roleRef.value = 'editor'
+    mockCheckAforoOverflow.mockReturnValue({
+      overflow: true,
+      blocked: true,
+      needsOverride: false,
+      disponible: 1,
+      projected: 33,
+    })
+    mockFuseMesas.mockClear()
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('fuse')
+
+    expect(mockCheckAforoOverflow).toHaveBeenCalled()
+    expect(mockFuseMesas).not.toHaveBeenCalled()
+    // Toast must be visible with the exact editor-blocked message
+    const toast = wrapper.find('[data-testid="aforo-overflow-toast"]')
+    expect(toast.exists()).toBe(true)
+    expect(toast.text()).toContain('Aforo completo. Libere mesas primero.')
+  })
+
+  it('MFU-008: admin overflow → dialog shown, fuseMesas NOT called until confirmation', async () => {
+    roleRef.value = 'admin'
+    mockCheckAforoOverflow.mockReturnValue({
+      overflow: true,
+      blocked: false,
+      needsOverride: true,
+      disponible: 1,
+      projected: 33,
+    })
+    mockFuseMesas.mockClear()
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('fuse')
+
+    // Dialog should be shown, fuse NOT yet called
+    const dialog = wrapper.find('[data-testid="aforo-overflow-dialog"]')
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.text()).toContain('Aforo excedido')
+    expect(mockFuseMesas).not.toHaveBeenCalled()
+  })
+
+  it('MFU-008: admin "Forzar" → fuseMesas called, aforo bar overflow flag set', async () => {
+    roleRef.value = 'admin'
+    mockCheckAforoOverflow.mockReturnValue({
+      overflow: true,
+      blocked: false,
+      needsOverride: true,
+      disponible: 1,
+      projected: 33,
+    })
+    mockFuseMesas.mockClear()
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('fuse')
+
+    expect(mockFuseMesas).not.toHaveBeenCalled()
+
+    // Click "Forzar"
+    const forceBtn = wrapper.find('[data-testid="aforo-overflow-force"]')
+    expect(forceBtn.exists()).toBe(true)
+    await forceBtn.trigger('click')
+    await flushPromises()
+
+    expect(mockFuseMesas).toHaveBeenCalled()
+    // AforoInfo must carry overflow=true so AforoIndicator renders red
+    const toolbar2 = wrapper.findComponent(TableToolbarStub)
+    expect(toolbar2.props('aforoInfo').overflow).toBe(true)
+  })
+
+  it('MFU-008: admin "Cancelar" → fuseMesas NOT called, dialog closed', async () => {
+    roleRef.value = 'admin'
+    mockCheckAforoOverflow.mockReturnValue({
+      overflow: true,
+      blocked: false,
+      needsOverride: true,
+      disponible: 1,
+      projected: 33,
+    })
+    mockFuseMesas.mockClear()
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('fuse')
+
+    const cancelBtn = wrapper.find('[data-testid="aforo-overflow-cancel"]')
+    expect(cancelBtn.exists()).toBe(true)
+    await cancelBtn.trigger('click')
+    await flushPromises()
+
+    expect(mockFuseMesas).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="aforo-overflow-dialog"]').exists()).toBe(false)
+  })
+
+  it('MFU-007/008: no overflow → proceeds directly without dialog or toast', async () => {
+    roleRef.value = 'editor'
+    mockCheckAforoOverflow.mockReturnValue({
+      overflow: false,
+      blocked: false,
+      needsOverride: false,
+      disponible: 76,
+      projected: 4,
+    })
+    mockFuseMesas.mockClear()
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const toolbar = wrapper.findComponent(TableToolbarStub)
+    await toolbar.vm.$emit('fuse')
+    await flushPromises()
+
+    expect(mockFuseMesas).toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="aforo-overflow-dialog"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="aforo-overflow-toast"]').exists()).toBe(false)
   })
 })

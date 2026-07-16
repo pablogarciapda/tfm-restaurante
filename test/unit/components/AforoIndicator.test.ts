@@ -273,4 +273,39 @@ describe('AforoIndicator', () => {
     // Should render without crashing
     expect(wrapper.text()).toContain('0 / 0 plazas')
   })
+
+  // ── MFU-008: overflow flag forces red bar ──
+
+  it('renders red-600 overflow bar when aforoInfo.overflow=true', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        aforoInfo: makeAforoInfo({
+          capacidad_total: 30,
+          ocupacion_auto: 29,
+          disponible: 1,
+          overflow: true,
+        }),
+      },
+    })
+
+    // overflow bar uses bg-red-600 (distinct from the normal >90% bg-red-500)
+    const overflowBar = wrapper.find('.bg-red-600')
+    expect(overflowBar.exists()).toBe(true)
+  })
+
+  it('renders red-600 overflow bar when ocupacion exceeds capacidad_total', async () => {
+    const comp = await loadComponent()
+    const wrapper = mount(comp, {
+      props: {
+        aforoInfo: makeAforoInfo({
+          capacidad_total: 30,
+          ocupacion_auto: 33, // > capacidad
+          disponible: -3,
+        }),
+      },
+    })
+
+    expect(wrapper.find('.bg-red-600').exists()).toBe(true)
+  })
 })

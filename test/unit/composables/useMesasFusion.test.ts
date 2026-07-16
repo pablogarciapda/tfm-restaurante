@@ -547,3 +547,94 @@ describe('useMesasFusion — reassignStandbyReservation', () => {
     expect(result.error).toBe('DB error')
   })
 })
+
+// ============================================================================
+// useMesasFusion — checkAforoOverflow (MFU-007 / MFU-008 — role-gated)
+// ============================================================================
+
+describe('useMesasFusion — checkAforoOverflow (MFU-007 / MFU-008)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('no overflow → not blocked, no override needed', async () => {
+    // capacidad=30, ocupacion=4, disponible=26, added=2 → projected=6
+    const { useCanvasStore } = await import('../../../app/features/mesas/stores/canvas-store')
+    const store = useCanvasStore()
+    store.setMesas([makeMesa({ id: 'r1', capacidad_base: 4, capacidad_actual: 4, mesa_padre_id: null })])
+
+    const g = globalThis as Record<string, unknown>
+    g.useSupabaseClient = () => makeMockClient()
+
+    const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
+    const { checkAforoOverflow } = useMesasFusion()
+
+    const result = checkAforoOverflow(2, 30, 'editor')
+
+    expect(result.overflow).toBe(false)
+    expect(result.blocked).toBe(false)
+    expect(result.needsOverride).toBe(false)
+    expect(result.disponible).toBe(26)
+    expect(result.projected).toBe(6)
+  })
+
+  it('editor + overflow → blocked, no override', async () => {
+    // capacidad=30, ocupacion=29, disponible=1, added=4 → projected=33 overflow
+    const { useCanvasStore } = await import('../../../app/features/mesas/stores/canvas-store')
+    const store = useCanvasStore()
+    store.setMesas([makeMesa({ id: 'r1', capacidad_base: 29, capacidad_actual: 29, mesa_padre_id: null })])
+
+    const g = globalThis as Record<string, unknown>
+    g.useSupabaseClient = () => makeMockClient()
+
+    const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
+    const { checkAforoOverflow } = useMesasFusion()
+
+    const result = checkAforoOverflow(4, 30, 'editor')
+
+    expect(result.overflow).toBe(true)
+    expect(result.blocked).toBe(true)
+    expect(result.needsOverride).toBe(false)
+    expect(result.projected).toBe(33)
+  })
+
+  it('admin + overflow → not blocked, needs override', async () => {
+    const { useCanvasStore } = await import('../../../app/features/mesas/stores/canvas-store')
+    const store = useCanvasStore()
+    store.setMesas([makeMesa({ id: 'r1', capacidad_base: 29, capacidad_actual: 29, mesa_padre_id: null })])
+
+    const g = globalThis as Record<string, unknown>
+    g.useSupabaseClient = () => makeMockClient()
+
+    const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
+    const { checkAforoOverflow } = useMesasFusion()
+
+    const result = checkAforoOverflow(4, 30, 'admin')
+
+    expect(result.overflow).toBe(true)
+    expect(result.blocked).toBe(false)
+    expect(result.needsOverride).toBe(true)
+    expect(result.projected).toBe(33)
+  })
+
+  it('editor no overflow → proceeds (blocked=false, needsOverride=false)', async () => {
+    const { useCanvasStore } = await import('../../../app/features/mesas/stores/canvas-store')
+    const store = useCanvasStore()
+    store.setMesas([makeMesa({ id: 'r1', capacidad_base: 4, capacidad_actual: 4, mesa_padre_id: null })])
+
+    const g = globalThis as Record<string, unknown>
+    g.useSupabaseClient = () => makeMockClient()
+
+    const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
+    const { checkAforoOverflow } = useMesasFusion()
+
+    const result = checkAforoOverflow(4, 80, 'editor')
+    expect(result.overflow).toBe(false)
+    expect(result.blocked).toBe(false)
+    expect(result.needsOverride).toBe(false)
+  })
+})
