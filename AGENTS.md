@@ -281,7 +281,7 @@
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 - **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
-- **Reservas Admin:** Lista de reservas con filtro por fecha + modal de reasignación (cambiar zona/mesa en una reserva existente con motivo obligatorio) + modal de confirmación de reservas pendientes con notificación configurable.
+- **Reservas Admin:** Lista de reservas con filtro por fecha + modal de reasignar (cambiar zona/mesa en una reserva existente con motivo obligatorio) + modal de confirmar reservas pendientes con notificación configurable. **Reservas pasadas** bloqueadas para Editar/Cancelar/Reasignar. **Bypass SMS/CAPTCHA** para reservas creadas desde panel (flag `admin_created`).
 
 ## 7. Roadmap / MVP — Estado Actual
 
@@ -289,7 +289,7 @@
 |------|--------|-------------|
 | **Fase 1 — MVP Usuario** | ✅ **Completado** | Maquetación frontend pública, SEO local, carta/menú dinámicos, reservas por formulario, eventos, contacto |
 | **Fase 2 — Panel & Auth** | ✅ **Completado** | Ruta `/cocina`, Supabase Auth, CRUDs platos/eventos/usuarios, configuración del sistema con notificaciones, sticky layout, categorías reales, sección recomendados configurable |
-| **Fase 3 — Motor de Mesas** | 🔄 **En Progreso (Parcial)** | Plano Konva.js (TableCanvas, TableToolbar), formas de mesa, fusión lógica con FusionConfirmDialog, StandbyBanner para reservas standby, AforoIndicator, sincronización Realtime, filtro por zonas |
+| **Fase 3 — Motor de Mesas** | ✅ **Completado** | Plano Konva.js (TableCanvas, TableToolbar), formas de mesa, fusión lógica con FusionConfirmDialog, StandbyBanner para reservas standby, AforoIndicator, sincronización Realtime, filtro por zonas |
 
 ### Detalle de lo completado en Fase 2
 
@@ -336,6 +336,22 @@
 - **Configuración restauante multi-tenant:** Sección "Datos del Restaurante" en Configuración con nombre, dirección, teléfono, URL mapa, email, Instagram, Facebook, logo, site_url, población. Todos configurables y persistidos en `configuracion` row.
 - **HTTP security headers:** Cabeceras de seguridad vía Nitro hook en `server/plugins/security-headers.ts`.
 
+### Detalle de lo completado en Fase 3 — Motor de Mesas
+
+- **Página `/cocina/diseno` (nueva):** Editor de plano modo diseño — pestañas por zona, formas de mesa, texto/capacidad, dibujo de líneas, imagen de fondo por zona, zoom, guardar posiciones con feedback.
+- **Página `/cocina/reservas` (overhaul):** Modo operación — canvas interactivo Konva.js, multi-selección, fusión/desfusión, reservas desde panel, listado con columna Mesa, modal reasignar, filtro por defecto desde hoy.
+- **Canvas Konva.js:** Formas cuadrada (default), redonda, rectangular, ovalada. Texto centrado con selector de tamaño (10-24px). Hover tooltip con datos completos (pointer-events-none). Turnos M/T siempre visibles. Imagen de fondo por zona con zoom (− + ↺) y borrado. Dibujo de líneas (rectas y libres) en modo diseño. Drag/Resize funcional sin ghost table (mutación in-place + Object.assign en store). Transformer de Konva para Rect, Circle y Ellipse.
+- **Fusión de mesas:** Juntar mesas visualmente, capacidad recalculada (`shared/utils/fusion-math.ts`), grupo unificado. Multi-selección: Shift+Click → botón "Selec." en toolbar.
+- **MCA-005 — Estado de mesas:** Derivado de reservas — Libre #22C55E / Ocupada #EF4444 (confirmada, turno actual) / Reservada #F59E0B (pendiente, futura). Pure helper `shared/utils/mesa-estado.ts` + Realtime refresh.
+- **MFU-007 — Editor blocked al superar aforo:** Toast "Aforo completo. Libere mesas primero."
+- **MFU-008 — Admin override:** Warning "Aforo excedido..." + "Cancelar"/"Forzar", barra aforo en rojo al superar capacidad.
+- **CFG-004/005 — Aforo del local:** Sección "Aforo del local" + radio Modo de ocupación (Automático/Manual) + input ocupacion_manual. Aforo respeta modo (Auto=SUM mesas, Manual=override).
+- **Reservas pasadas:** Bloquear Editar/Cancelar/Reasignar en reservas anteriores a hoy (`shared/utils/reserva-fecha.ts`).
+- **Canvas scroll:** Contenedor con overflow-auto (max-h-[600px]), `updateCanvasSize` adapta altura a mesas filtradas.
+- **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
+- **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado.
+- **Tests:** 917 passed (+62 tests nuevos desde inicio de Fase 3). 0 unit failures. 2 nuxt smoke pre-existing.
+
 ## 8. Reglas para agentes IA
 
 - **Idioma de artefactos técnicos:** inglés por defecto (código, identificadores, comments). UI copy en español (es-ES, neutro) salvo指示 explícito.
@@ -361,7 +377,7 @@ tfm-restaurant/
 │   ├── layouts/               # Layouts Nuxt
 │   ├── middleware/             # Protección rutas admin
 │   ├── pages/                 # 7 páginas (ver rutas sección 5)
-│   │   └── cocina/            # 9 páginas admin
+│   │   └── cocina/            # 10 páginas admin
 │   ├── plugins/               # Plugins Nuxt (Supabase, Konva, etc.)
 │   ├── stores/                # Pinia stores
 │   ├── types/                 # database.types.ts (generado desde Supabase)
@@ -397,7 +413,7 @@ tfm-restaurant/
 │   ├── db/                    # Acceso a base de datos (compartido)
 │   ├── fixtures/              # Datos de prueba
 │   ├── types/                 # Tipos compartidos
-│   └── utils/                 # phone.ts, slots.ts, fusion-math.ts, referencia.ts
+│   └── utils/                 # phone.ts, slots.ts, fusion-math.ts, referencia.ts, mesa-estado.ts, capacidad-from-zonas.ts, reserva-fecha.ts
 ├── test/                      # Tests
 │   ├── __fixtures__/          # Fixtures de prueba
 │   ├── e2e/                   # Tests Playwright
@@ -444,6 +460,7 @@ tfm-restaurant/
 | `ReservationForm` | Formulario reservas con slot grid + selector zona/mesa |
 | `SectionDivider` | Divisor de secciones |
 | `SmsVerificationStep` | Paso verificación SMS |
+| `TableTooltip` | Tooltip hover mesas en canvas (nuevo Fase 3) |
 | `UsuarioForm` | CRUD formulario usuarios |
 | `UsuariosTable` | Tabla usuarios admin |
 
@@ -486,3 +503,9 @@ tfm-restaurant/
 | **Plato familia/subcategoría** | Vinos y postres necesitaban agrupación secundaria | Tabla `familias` con FK → categorias. `platos.familia_id`. FamilySelector como segundo scroll horizontal. PlatoForm carga familias por categoría |
 | **Agotado en menú diario** | Admin necesita marcar platos no disponibles en el día sin borrarlos | Columna `agotado` en menu_diario_items. Toggle visual en vivo desde admin. Realtime actualiza front público (tachado + indicador rojo) |
 | **HTTP security headers** | Cabeceras de seguridad faltantes (X-Frame-Options, CSP, etc.) | Nitro hook en `server/plugins/security-headers.ts` que añade headers a todas las respuestas |
+| **Mesa estado derived** | Colores hardcoded en componentes | Pure helper `shared/utils/mesa-estado.ts` con `calcularEstadoMesa(mesaId, reservas, ctx)`. TableCanvas.vue lo wirea via computed reactivo. Libre #22C55E / Ocupada #EF4444 / Reservada #F59E0B |
+| **Aforo overflow role-gated** | Sin límite de aforo en fusión | `useMesasFusion.checkAforoOverflow` — editor blocked (toast), admin override ("Forzar" dialog). AforoIndicator rojo en overflow |
+| **Reservas pasadas** | Botones activos en reservas anteriores | `shared/utils/reserva-fecha.ts` — `esReservaPasada()` bloquea Editar/Cancelar/Reasignar |
+| **Canvas scroll** | Mesas clipped sin scroll | Contenedor `max-h-[600px] overflow-auto`, `updateCanvasSize` adapta altura a mesas filtradas |
+| **Admin reservation bypass** | SMS/CAPTCHA aplicaba a admin | Flag `admin_created` en POST body — handler skipea gates SMS y Turnstile. Trusted porque API protegida por Supabase Auth |
+| **Error catch type-safe** | `String(data.error)` producía "true" | typeof guards en catch block de handleReservaSubmit. Fallback a `data.message` para compatibilidad h3/Nuxt |
