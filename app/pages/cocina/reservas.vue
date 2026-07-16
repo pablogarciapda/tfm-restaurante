@@ -327,6 +327,7 @@ async function handleReservaSubmit() {
           fecha_hora,
           numero_comensales: reservaForm.value.comensales,
           gdpr_aceptado: true,
+          admin_created: true,
         },
       },
     )

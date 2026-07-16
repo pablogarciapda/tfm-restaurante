@@ -490,4 +490,33 @@ describe('handleCreateReservation', () => {
     expect(result.status).toBe(200)
     expect(result.body).toHaveProperty('success', true)
   })
+
+  it('bypasses SMS gate when admin_created=true', async () => {
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', sms_verificacion: true },
+        error: null,
+      }),
+      clienteSelect: vi.fn().mockResolvedValue({
+        data: { id: 'existing-client-id' },
+        error: null,
+      }),
+      reservaInsert: vi.fn().mockResolvedValue({
+        data: { id: 'admin-reserva-id' },
+        error: null,
+      }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Admin',
+      telefono: '600123456',
+      email: 'admin@test.com',
+      fecha_hora: futureISO,
+      numero_comensales: 2,
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toHaveProperty('success', true)
+  })
 })

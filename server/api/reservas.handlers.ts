@@ -29,6 +29,7 @@ interface ReservationBody {
   sms_verified?: boolean
   captcha_token?: string
   gdpr_aceptado?: boolean
+  admin_created?: boolean
 }
 
 function validateBody(body: ReservationBody): string[] {
@@ -97,8 +98,8 @@ export async function handleCreateReservation(
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
   const restaurantNombre = (config?.restaurant_nombre as string) || ''
 
-  // 4a. SMS gate — only required when sms_verificacion is enabled
-  if (smsReq && !b.sms_verified) {
+  // 4a. SMS gate — only required when sms_verificacion is enabled and NOT admin-created
+  if (smsReq && !b.sms_verified && !b.admin_created) {
     return {
       status: 403,
       body: { error: 'Verificación SMS requerida' },
@@ -106,9 +107,9 @@ export async function handleCreateReservation(
   }
 
   // 4c. Validate Turnstile token if captcha is enabled
-  // Skip if sms_verified=true — SMS verification already proves humanity,
-  // and the Turnstile token likely expired during the SMS code entry.
-  if (captchaHabilitado && !b.sms_verified) {
+  // Skip if sms_verified=true or admin_created — SMS verification already proves humanity,
+  // and admin-created reservations are trusted (authenticated employee).
+  if (captchaHabilitado && !b.sms_verified && !b.admin_created) {
     const cfToken = runtimeConfig?.turnstile?.secretKey || process.env.NUXT_TURNSTILE_SECRET_KEY
     if (!b.captcha_token) {
       return {
