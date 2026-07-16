@@ -303,12 +303,6 @@ async function checkDisponibilidad() {
   }
 }
 
-function continuarReserva() {
-  if (reservaDisponible.value) {
-    reservaModalStep.value = 'form'
-  }
-}
-
 function volverDatetime() {
   reservaModalStep.value = 'datetime'
   reservaError.value = ''
@@ -355,13 +349,15 @@ async function handleReservaSubmit() {
   } catch (err: any) {
     const data = err?.data
     if (data?.errors && Array.isArray(data.errors)) {
-      reservaError.value = data.errors.join(', ')
-    } else if (data?.error) {
-      reservaError.value = String(data.error)
-    } else if (data?.statusMessage) {
-      reservaError.value = String(data.statusMessage)
-    } else if (err?.message) {
-      reservaError.value = String(err.message)
+      reservaError.value = data.errors.filter((e: unknown) => typeof e === 'string').join(', ') || 'Error al crear la reserva'
+    } else if (data?.error && typeof data.error === 'string') {
+      reservaError.value = data.error
+    } else if (data?.statusMessage && typeof data.statusMessage === 'string') {
+      reservaError.value = data.statusMessage
+    } else if (data?.message && typeof data.message === 'string') {
+      reservaError.value = data.message
+    } else if (err?.message && typeof err.message === 'string') {
+      reservaError.value = err.message
     } else {
       reservaError.value = 'Error al crear la reserva'
     }
