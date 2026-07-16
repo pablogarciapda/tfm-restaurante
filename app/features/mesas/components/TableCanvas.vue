@@ -11,7 +11,7 @@
   Slice 3: drag & drop, Transformer resize/rotate, selection (MCA-004, AD-10).
 -->
 <script setup lang="ts">
-import { onMounted, nextTick, ref, computed } from 'vue'
+import { onMounted, nextTick, ref, computed, watch } from 'vue'
 import type KonvaType from 'konva'
 import {
   Stage as VStage,
@@ -527,7 +527,21 @@ function updateCanvasSize() {
   const ratioHeight = Math.floor(newWidth / (BASE_WIDTH / BASE_HEIGHT))
   // In singleZone mode, use at least 1200px height for scrollable design
   const minH = props.singleZone ? 1200 : 400
-  const newHeight = Math.max(minH, ratioHeight)
+  // Operation mode: grow the stage to fit every visible mesa so none are
+  // clipped by the stage boundary (the parent container scrolls if needed).
+  let tablesHeight = 0
+  if (!props.singleZone) {
+    const mesas = store.filteredMesas
+    if (mesas.length) {
+      tablesHeight =
+        Math.max(
+          ...mesas.map(
+            (m) => Number(m.posicion_y ?? 0) + Number(m.alto ?? 0),
+          ),
+        ) + 80
+    }
+  }
+  const newHeight = Math.max(minH, ratioHeight, tablesHeight)
   store.stageWidth = newWidth
   store.stageHeight = newHeight
 }
@@ -546,6 +560,9 @@ onMounted(async () => {
   const Konva = (await import('konva')).default as typeof KonvaType
   Konva.pixelRatio = window.devicePixelRatio > 2 ? 2 : 1
 })
+
+// Recompute stage height when the active zone changes (different set of tables)
+watch(() => store.filteredMesas, () => { updateCanvasSize() })
 
 // Expose: allow parent to read actual Konva node positions
 function getMesaPositions(): Record<string, { x: number; y: number }> {

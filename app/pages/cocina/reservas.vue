@@ -20,6 +20,7 @@ import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
 import { getAforoDisponible, calculateFusedCapacity } from '#shared/utils/fusion-math'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
+import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 
@@ -880,7 +881,7 @@ onUnmounted(() => {
     </div> <!-- end sticky header -->
 
     <!-- Konva canvas — designMode always false (no Transformer) -->
-    <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+    <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
         :reservas="reservasForCanvas"
         :reservas-map="reservasMap"
@@ -997,31 +998,31 @@ onUnmounted(() => {
                    >
                      Confirmar
                    </button>
-                   <button
-                     v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada'"
-                     type="button"
-                     class="rounded bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
-                     @click="openEditarReserva(reserva)"
-                   >
-                     Editar
-                   </button>
-                   <button
-                     v-if="reserva.estado === 'pendiente' || reserva.estado === 'confirmada'"
-                     type="button"
-                     class="rounded bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
-                     @click="cancelarReserva(reserva)"
-                   >
-                     Cancelar
-                   </button>
-                   <button
-                     v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada'"
-                     type="button"
-                     data-testid="reasignar-btn"
-                     class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
-                     @click="openReasignar(reserva)"
-                   >
-                     Reasignar
-                   </button>
+                    <button
+                      v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada' && !esReservaPasada(reserva.fecha_hora)"
+                      type="button"
+                      class="rounded bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                      @click="openEditarReserva(reserva)"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      v-if="(reserva.estado === 'pendiente' || reserva.estado === 'confirmada') && !esReservaPasada(reserva.fecha_hora)"
+                      type="button"
+                      class="rounded bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                      @click="cancelarReserva(reserva)"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada' && !esReservaPasada(reserva.fecha_hora)"
+                      type="button"
+                      data-testid="reasignar-btn"
+                      class="rounded border border-terracotta px-3 py-1 text-xs font-medium text-terracotta hover:bg-terracotta/10"
+                      @click="openReasignar(reserva)"
+                    >
+                      Reasignar
+                    </button>
                  </div>
               </td>
             </tr>
