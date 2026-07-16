@@ -106,6 +106,30 @@ describe('ConfiguracionForm (CFG-001)', () => {
     expect(manualInput.exists()).toBe(false)
   })
 
+  it('renders "Número de ocupantes" label on ocupacion_manual input (CFG-005 spec)', async () => {
+    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 15 } })
+    expect(wrapper.text()).toContain('Número de ocupantes')
+  })
+
+  it('sets max attribute on ocupacion_manual to the zonas-derived capacity (CFG-005)', async () => {
+    const wrapper = await mountForm({
+      currentConfig: {
+        cliente_elige_mesa: false,
+        capacidad_total_local: 80,
+        modo_ocupacion: 'manual',
+        ocupacion_manual: 0,
+        zonas_config: [
+          { id: 'a', nombre: 'A', capacidad: 70, enabled: true },
+          { id: 'b', nombre: 'B', capacidad: 10, enabled: true },
+        ],
+      },
+    })
+    const manualInput = wrapper.find('input[data-testid="cfg-ocupacion-manual"]')
+    expect(manualInput.exists()).toBe(true)
+    // 70 + 10 = 80
+    expect((manualInput.element as HTMLInputElement).max).toBe('80')
+  })
+
   it('emits submit with modo_ocupacion and ocupacion_manual fields', async () => {
     const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: true, capacidad_total_local: 100, modo_ocupacion: 'manual', ocupacion_manual: 25 } })
     await wrapper.find('form').trigger('submit.prevent')
@@ -116,6 +140,73 @@ describe('ConfiguracionForm (CFG-001)', () => {
     expect(emittedData.ocupacion_manual).toBe(25)
     // New fields should have sensible defaults
     expect(emittedData.modo_reserva).toBe('automatica')
+  })
+
+  it('rejects save when ocupacion_manual exceeds zonas-derived capacity (CFG-005)', async () => {
+    const wrapper = await mountForm({
+      currentConfig: {
+        cliente_elige_mesa: false,
+        capacidad_total_local: 80,
+        modo_ocupacion: 'manual',
+        ocupacion_manual: 0,
+        zonas_config: [
+          { id: 'a', nombre: 'A', capacidad: 70, enabled: true },
+          { id: 'b', nombre: 'B', capacidad: 10, enabled: true },
+        ],
+      },
+    })
+    // capacidad total (enabled) = 80. Enter 100 → must fail validation.
+    await wrapper.find('input[data-testid="cfg-ocupacion-manual"]').setValue(100)
+    await wrapper.find('form').trigger('submit.prevent')
+
+    expect(wrapper.emitted('submit')).toBeFalsy()
+    expect(wrapper.text()).toContain('La ocupación manual no puede superar la capacidad total del local')
+  })
+
+  // ── CFG-004: "Aforo del local" informational section ──
+
+  it('renders "Aforo del local" section heading (CFG-004)', async () => {
+    const wrapper = await mountForm()
+    expect(wrapper.text()).toContain('Aforo del local')
+  })
+
+  it('renders the description explaining the connection to the table manager (CFG-004)', async () => {
+    const wrapper = await mountForm()
+    expect(wrapper.text()).toContain('Este valor se usa como límite máximo de ocupación en el gestor de mesas')
+  })
+
+  it('shows the zonas-derived total in the Aforo del local section (CFG-004, deprecated capacidad_total_local)', async () => {
+    const wrapper = await mountForm({
+      currentConfig: {
+        cliente_elige_mesa: false,
+        capacidad_total_local: 999, // deprecated column — must NOT be shown
+        zonas_config: [
+          { id: 'a', nombre: 'A', capacidad: 50, enabled: true },
+          { id: 'b', nombre: 'B', capacidad: 30, enabled: true },
+        ],
+      },
+    })
+    const aforoValue = wrapper.find('[data-testid="cfg-aforo-total"]')
+    expect(aforoValue.exists()).toBe(true)
+    // 50 + 30 = 80 (sum of ENABLED zones; deprecated capacidad_total_local=999 ignored)
+    expect(aforoValue.text()).toBe('80')
+  })
+
+  it('ignores disabled zones when computing the Aforo del local total', async () => {
+    const wrapper = await mountForm({
+      currentConfig: {
+        cliente_elige_mesa: false,
+        capacidad_total_local: 999,
+        zonas_config: [
+          { id: 'a', nombre: 'A', capacidad: 50, enabled: true },
+          { id: 'b', nombre: 'B', capacidad: 40, enabled: false },
+          { id: 'c', nombre: 'C', capacidad: 30, enabled: true },
+        ],
+      },
+    })
+    const aforoValue = wrapper.find('[data-testid="cfg-aforo-total"]')
+    // 50 + 30 = 80 (disabled 40 zone ignored)
+    expect(aforoValue.text()).toBe('80')
   })
 
   // ── New sections (configuracion-horarios-zonas) ──

@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue'
 import { generateSlots } from '#shared/utils/slots'
+import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { toProxyUrl } from '~/utils/image-url'
 
 type OcupacionModo = 'auto' | 'manual'
@@ -183,9 +184,7 @@ const slotsCena = computed(() => {
   })
 })
 
-const totalCapacidadZonas = computed(() =>
-  form.zonas_config.reduce((sum, z) => sum + z.capacidad, 0),
-)
+const capacidadAforo = computed(() => capacidadFromZonas(form.zonas_config))
 
 // ── Días bloqueados (new entry form state) ──
 const newDiaFecha = ref('')
@@ -441,6 +440,9 @@ function validate(): boolean {
   const e: Record<string, string> = {}
   if (form.capacidad_total_local < 1) e.capacidad_total_local = 'La capacidad debe ser al menos 1'
   if (form.capacidad_total_local > 999) e.capacidad_total_local = 'La capacidad máxima es 999'
+  if (form.modo_ocupacion === 'manual' && form.ocupacion_manual > capacidadAforo.value) {
+    e.ocupacion_manual = 'La ocupación manual no puede superar la capacidad total del local'
+  }
   if (form.max_ancho_imagen < 200 || form.max_ancho_imagen > 4096) e.max_ancho_imagen = 'El ancho máximo debe estar entre 200 y 4096px'
   if (form.calidad_imagen < 10 || form.calidad_imagen > 100) e.calidad_imagen = 'La calidad debe estar entre 10 y 100'
   if (form.max_peso_imagen < 1 || form.max_peso_imagen > 20) e.max_peso_imagen = 'El peso máximo debe estar entre 1 y 20MB'
@@ -709,9 +711,9 @@ const checkboxClass = 'h-4 w-4 rounded'
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Zonas del restaurante</h2>
 
-      <!-- Total capacity -->
+      <!-- Total capacity (sum of enabled zones only) -->
       <p class="mb-4 text-sm text-gray-600">
-        Capacidad total: <strong data-testid="zona-capacidad-total">{{ totalCapacidadZonas }}</strong>
+        Capacidad total: <strong data-testid="zona-capacidad-total">{{ capacidadAforo }}</strong>
       </p>
 
       <!-- Zone rows -->
@@ -829,6 +831,19 @@ const checkboxClass = 'h-4 w-4 rounded'
 
     <!-- Section 6: General -->
     <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Aforo del local</h2>
+      <div class="flex items-baseline gap-2">
+        <span class="text-3xl font-bold text-slate" data-testid="cfg-aforo-total">{{ capacidadAforo }}</span>
+        <span class="text-sm text-gray-400">plazas</span>
+      </div>
+      <p class="mt-2 text-xs text-gray-400">
+        Este valor se usa como límite máximo de ocupación en el gestor de mesas.
+        Se calcula automáticamente como la suma de las capacidades de las <strong>zonas activas</strong>.
+      </p>
+    </div>
+
+    <!-- Section 6b: General -->
+    <div :class="sectionClass">
       <h2 :class="sectionTitleClass">General</h2>
 
       <div>
@@ -866,7 +881,7 @@ const checkboxClass = 'h-4 w-4 rounded'
 
       <div v-if="form.modo_ocupacion === 'manual'" class="mt-3">
         <label class="mb-1 block text-sm font-medium text-slate" for="cfg-ocupacion-manual">
-          Ocupación manual
+          Número de ocupantes
         </label>
         <input
           id="cfg-ocupacion-manual"
@@ -874,8 +889,13 @@ const checkboxClass = 'h-4 w-4 rounded'
           data-testid="cfg-ocupacion-manual"
           type="number"
           min="0"
-          class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+          :max="capacidadAforo"
+          class="w-32 rounded-lg border px-3 py-2"
+          :class="errors.ocupacion_manual ? 'border-red-500' : 'border-gray-300'"
         />
+        <p v-if="errors.ocupacion_manual" class="mt-1 text-sm text-red-600">
+          {{ errors.ocupacion_manual }}
+        </p>
       </div>
     </div>
 
