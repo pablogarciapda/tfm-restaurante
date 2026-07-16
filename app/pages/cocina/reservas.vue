@@ -183,7 +183,6 @@ const reservaModalMesa = ref<Mesa | null>(null)
 const reservaModalStep = ref<'datetime' | 'form' | 'success'>('datetime')
 const reservaFecha = ref(new Date().toISOString().split('T')[0] ?? '')
 const reservaHora = ref('')
-const reservaError = ref('')
 const reservaForm = ref({
   nombre: '',
   telefono: '',
