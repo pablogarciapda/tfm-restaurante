@@ -27,7 +27,7 @@ import TableTooltip from './TableTooltip.vue'
 import type { TooltipData } from './TableTooltip.vue'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
-import { getMesaEstado } from '#shared/utils/fusion-math'
+import { calcularEstadoMesa, buildTurnoWindows, type MesaEstadoContext } from '#shared/utils/mesa-estado'
 
 export interface ReservaDetail {
   nombre_cliente: string
@@ -46,13 +46,16 @@ const props = defineProps<{
   fusionLabels?: Record<string, string>
   reservasDetailMap?: Record<string, ReservaDetail>
   horariosConfig?: HorarioConfig | null
-  /** Zone configuration from DB: { id, nombre, capacidad, enabled, imagen_url? }[] */
+  /** Zone configuration from DB: { id, nombre, capacidad, imagen_url? }[] */
   zonasConfig?: Array<{ id: string; nombre: string; imagen_url?: string | null }>
   designMode?: boolean
   /** Single zone mode: active zone fills the full stage (used in design page) */
   singleZone?: boolean
   fontSize?: number
   selectedIds?: string[]
+  /** Selected date for "current service" matching in YYYY-MM-DD format.
+   *  Defaults to today's ISO date. Drives MCA-005 mesa estado derivation. */
+  selectedDate?: string
 }>()
 
 const emit = defineEmits<{
@@ -192,10 +195,29 @@ const currentLinePoints = ref<number[]>([])
 /** Anchor point for straight line start (click-to-click mode) */
 const lineStart = ref({ x: 0, y: 0 })
 
-// mesaEstado derived from today's reservas (MCA-005)
-// Defaults to 'libre' when no reservas data is loaded
+// mesaEstado derived from reservas + selected date + active turn (MCA-005).
+// Pure derivation via calcularEstadoMesa — reactive to reservas / turnos /
+// selectedDate / activeTurno changes; real-time updates flow through the
+// reservas array prop and trigger Vue recompute automatically.
+const FALLBACK_HORARIOS: HorarioConfig = {
+  comida_inicio: '13:30',
+  comida_fin: '15:30',
+  cena_inicio: '21:00',
+  cena_fin: '23:30',
+  intervalo_minutos: 15,
+}
+
+const mesaEstadoContext = computed<MesaEstadoContext>(() => {
+  const h = props.horariosConfig ?? FALLBACK_HORARIOS
+  return {
+    selectedDate: props.selectedDate ?? new Date().toISOString().slice(0, 10),
+    currentTurn: store.activeTurno,
+    turnos: buildTurnoWindows(h),
+  }
+})
+
 function mesaEstado(mesa: Mesa): 'libre' | 'ocupada' | 'reservada' {
-  return getMesaEstado(mesa, props.reservas ?? [])
+  return calcularEstadoMesa(mesa.id, props.reservas ?? [], mesaEstadoContext.value)
 }
 
 // ── Tooltip state (MCA-009) ──

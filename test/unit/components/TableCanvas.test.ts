@@ -350,9 +350,22 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       expect(rect.attributes('data-fill')).toBe('#F59E0B')
     })
 
-    it('colors mesa orange (#F59E0B) when reserva confirmada exists for today', async () => {
+    it('colors mesa red (#EF4444) when reserva confirmada exists for today (current service — MCA-005)', async () => {
+      // MCA-005: confirmada in current service → ocupada (red), not reservada.
+      // Default activeTurno = 'todos' and fallback horarios put 20:00 inside cena
+      // window (21:00–23:30) so confirmada today → red.
       const mesas = [makeMesa({ id: 'confirmed-1', numero_mesa: 12 })]
-      const reservas = [makeReserva({ mesa_id: 'confirmed-1', estado: 'confirmada' })]
+      const reservas = [makeReserva({ mesa_id: 'confirmed-1', estado: 'confirmada', fecha_hora: `${today}T22:00:00.000Z` })]
+      const wrapper = await mountCanvas(mesas, reservas)
+      const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
+      const rect = mainLayer.find('[data-testid="v-rect"]')
+      expect(rect.attributes('data-fill')).toBe('#EF4444')
+    })
+
+    it('colors mesa amber (#F59E0B) when reserva pendiente exists for today (reservada)', async () => {
+      // MCA-005: pendiente on selectedDate (any turn) → reservada (amber).
+      const mesas = [makeMesa({ id: 'pendiente-1', numero_mesa: 12 })]
+      const reservas = [makeReserva({ mesa_id: 'pendiente-1', estado: 'pendiente', fecha_hora: `${today}T22:00:00.000Z` })]
       const wrapper = await mountCanvas(mesas, reservas)
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
