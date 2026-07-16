@@ -225,13 +225,13 @@ describe('TableToolbar', () => {
     expect(select.exists()).toBe(true)
     const options = select.findAll('option')
     expect(options).toHaveLength(4)
-    expect(options[0].text()).toBe('Rectangular')
-    expect(options[1].text()).toBe('Cuadrada')
-    expect(options[2].text()).toBe('Redonda')
+    expect(options[0].text()).toBe('Cuadrada')
+    expect(options[1].text()).toBe('Redonda')
+    expect(options[2].text()).toBe('Rectangular')
     expect(options[3].text()).toBe('Ovalada')
   })
 
-  it('defaults shape selector to rectangular', async () => {
+  it('defaults shape selector to cuadrada', async () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
@@ -242,7 +242,7 @@ describe('TableToolbar', () => {
     })
 
     const select = wrapper.find('select')
-    expect((select.element as HTMLSelectElement).value).toBe('rectangular')
+    expect((select.element as HTMLSelectElement).value).toBe('cuadrada')
   })
 
   it('emits add with shape when "Nueva Mesa" is clicked', async () => {
@@ -257,8 +257,8 @@ describe('TableToolbar', () => {
 
     await findButton(wrapper, 'Nueva Mesa').trigger('click')
     expect(wrapper.emitted('add')).toBeTruthy()
-    // Default shape is 'rectangular'
-    expect(wrapper.emitted('add')![0]).toEqual(['rectangular'])
+    // Default shape is 'cuadrada'
+    expect(wrapper.emitted('add')![0]).toEqual(['cuadrada'])
   })
 
   it('emits add with selected shape when changed', async () => {

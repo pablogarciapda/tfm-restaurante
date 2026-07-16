@@ -247,6 +247,7 @@
 - `/cocina/menu-diario` -> Editor menú diario (crear/editar config por día, precio desde `configuracion`, fecha read-only)
 - `/cocina/eventos` -> CRUD eventos (categorías dinámicas desde DB)
 - `/cocina/reservas` -> Mapa interactivo Konva + fusiones + sync Realtime + lista de reservas + modal reasignar zona/mesa
+- `/cocina/diseno` -> Editor de plano (modo diseño): pestañas por zona, formas de mesa, texto/capacidad, dibujo de líneas, imagen de fondo por zona, zoom, guardar posiciones con feedback
 - `/cocina/clientes` -> CRUD clientes con historial de reservas
 - `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, horarios, zonas, días bloqueados, categorías CRUD, SMTP, datos restaurante multi-tenant, precio menú domingo) con toast de confirmación
 - `/cocina/usuarios` -> Gestión de usuarios y permisos

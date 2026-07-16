@@ -148,9 +148,9 @@ describe('/cocina/reservas — table manager page', () => {
 
   // ── Page heading ──
 
-  it('renders "Gestor de Mesas" heading', async () => {
+  it('renders "Listado de Reservas" heading', async () => {
     const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('Gestor de Mesas')
+    expect(wrapper.text()).toContain('Listado de Reservas')
   })
 
   // ── TableCanvas ──

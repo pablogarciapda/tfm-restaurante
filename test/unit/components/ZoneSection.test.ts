@@ -168,7 +168,7 @@ describe('ZoneSection — renders rect + text for each zone', () => {
     it('has semi-transparent opacity for zone backgrounds', async () => {
       const wrapper = await mountZone('Principal')
       const rect = wrapper.find('[data-testid="v-rect"]')
-      expect(rect.attributes('data-opacity')).toBe('0.3')
+      expect(rect.attributes('data-opacity')).toBe('0')
     })
 
     it('has transparent stroke on zone rect', async () => {
