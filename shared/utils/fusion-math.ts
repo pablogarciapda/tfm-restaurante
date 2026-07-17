@@ -239,3 +239,88 @@ export function getMesaEstado(
 
   return 'libre'
 }
+
+// ---------------------------------------------------------------------------
+// applyGroupTransformToSiblings
+// ---------------------------------------------------------------------------
+
+/**
+ * Snapshot record for one sibling's post-gesture absolute position/rotation.
+ */
+export interface SiblingTransform {
+  id: string
+  posicion_x: number
+  posicion_y: number
+  rotacion: number
+}
+
+/**
+ * Compute new absolute positions/rotations for fused siblings after the parent
+ * mesa was translated and/or rotated. Pure function — no Konva, no side effects.
+ *
+ * Math:
+ *   P = (parentBefore.x + parentBefore.width/2, parentBefore.y + parentBefore.height/2)
+ *       — parent's centroid evaluated at the pre-gesture state.
+ *   dx = parentAfter.x - parentBefore.x
+ *   dy = parentAfter.y - parentBefore.y
+ *   dRot = parentAfter.rotation - parentBefore.rotation  (degrees, CW positive)
+ *
+ *   For each sibling:
+ *     - delta rotation around (dx, dy) when dRot !== 0:
+ *       rotated = P + R(dRot) · (sib.(x,y) − P)
+ *       final_pos = rotated + (dx, dy)
+ *     - pure translation when dRot === 0:
+ *       final_pos = sib.(x,y) + (dx, dy)
+ *     - final_rot = sib.rotation + dRot
+ *
+ *   Radians = dRot * π / 180. Konva rotation is CW positive (matches Math.cos/ sin
+ *   when treated as image-coordinate y-down: (r·cos θ, r·sin θ)).
+ *
+ * Result fields are rounded to integers (matches existing Math.round usage in
+ * TableCanvas handleTransformEnd).
+ *
+ * @param parentBefore   parent's {x, y, rotation, width, height} before gesture
+ * @param parentAfter    parent's {x, y, rotation} at the current event
+ * @param siblingsBefore array of {id, x, y, rotation} for every non-parent member
+ *                       of the fusion (snapshot taken at gesture start)
+ * @returns SiblingTransform[] with new absolute coords per sibling id
+ */
+export function applyGroupTransformToSiblings(
+  parentBefore: { x: number; y: number; rotation: number; width: number; height: number },
+  parentAfter: { x: number; y: number; rotation: number },
+  siblingsBefore: Array<{ id: string; x: number; y: number; rotation: number }>,
+): SiblingTransform[] {
+  const dx = parentAfter.x - parentBefore.x
+  const dy = parentAfter.y - parentBefore.y
+  const dRot = parentAfter.rotation - parentBefore.rotation
+
+  // Pure translation fast path
+  if (dRot === 0) {
+    return siblingsBefore.map((sib) => ({
+      id: sib.id,
+      posicion_x: Math.round(sib.x + dx),
+      posicion_y: Math.round(sib.y + dy),
+      rotacion: Math.round(sib.rotation),
+    }))
+  }
+
+  // Rotation around parent's pre-gesture centroid
+  const cx = parentBefore.x + parentBefore.width / 2
+  const cy = parentBefore.y + parentBefore.height / 2
+  const rad = (dRot * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+
+  return siblingsBefore.map((sib) => {
+    const rx = sib.x - cx
+    const ry = sib.y - cy
+    const rotatedX = rx * cos - ry * sin
+    const rotatedY = rx * sin + ry * cos
+    return {
+      id: sib.id,
+      posicion_x: Math.round(cx + rotatedX + dx),
+      posicion_y: Math.round(cy + rotatedY + dy),
+      rotacion: Math.round(sib.rotation + dRot),
+    }
+  })
+}
