@@ -24,6 +24,9 @@ import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 
+// ── Canvas exposed API (rotateSelectedGroup90CW + getSelectedMesaIds) ──
+const canvasRef = ref<InstanceType<typeof TableCanvas> | null>(null)
+
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
   layout: 'cocina',
@@ -34,6 +37,7 @@ const store = useCanvasStore()
 // Default to first zone immediately (prevents flash of all mesas)
 store.activeZona = 'Principal'
 const { loadMesas, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { updateMesa } = useMesas()
 const {
   fuseMesas,
   unfuseMesas,
@@ -43,6 +47,52 @@ const {
   reassignStandbyReservation,
   checkAforoOverflow,
 } = useMesasFusion()
+
+// ── Fused group rotation toolbar (operación mode) ──
+
+/** The selected mesa is the fused parent that drives the rigid rotation button. */
+const selectedFusedParent = computed(() => {
+  const sel = store.selectedMesa
+  if (!sel) return null
+  if (!sel.id_fusion) return null
+  if (sel.mesa_padre_id !== sel.id) return null
+  return sel
+})
+
+async function rotateSelectedGroup90() {
+  canvasRef.value?.rotateSelectedGroup90CW()
+}
+
+async function saveSelectedFusedPositions() {
+  const ids = canvasRef.value?.getSelectedMesaIds() ?? []
+  if (ids.length === 0) return
+  const positions = canvasRef.value?.getMesaPositions() ?? {}
+  let ok = 0
+  let failed = 0
+  for (const id of ids) {
+    const mesa = store.mesas.find((m) => m.id === id)
+    if (!mesa) { failed++; continue }
+    const live = positions[id]
+    const payload = {
+      posicion_x: live?.x ?? mesa.posicion_x,
+      posicion_y: live?.y ?? mesa.posicion_y,
+      rotacion: live?.rotation ?? mesa.rotacion,
+      ancho: mesa.ancho,
+      alto: mesa.alto,
+    }
+    try {
+      await updateMesa(id, payload)
+      ok++
+    } catch {
+      failed++
+    }
+  }
+  if (failed === 0) {
+    showToast(`Grupo rotado guardado (${ok} mesas)`, 'success')
+  } else {
+    showToast(`Guardado con fallos: ${ok} OK, ${failed} error`, 'error')
+  }
+}
 
 // ── Fusion state ──
 const selectedIds = ref<string[]>([])
@@ -863,6 +913,35 @@ onUnmounted(() => {
       @toggle-multi-select="toggleMultiSelect"
     />
 
+    <!-- Rotar 90° / Guardar — only when a fused group parent is selected. -->
+    <div
+      v-if="selectedFusedParent"
+      class="mb-2 flex items-center gap-2 rounded-lg border border-terracotta/30 bg-cream/95 p-2"
+      data-testid="fused-group-rotate-toolbar"
+    >
+      <span class="text-xs font-medium text-slate">
+        Grupo fusionado: {{ selectedFusedParent.numero_mesa }}
+      </span>
+      <button
+        type="button"
+        data-testid="rotate-90-btn"
+        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-slate transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+        title="Rota TODO el grupo fusionado 90° en sentido horario como un bloque rígido (ni mesa se separa). Pulsa varias veces para girar más; pulsa Guardar para guardar las nuevas posiciones."
+        @click="rotateSelectedGroup90"
+      >
+        Rotar 90°
+      </button>
+      <button
+        type="button"
+        data-testid="save-rotated-fused-btn"
+        class="rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:cursor-not-allowed disabled:opacity-50"
+        title="Guarda en la base de datos las nuevas posiciones/rotaciones de cada mesa del grupo fusionado."
+        @click="saveSelectedFusedPositions"
+      >
+        Guardar
+      </button>
+    </div>
+
     <!-- Zone tabs — no "Todas", one per enabled zone -->
     <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
       <button
@@ -880,6 +959,7 @@ onUnmounted(() => {
     <!-- Konva canvas — designMode always false (no Transformer) -->
     <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
       <TableCanvas
+        ref="canvasRef"
         :reservas="reservasForCanvas"
         :reservas-map="reservasMap"
         :reservas-detail-map="reservasDetailMap"
