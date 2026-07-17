@@ -37,6 +37,32 @@ function mesaA() { return makeMesa({ id: 'a', numero_mesa: 1, zona: 'Principal',
 function mesaB() { return makeMesa({ id: 'b', numero_mesa: 2, zona: 'Zingaro', capacidad_actual: 2 }) }
 function mesaC() { return makeMesa({ id: 'c', numero_mesa: 3, zona: 'Principal', mesa_padre_id: 'a', id_fusion: 'g1' }) }
 
+function fusedParent(): Mesa {
+  return makeMesa({
+    id: 'parent',
+    numero_mesa: 1,
+    posicion_x: 100, posicion_y: 200, rotacion: 10,
+    id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+  })
+}
+function fusedChildA(overrides: Partial<Mesa> = {}): Mesa {
+  return makeMesa({
+    id: 'childA',
+    numero_mesa: 2,
+    posicion_x: 220, posicion_y: 200, rotacion: 5,
+    id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+    ...overrides,
+  })
+}
+function fusedChildB(): Mesa {
+  return makeMesa({
+    id: 'childB',
+    numero_mesa: 3,
+    posicion_x: 340, posicion_y: 200, rotacion: 15,
+    id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+  })
+}
+
 // ============================================================================
 // Canvas Store Tests (MCA-001, AD-03)
 // ============================================================================
@@ -264,5 +290,64 @@ describe('useCanvasStore', () => {
     expect(store.straightLine).toBe(true)
     store.toggleStraightLine()
     expect(store.straightLine).toBe(false)
+  })
+
+  // ── Fusion drag snapshot ──
+
+  it('dragSnapshot is null initially', () => {
+    const store = useCanvasStore()
+    expect(store.dragSnapshot).toBeNull()
+  })
+
+  it('beginFusionDrag with id_fusion=null leaves dragSnapshot null', () => {
+    const store = useCanvasStore()
+    store.setMesas([mesaA(), mesaB()])
+    store.beginFusionDrag(mesaA())
+    expect(store.dragSnapshot).toBeNull()
+  })
+
+  it('beginFusionDrag with a 3-table fusion populates snapshot keyed by mesa id', () => {
+    const store = useCanvasStore()
+    const parent = fusedParent()
+    const childA = fusedChildA()
+    const childB = fusedChildB()
+    store.setMesas([parent, childA, childB])
+
+    store.beginFusionDrag(parent)
+
+    const snapshot = store.dragSnapshot
+    expect(snapshot).not.toBeNull()
+    expect(snapshot!.size).toBe(3)
+
+    expect(snapshot!.get('parent')).toEqual({ x: 100, y: 200, rotation: 10 })
+    expect(snapshot!.get('childA')).toEqual({ x: 220, y: 200, rotation: 5 })
+    expect(snapshot!.get('childB')).toEqual({ x: 340, y: 200, rotation: 15 })
+  })
+
+  it('beginFusionDrag only snapshots members of the parent fusion group', () => {
+    const store = useCanvasStore()
+    const parent = fusedParent()
+    const childA = fusedChildA()
+    const unrelated = mesaB()
+    store.setMesas([parent, childA, unrelated])
+
+    store.beginFusionDrag(parent)
+
+    const snapshot = store.dragSnapshot
+    expect(snapshot!.has('b')).toBe(false)
+    expect(snapshot!.size).toBe(2)
+  })
+
+  it('endFusionDrag clears the snapshot to null', () => {
+    const store = useCanvasStore()
+    const parent = fusedParent()
+    const childA = fusedChildA()
+    store.setMesas([parent, childA])
+
+    store.beginFusionDrag(parent)
+    expect(store.dragSnapshot).not.toBeNull()
+
+    store.endFusionDrag()
+    expect(store.dragSnapshot).toBeNull()
   })
 })

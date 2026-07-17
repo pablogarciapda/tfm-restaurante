@@ -36,6 +36,13 @@ export const useCanvasStore = defineStore('canvas', () => {
   const wallLines = ref<Array<{ points: number[] }>>([])
   /** Font size for table text (number + capacity) */
   const fontSize = ref(14)
+  /**
+   * Transient snapshot of fused-group absolute positions/rotations captured
+   * at the start of a drag/transform gesture. Keyed by mesa id. Used by
+   * TableCanvas to imperatively sync sibling positions during the gesture.
+   * NOT persisted to DB — cleared on endFusionDrag.
+   */
+  const dragSnapshot = ref<Map<string, { x: number; y: number; rotation: number }> | null>(null)
 
   // ── Getters ──
 
@@ -129,6 +136,34 @@ export const useCanvasStore = defineStore('canvas', () => {
     wallLines.value = []
   }
 
+  /**
+   * Snapshot absolute {x, y, rotation} for every mesa sharing the parent's
+   * id_fusion (including the parent itself) before a drag/transform gesture.
+   * No-op when the parent is not part of a fusion.
+   */
+  function beginFusionDrag(parentMesa: Mesa) {
+    if (!parentMesa.id_fusion) {
+      dragSnapshot.value = null
+      return
+    }
+    const map = new Map<string, { x: number; y: number; rotation: number }>()
+    for (const m of mesas.value) {
+      if (m.id_fusion === parentMesa.id_fusion) {
+        map.set(m.id, {
+          x: m.posicion_x,
+          y: m.posicion_y,
+          rotation: m.rotacion,
+        })
+      }
+    }
+    dragSnapshot.value = map
+  }
+
+  /** Clear the fusion drag snapshot (call on drag/transform end). */
+  function endFusionDrag() {
+    dragSnapshot.value = null
+  }
+
   return {
     // State
     mesas,
@@ -143,6 +178,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     straightLine,
     wallLines,
     fontSize,
+    dragSnapshot,
     // Getters
     selectedMesa,
     mesasByZona,
@@ -160,5 +196,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     toggleStraightLine,
     addWallLine,
     clearWallLines,
+    beginFusionDrag,
+    endFusionDrag,
   }
 })
