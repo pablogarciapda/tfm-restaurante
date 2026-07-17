@@ -336,9 +336,10 @@ describe('useFusionGroupDrag', () => {
     it('rotates every member (parent + siblings) 90° CW, applies to live Konva nodes, and returns identical transforms', () => {
       const { store, parent } = setupTwoTableFusion()
       // parent at (100,100, 100x100), child at (220,100, 100x100), rot 0.
-      // Centroid = (210, 150). After +90° CW:
-      //   parent → pos (160, 40), rot 90
-      //   child  → pos (160, 160), rot 90
+      // Visual centers (150,150) and (270,150). Centroid = (210,150).
+      // After +90° CW:
+      //   parent → cv'=(210,90), rot 90 → topLeft (260, 40)
+      //   child  → cv'=(210,210), rot 90 → topLeft (260, 160)
       const parentNode = makeStubNode('parent', 100, 100, 0)
       const childNode = makeStubNode('child', 220, 100, 0)
       const layer = makeStubLayer({ parent: parentNode, child: childNode })
@@ -349,14 +350,14 @@ describe('useFusionGroupDrag', () => {
       expect(result).toHaveLength(2)
       const parentT = result.find((t) => t.id === 'parent')!
       const childT = result.find((t) => t.id === 'child')!
-      expect(parentT).toEqual({ id: 'parent', posicion_x: 160, posicion_y: 40, rotacion: 90 })
-      expect(childT).toEqual({ id: 'child', posicion_x: 160, posicion_y: 160, rotacion: 90 })
+      expect(parentT).toEqual({ id: 'parent', posicion_x: 260, posicion_y: 40, rotacion: 90 })
+      expect(childT).toEqual({ id: 'child', posicion_x: 260, posicion_y: 160, rotacion: 90 })
 
       // Imperative application: each Konva node received x/y/rotation setters.
-      expect(parentNode.x).toHaveBeenCalledWith(160)
+      expect(parentNode.x).toHaveBeenCalledWith(260)
       expect(parentNode.y).toHaveBeenCalledWith(40)
       expect(parentNode.rotation).toHaveBeenCalledWith(90)
-      expect(childNode.x).toHaveBeenCalledWith(160)
+      expect(childNode.x).toHaveBeenCalledWith(260)
       expect(childNode.y).toHaveBeenCalledWith(160)
       expect(childNode.rotation).toHaveBeenCalledWith(90)
 

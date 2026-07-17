@@ -209,15 +209,19 @@ export function useFusionGroupDrag(store: CanvasStoreType) {
 
     const maxX = store.stageWidth - 50
     const maxY = store.stageHeight - 50
+    const clamped: SiblingTransform[] = []
     for (const t of transforms) {
       const node = layer.findOne(`#${t.id}`)
       if (!node) continue
-      node.x(clampToStage(t.posicion_x, maxX))
-      node.y(clampToStage(t.posicion_y, maxY))
+      const cx = clampToStage(t.posicion_x, maxX)
+      const cy = clampToStage(t.posicion_y, maxY)
+      node.x(cx)
+      node.y(cy)
       node.rotation(t.rotacion)
+      clamped.push({ id: t.id, posicion_x: cx, posicion_y: cy, rotacion: t.rotacion })
     }
     layer.batchDraw()
-    return transforms
+    return clamped
   }
 
   return {

@@ -615,16 +615,16 @@ describe('rotateGroupAroundCentroid90CW (rigid group rotation in reservas mode)'
     const child = makeMesa({
       id: 'c', posicion_x: 220, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
     })
-    // Centers (150,150) and (270,150). Centroid = (210,150).
-    // 90° CW convention matches applyGroupTransformToSiblings + Konva:
-    //   d' = (-d.y, d.x)
-    // - Parent: d=(-60, 0) → d'=(0,-60) → new center (210,90) → pos (160,40), rot 90
-    // - Child:  d=( 60, 0) → d'=(0, 60) → new center (210,210) → pos (160,160), rot 90
+    // Visual centers (150,150) and (270,150). Centroid = (210,150).
+    // 90° CW around centroid:
+    //   parent → cv'=(210,90); θ'=90 → topLeft=(210 - (0·50 - 1·50), 90 - (1·50 + 0))
+    //             = (260, 40)  rot 90
+    //   child  → cv'=(210,210) → topLeft = (260, 160)  rot 90
     const result = rotateGroupAroundCentroid90CW([parent, child])
 
     expect(result).toEqual([
-      { id: 'p', posicion_x: 160, posicion_y: 40, rotacion: 90 },
-      { id: 'c', posicion_x: 160, posicion_y: 160, rotacion: 90 },
+      { id: 'p', posicion_x: 260, posicion_y: 40, rotacion: 90 },
+      { id: 'c', posicion_x: 260, posicion_y: 160, rotacion: 90 },
     ])
   })
 
@@ -638,16 +638,16 @@ describe('rotateGroupAroundCentroid90CW (rigid group rotation in reservas mode)'
     const far = makeMesa({
       id: 'f', posicion_x: 340, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
     })
-    // Centers (150,150), (270,150), (390,150). Centroid = (270,150).
-    // - Parent: d=(-120, 0)  → d'=(0,-120) → new center (270, 30) → pos (220,-20), rot 90
-    // - Middle: d=(  0, 0)   → d'=(0,   0) → new center (270,150) → pos (220,100), rot 90
-    // - Far:    d=( 120, 0)  → d'=(0, 120) → new center (270,270) → pos (220,220), rot 90
+    // Visual centers (150,150), (270,150), (390,150). Centroid = (270,150).
+    //   parent → cv'=(270,30)  → topLeft=(320, -20) rot 90
+    //   middle → cv'=(270,150) → topLeft=(320, 100) rot 90
+    //   far    → cv'=(270,270) → topLeft=(320, 220) rot 90
     const result = rotateGroupAroundCentroid90CW([parent, middle, far])
 
     expect(result).toEqual([
-      { id: 'p', posicion_x: 220, posicion_y: -20, rotacion: 90 },
-      { id: 'm', posicion_x: 220, posicion_y: 100, rotacion: 90 },
-      { id: 'f', posicion_x: 220, posicion_y: 220, rotacion: 90 },
+      { id: 'p', posicion_x: 320, posicion_y: -20, rotacion: 90 },
+      { id: 'm', posicion_x: 320, posicion_y: 100, rotacion: 90 },
+      { id: 'f', posicion_x: 320, posicion_y: 220, rotacion: 90 },
     ])
   })
 
@@ -676,13 +676,13 @@ describe('rotateGroupAroundCentroid90CW (rigid group rotation in reservas mode)'
     const m = makeMesa({
       id: 'only', posicion_x: 100, posicion_y: 100, ancho: 100, alto: 100, rotacion: 30,
     })
-    // centroid coincides with the single member's center, so position stays
-    // but the helper still advances rotation by 90°. The composable guards the
-    // fused check, so a real call site never reaches a 1-member array.
+    // Visual center at rot=30: (118.3, 168.3). After 90°CW around itself
+    // (centroid = same point since 1 member), newRot=120, and top-left
+    // recomputes to (187, 150) using the 120° offset.
     const result = rotateGroupAroundCentroid90CW([m])
 
-    expect(result[0].posicion_x).toBe(100)
-    expect(result[0].posicion_y).toBe(100)
+    expect(result[0].posicion_x).toBe(187)
+    expect(result[0].posicion_y).toBe(150)
     expect(result[0].rotacion).toBe(120)
   })
 

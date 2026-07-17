@@ -338,20 +338,20 @@ export function applyGroupTransformToSiblings(
  * a programmatic one-shot applied to the parent + every sibling as a rigid
  * block.
  *
- * Math:
- *   Centroid C is the average of all members' visual centers, where a member's
- *     center = { posicion_x + ancho/2, posicion_y + alto/2 }.
- *   For each member with center D: d = D − C; rotate d 90° CW around the origin
- *     using the SAME convention as `applyGroupTransformToSiblings` + Konva
- *     (y-down, positive rotation is clockwise):
- *       d' = (-d.y, d.x)       (i.e. cos=0, sin=1 of R(90°))
- *     new center = C + d'
- *     new position = new center − (ancho/2, alto/2)
- *     new rotation = (member.rotation + 90) mod 360
+ * Math (BEWARE: naive posicion_x + ancho/2 is WRONG for rotated tables):
  *
- * The convention matches `applyGroupTransformToSiblings` so a group saved via
- * the Transformer in /cocina/diseno and a group rotated via this helper in
- * /cocina/reservas persist identically.
+ *   In Konva a group at (x, y) with rotation θ contains its shape at local
+ *   center (w/2, h/2). The stage-space (visual) center is:
+ *
+ *     cvx = x + cos(θ)·w/2 − sin(θ)·h/2
+ *     cvy = y + sin(θ)·w/2 + cos(θ)·h/2
+ *
+ *   This is the ONLY correct pivot for rigid group rotation.
+ *
+ *   1. Compute the group centroid C = average of all members' visual centers.
+ *   2. For each member: d = cv − C → rotate d 90° CW → cv' = C + R(d)
+ *   3. Derive the NEW top-left from cv' using the NEW rotation θ' = θ+90:
+ *        pos' = cv' − (cos(θ')·w/2 − sin(θ')·h/2, sin(θ')·w/2 + cos(θ')·h/2)
  *
  * Pure function — no side effects, no mutation of input. Returns a NEW array;
  * each entry is a fresh object (caller may `Object.assign` it onto the store
@@ -368,27 +368,55 @@ export function rotateGroupAroundCentroid90CW(
 ): SiblingTransform[] {
   if (members.length === 0) return []
 
-  // Group centroid = average of member visual centers.
-  let sumCx = 0
-  let sumCy = 0
-  for (const m of members) {
-    sumCx += m.posicion_x + m.ancho / 2
-    sumCy += m.posicion_y + m.alto / 2
-  }
-  const cx = sumCx / members.length
-  const cy = sumCy / members.length
+  // Step 1: compute visual centers (accounts for each member's current rotation)
+  const halfW = members.map((m) => m.ancho / 2)
+  const halfH = members.map((m) => m.alto / 2)
+  const cosOrig = members.map((m) => {
+    if (m.rotacion === 0) return 1
+    return Math.cos((m.rotacion * Math.PI) / 180)
+  })
+  const sinOrig = members.map((m) => {
+    if (m.rotacion === 0) return 0
+    return Math.sin((m.rotacion * Math.PI) / 180)
+  })
 
-  // 90° CW: cos=0, sin=1 → d' = (-d.y, d.x).
-  return members.map((m) => {
-    const dx = m.posicion_x + m.ancho / 2 - cx
-    const dy = m.posicion_y + m.alto / 2 - cy
-    const newCenterX = cx + -dy
-    const newCenterY = cy + dx
+  const cvx = members.map((m, i) => m.posicion_x + cosOrig[i] * halfW[i] - sinOrig[i] * halfH[i])
+  const cvy = members.map((m, i) => m.posicion_y + sinOrig[i] * halfW[i] + cosOrig[i] * halfH[i])
+
+  // Group centroid = average of visual centers
+  const gcx = cvx.reduce((s, v) => s + v, 0) / members.length
+  const gcy = cvy.reduce((s, v) => s + v, 0) / members.length
+
+  // Step 2: rotate each member 90° CW around the group centroid
+  return members.map((m, i) => {
+    const ddx = cvx[i] - gcx
+    const ddy = cvy[i] - gcy
+    // 90° CW: R(90°) of (dx, dy) = (−dy, dx)
+    const ncvx = gcx + (-ddy)
+    const ncvy = gcy + ddx
+
     const newRot = (((m.rotacion + 90) % 360) + 360) % 360
+
+    // Step 3: back-calculate top-left from visual centre using the NEW rotation
+    const newRad = (newRot * Math.PI) / 180
+    // We special-case the common angles (90°, 180°, 270°, 0°) to avoid
+    // floating-point rounding near π/2 etc.
+    let cosNew: number
+    let sinNew: number
+    const r = newRot % 360
+    if (r === 0) { cosNew = 1; sinNew = 0 }
+    else if (r === 90) { cosNew = 0; sinNew = 1 }
+    else if (r === 180) { cosNew = -1; sinNew = 0 }
+    else if (r === 270) { cosNew = 0; sinNew = -1 }
+    else { cosNew = Math.cos(newRad); sinNew = Math.sin(newRad) }
+
+    const npx = ncvx - (cosNew * halfW[i] - sinNew * halfH[i])
+    const npy = ncvy - (sinNew * halfW[i] + cosNew * halfH[i])
+
     return {
       id: m.id,
-      posicion_x: Math.round(newCenterX - m.ancho / 2),
-      posicion_y: Math.round(newCenterY - m.alto / 2),
+      posicion_x: Math.round(npx),
+      posicion_y: Math.round(npy),
       rotacion: Math.round(newRot),
     }
   })
