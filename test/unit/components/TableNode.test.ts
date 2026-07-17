@@ -78,7 +78,14 @@ vi.mock('vue-konva', () => ({
   Group: defineComponent({
     props: ['config'],
     setup(props, { slots }) {
-      return () => h('div', { 'data-testid': 'v-group' }, slots.default?.())
+      return () => h('div', {
+        'data-testid': 'v-group',
+        'data-id': String(props.config?.id ?? ''),
+        'data-ondragmove': typeof props.config?.onDragMove === 'function' ? 'true' : 'false',
+        'data-ontransform': typeof props.config?.onTransform === 'function' ? 'true' : 'false',
+        'data-ondragstart': typeof props.config?.onDragStart === 'function' ? 'true' : 'false',
+        'data-ontransformend': typeof props.config?.onTransformEnd === 'function' ? 'true' : 'false',
+      }, slots.default?.())
     },
   }),
   Layer: defineComponent({
@@ -360,6 +367,32 @@ describe('TableNode — renders group with rect + 2 texts', () => {
       const mesa = makeMesa({ id: 'fused-round', forma: 'redonda', id_fusion: 'g1', mesa_padre_id: 'parent' })
       const wrapper = await mountNode({ mesa })
       expect(wrapper.find('[data-testid="v-circle"]').attributes('data-strokedash')).toBe('5,5')
+    })
+  })
+
+  describe('group config event handlers (dragmove / transform)', () => {
+    function buildGroupConfig(): Promise<any> {
+      // TableNode returns groupConfig via component setup; we mount once and read
+      // the rendered data-attrs of the Group stub which expose callbacks presence.
+      return mountNode()
+    }
+    it('exposes onDragMove in group config (for sibling sync during drag)', async () => {
+      const wrapper = await buildGroupConfig()
+      const group = wrapper.find('[data-testid="v-group"]')
+      expect(group.attributes('data-ondragmove')).toBe('true')
+    })
+
+    it('exposes onTransform in group config (for sibling sync during transform)', async () => {
+      const wrapper = await buildGroupConfig()
+      const group = wrapper.find('[data-testid="v-group"]')
+      expect(group.attributes('data-ontransform')).toBe('true')
+    })
+
+    it('preserves existing onDragStart / onTransformEnd handlers', async () => {
+      const wrapper = await buildGroupConfig()
+      const group = wrapper.find('[data-testid="v-group"]')
+      expect(group.attributes('data-ondragstart')).toBe('true')
+      expect(group.attributes('data-ontransformend')).toBe('true')
     })
   })
 })

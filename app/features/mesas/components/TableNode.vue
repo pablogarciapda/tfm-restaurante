@@ -48,7 +48,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   click: [e?: any]
   dragstart: []
+  dragmove: []
   dragend: []
+  transform: []
   transformend: []
   hover: []
   unhover: []
@@ -278,7 +280,9 @@ const groupConfig = computed(() => ({
   dragBoundFunc: props.dragBoundFunc,
   onClick: (e: any) => emit('click', e?.evt),
   onDragStart: () => emit('dragstart'),
+  onDragMove: () => emit('dragmove'),
   onDragEnd: () => emit('dragend'),
+  onTransform: () => emit('transform'),
   onTransformEnd: () => emit('transformend'),
   onMouseEnter: () => emit('hover'),
   onMouseLeave: () => emit('unhover'),
