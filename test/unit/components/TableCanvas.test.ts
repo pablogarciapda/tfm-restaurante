@@ -52,7 +52,12 @@ vi.mock('vue-konva', () => ({
   }),
   Layer: defineComponent({
     props: ['config'],
-    setup(props, { slots }) {
+    setup(props, { slots, expose }) {
+      // Expose a stub getNode so TableCanvas helpers (getMesaPositions,
+      // rotateSelectedGroup90CW, etc.) early-return cleanly during tests.
+      // Returns null by default; individual tests can override by attaching
+      // a custom stub via the `setup` return.
+      expose({ getNode: () => null })
       return () => h('div', {
         'data-testid': 'v-layer',
         'data-listening': String(props.config?.listening ?? 'true'),
@@ -376,6 +381,77 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       nodeComp.vm.$emit('transformstart')
 
       expect(store.dragSnapshot).toBeNull()
+    })
+  })
+
+  // ── Reservas toolbar: rotateSelectedGroup90CW + getSelectedMesaIds ──
+
+  describe('rotated fused-group toolbar (reservas mode)', () => {
+    it('getSelectedMesaIds returns [] when nothing is selected', async () => {
+      const store = useCanvasStore()
+      store.setMesas([
+        makeMesa({ id: 'a', id_fusion: 'gX', mesa_padre_id: 'a' }),
+        makeMesa({ id: 'b', id_fusion: 'gX', mesa_padre_id: 'a' }),
+      ])
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      expect(wrapper.vm.getSelectedMesaIds()).toEqual([])
+    })
+
+    it('getSelectedMesaIds returns [] when a non-fused mesa is selected', async () => {
+      const store = useCanvasStore()
+      store.setMesas([
+        makeMesa({ id: 'lonely' }),
+      ])
+      store.selectMesa('lonely')
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      expect(wrapper.vm.getSelectedMesaIds()).toEqual([])
+    })
+
+    it('getSelectedMesaIds returns [parent, ...siblings] when a fused parent is selected', async () => {
+      const store = useCanvasStore()
+      const parent = makeMesa({ id: 'parent', id_fusion: 'gX', mesa_padre_id: 'parent' })
+      const child = makeMesa({ id: 'child', id_fusion: 'gX', mesa_padre_id: 'parent' })
+      store.setMesas([parent, child])
+      store.selectMesa('parent')
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      const ids = wrapper.vm.getSelectedMesaIds() as string[]
+      expect(ids).toContain('parent')
+      expect(ids).toContain('child')
+      expect(ids).toHaveLength(2)
+    })
+
+    it('getSelectedMesaIds returns [] when a fused CHILD is selected (only parent drives rotation)', async () => {
+      const store = useCanvasStore()
+      const parent = makeMesa({ id: 'parent', id_fusion: 'gX', mesa_padre_id: 'parent' })
+      const child = makeMesa({ id: 'child', id_fusion: 'gX', mesa_padre_id: 'parent' })
+      store.setMesas([parent, child])
+      store.selectMesa('child')
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      expect(wrapper.vm.getSelectedMesaIds()).toEqual([])
+    })
+
+    it('rotateSelectedGroup90CW is exposed on the canvas vm', async () => {
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      expect(typeof wrapper.vm.rotateSelectedGroup90CW).toBe('function')
+    })
+
+    it('rotateSelectedGroup90CW is a no-op (does not throw) when no layer is available in the mock', async () => {
+      // The mock v-layer has no `.getNode()` so mainLayerRef.value?.getNode() is
+      // undefined and the function returns early. We assert graceful behavior.
+      const store = useCanvasStore()
+      store.setMesas([
+        makeMesa({ id: 'parent', id_fusion: 'gX', mesa_padre_id: 'parent' }),
+        makeMesa({ id: 'child', id_fusion: 'gX', mesa_padre_id: 'parent' }),
+      ])
+      store.selectMesa('parent')
+      const wrapper = await mountCanvas()
+      // @ts-expect-error: vm exposes defineExpose bindings at runtime
+      expect(() => wrapper.vm.rotateSelectedGroup90CW()).not.toThrow()
     })
   })
 

@@ -657,7 +657,56 @@ function getMesaPositions(): Record<string, { x: number; y: number; rotation: nu
   }
   return positions
 }
-defineExpose({ getMesaPositions })
+
+/**
+ * Rotate the selected fused group 90° CW as a rigid block (operation mode).
+ * No-early-return guards: only a fused PARENT driver (id_fusion != null AND
+ * mesa_padre_id === mesa.id) can drive the rotation from the toolbar button.
+ *
+ * After rotation, the parent + every sibling Mesa in the store is mutated in
+ * place with the new absolute { posicion_x, posicion_y, rotacion } so the
+ * 'Guardar' button can persist them. The user may click 'Rotar 90°' several
+ * times before saving — positions persist only on Save.
+ */
+function rotateSelectedGroup90CW() {
+  if (store.selectedMesaId === null) return
+  const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
+  if (!mesa) return
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return
+
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+
+  const transforms = fusionDrag.rotateGroup90CW(mesa, layer)
+  for (const t of transforms) {
+    const member = store.mesas.find((m) => m.id === t.id)
+    if (member) {
+      Object.assign(member, {
+        posicion_x: t.posicion_x,
+        posicion_y: t.posicion_y,
+        rotacion: t.rotacion,
+      })
+    }
+  }
+  layer.batchDraw()
+}
+
+/**
+ * Return the ids of the parent + every sibling in the currently selected
+ * fused group, or [] when nothing fused is selected. Used by the reservas
+ * 'Guardar' button to know exactly which Mesas need persistence.
+ */
+function getSelectedMesaIds(): string[] {
+  if (store.selectedMesaId === null) return []
+  const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
+  if (!mesa) return []
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return []
+  return store.mesas
+    .filter((m) => m.id_fusion === mesa.id_fusion)
+    .map((m) => m.id)
+}
+
+defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
 </script>
 
 <template>
