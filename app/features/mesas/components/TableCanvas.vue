@@ -486,6 +486,20 @@ function handleDragMove(mesa: Mesa) {
 }
 
 /**
+ * TransformStart: capture the fused-group snapshot so the rigid-body math in
+ * useFusionGroupDrag.handleTransform has the pre-gesture positions. Without this,
+ * Konva's Transformer fires `transform` events on the parent node, but the
+ * composable's `handleTransform` returns early when `dragSnapshot` is null,
+ * so siblings keep their original positions and DO NOT rotate with the parent
+ * (bug: "se gira solo una mesa de las dos").
+ */
+function handleTransformStart(mesa: Mesa) {
+  if (mesa.id_fusion) {
+    store.beginFusionDrag(mesa)
+  }
+}
+
+/**
  * Transform (live): imperatively rotate+translate fused siblings so the group
  * stays rigid during the gesture. No-op for non-fused tables or children.
  */
@@ -496,13 +510,25 @@ function handleTransform(mesa: Mesa) {
   fusionDrag.handleTransform(mesa, layer)
 }
 
-/** Transform end: apply scale to dimensions (AD-10) + persist */
+/** Transform end: apply scale to dimensions (AD-10) + persist.
+ *  All return paths call `store.endFusionDrag()` so the snapshot captured at
+ *  `transformstart` (via handleTransformStart) is guaranteed to be cleared,
+ *  even when the layer/node lookup fails mid-gesture. `endFusionDrag` is
+ *  idempotent (sets `dragSnapshot = null`), so calling it when the snapshot
+ *  was never populated (non-fused table) is a safe no-op.
+ */
 function handleTransformEnd(mesaId: string) {
   const mainLayer = mainLayerRef.value?.getNode()
-  if (!mainLayer) return
+  if (!mainLayer) {
+    store.endFusionDrag()
+    return
+  }
 
   const group = mainLayer.findOne(`#${mesaId}`)
-  if (!group) return
+  if (!group) {
+    store.endFusionDrag()
+    return
+  }
 
   // Konva Transformer changes scaleX/scaleY, NOT width/height
   const scaleX = group.scaleX()
@@ -530,7 +556,10 @@ function handleTransformEnd(mesaId: string) {
 
   // Get new values after scale reset
   const mesa = store.mesas.find((m) => m.id === mesaId)
-  if (!mesa) return
+  if (!mesa) {
+    store.endFusionDrag()
+    return
+  }
 
   const newWidth = (rect ? rect.width() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusX() * 2 : mesa.ancho)
   const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
@@ -708,6 +737,7 @@ defineExpose({ getMesaPositions })
           @dragstart="handleDragStart(mesa)"
           @dragmove="handleDragMove(mesa)"
           @dragend="handleDragEnd(mesa)"
+          @transformstart="handleTransformStart(mesa)"
           @transform="handleTransform(mesa)"
           @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"

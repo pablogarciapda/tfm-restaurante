@@ -247,6 +247,32 @@ describe('useFusionGroupDrag', () => {
     expect(layer.batchDraw).not.toHaveBeenCalled()
   })
 
+  it('handleTransform rotates sibling when snapshot was initialized at transformstart WITHOUT any dragmove (bug regression)', () => {
+    // Bug: handleDragStart was the only caller of beginFusionDrag, so a pure
+    // rotation gesture (no drag) left the snapshot null and siblings never
+    // rotated with the parent. The fix initializes the snapshot at
+    // transformstart too. This test mirrors the existing rotation test but
+    // explicitly documents that NO handleDragMove was called first.
+    const { store, parent } = setupTwoTableFusion()
+    // Snapshot initialized via transformstart (NOT dragstart).
+    store.beginFusionDrag(parent)
+
+    const parentNode = makeStubNode('parent', 100, 100, 90) // +90° rotation, NO translation
+    const childNode = makeStubNode('child', 220, 100, 0)
+    const layer = makeStubLayer({ parent: parentNode, child: childNode })
+
+    const { handleTransform } = useFusionGroupDrag(store)
+    handleTransform(parent, layer)
+
+    // centroid P=(150,150); child at (220,100): offset (70, -50); rotate +90:
+    // rotated = (70*cos90 - (-50)*sin90, 70*sin90 + (-50)*cos90) = (50, 70)
+    // final = (150+50, 150+70) = (200, 220)
+    expect(childNode.x).toHaveBeenCalledWith(200)
+    expect(childNode.y).toHaveBeenCalledWith(220)
+    expect(childNode.rotation).toHaveBeenCalledWith(90)
+    expect(layer.batchDraw).toHaveBeenCalledTimes(1)
+  })
+
   // ── computeFinalSiblingTransforms ──
 
   it('computeFinalSiblingTransforms returns [] when mesa is not fused', () => {

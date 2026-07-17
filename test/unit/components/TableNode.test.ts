@@ -84,6 +84,7 @@ vi.mock('vue-konva', () => ({
         'data-ondragmove': typeof props.config?.onDragMove === 'function' ? 'true' : 'false',
         'data-ontransform': typeof props.config?.onTransform === 'function' ? 'true' : 'false',
         'data-ondragstart': typeof props.config?.onDragStart === 'function' ? 'true' : 'false',
+        'data-ontransformstart': typeof props.config?.onTransformStart === 'function' ? 'true' : 'false',
         'data-ontransformend': typeof props.config?.onTransformEnd === 'function' ? 'true' : 'false',
       }, slots.default?.())
     },
@@ -386,6 +387,16 @@ describe('TableNode — renders group with rect + 2 texts', () => {
       const wrapper = await buildGroupConfig()
       const group = wrapper.find('[data-testid="v-group"]')
       expect(group.attributes('data-ontransform')).toBe('true')
+    })
+
+    it('exposes onTransformStart in group config (initializes fusion snapshot)', async () => {
+      // Bug fix: Konva's Transformer fires `transform` events on the parent,
+      // but useFusionGroupDrag.handleTransform needs the snapshot captured at
+      // gesture start. Without `onTransformStart` emitting `transformstart`,
+      // the snapshot stays null and siblings never rotate with the parent.
+      const wrapper = await buildGroupConfig()
+      const group = wrapper.find('[data-testid="v-group"]')
+      expect(group.attributes('data-ontransformstart')).toBe('true')
     })
 
     it('preserves existing onDragStart / onTransformEnd handlers', async () => {

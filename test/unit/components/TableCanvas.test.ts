@@ -44,7 +44,10 @@ vi.mock('vue-konva', () => ({
   Group: defineComponent({
     props: ['config'],
     setup(_props, { slots }) {
-      return () => h('div', { 'data-testid': 'v-group' }, slots.default?.())
+      return () => h('div', {
+        'data-testid': 'v-group',
+        'data-ontransformstart': typeof _props.config?.onTransformStart === 'function' ? 'true' : 'false',
+      }, slots.default?.())
     },
   }),
   Layer: defineComponent({
@@ -316,6 +319,63 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const wrapper = await mountCanvas([], [], true)
       const transformer = wrapper.find('[data-testid="v-transformer"]')
       expect(transformer.exists()).toBe(true)
+    })
+  })
+
+  // ── Bug fix: transformstart initializes fusion snapshot ──
+  // (root cause: handleDragStart was the only place populating dragSnapshot,
+  //  so pure-rotation gestures via Konva Transformer left siblings unsynced).
+
+  describe('transformstart initializes fusion snapshot (fix: rigid rotation)', () => {
+    it('clicking a fused child does not start a fusion drag (no id_fusion snapshot yet)', async () => {
+      // Sanity: snapshot starts null after a fresh canvas.
+      const store = useCanvasStore()
+      const mesas = [
+        makeMesa({ id: 'a', numero_mesa: 1 }),
+      ]
+      await mountCanvas(mesas)
+      expect(store.dragSnapshot).toBeNull()
+    })
+
+    it('emitting transformstart on a fused parent TableNode populates the fusion snapshot', async () => {
+      const store = useCanvasStore()
+      const parent = makeMesa({
+        id: 'parent', numero_mesa: 1,
+        id_fusion: 'gX', mesa_padre_id: 'parent',
+      })
+      const child = makeMesa({
+        id: 'child', numero_mesa: 2,
+        id_fusion: 'gX', mesa_padre_id: 'parent',
+      })
+      const wrapper = await mountCanvas([parent, child])
+
+      // Find the parent TableNode component and emit transformstart so the
+      // parent's `@transformstart="handleTransformStart(mesa)"` listener fires.
+      const TableNodeMod = await import('../../../app/features/mesas/components/TableNode.vue')
+      const nodes = wrapper.findAllComponents(TableNodeMod.default)
+      const parentNodeComp = nodes.find((c) => c.props().mesa?.id === 'parent')
+      expect(parentNodeComp).toBeTruthy()
+      // @ts-expect-error: vue/test-utils vm.$emit exists at runtime
+      parentNodeComp.vm.$emit('transformstart')
+
+      // beginFusionDrag must capture both parent + child absolute positions.
+      expect(store.dragSnapshot).not.toBeNull()
+      expect(store.dragSnapshot!.get('parent')).toBeTruthy()
+      expect(store.dragSnapshot!.get('child')).toBeTruthy()
+    })
+
+    it('emitting transformstart on a non-fused TableNode leaves the snapshot null', async () => {
+      const store = useCanvasStore()
+      const lonely = makeMesa({ id: 'lonely', numero_mesa: 9 })
+      const wrapper = await mountCanvas([lonely])
+
+      const TableNodeMod = await import('../../../app/features/mesas/components/TableNode.vue')
+      const nodeComp = wrapper.findAllComponents(TableNodeMod.default)[0]
+      expect(nodeComp).toBeTruthy()
+      // @ts-expect-error: vue/test-utils vm.$emit exists at runtime
+      nodeComp.vm.$emit('transformstart')
+
+      expect(store.dragSnapshot).toBeNull()
     })
   })
 
