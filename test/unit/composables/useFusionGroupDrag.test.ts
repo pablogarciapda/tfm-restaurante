@@ -25,7 +25,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useCanvasStore } from '../../../app/features/mesas/stores/canvas-store'
-import { useFusionGroupDrag, type KonvaLikeNode, type KonvaLikeLayer } from '../../../app/features/mesas/composables/useFusionGroupDrag'
+import { useFusionGroupDrag } from '../../../app/features/mesas/composables/useFusionGroupDrag'
 import type { Mesa } from '../../../shared/contracts/mesas.contract'
 
 function makeMesa(overrides: Partial<Mesa> & { id: string }): Mesa {
