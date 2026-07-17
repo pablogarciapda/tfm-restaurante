@@ -324,3 +324,72 @@ export function applyGroupTransformToSiblings(
     }
   })
 }
+
+// ---------------------------------------------------------------------------
+// rotateGroupAroundCentroid90CW
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the absolute positions/rotations of every member of a fused group
+ * after rotating the whole group 90° clockwise around its visual centroid.
+ *
+ * Used by the "Rotar 90°" button in /cocina/reservas (operation mode) where
+ * there is NO Konva Transformer and NO active drag gesture — the rotation is
+ * a programmatic one-shot applied to the parent + every sibling as a rigid
+ * block.
+ *
+ * Math:
+ *   Centroid C is the average of all members' visual centers, where a member's
+ *     center = { posicion_x + ancho/2, posicion_y + alto/2 }.
+ *   For each member with center D: d = D − C; rotate d 90° CW around the origin
+ *     using the SAME convention as `applyGroupTransformToSiblings` + Konva
+ *     (y-down, positive rotation is clockwise):
+ *       d' = (-d.y, d.x)       (i.e. cos=0, sin=1 of R(90°))
+ *     new center = C + d'
+ *     new position = new center − (ancho/2, alto/2)
+ *     new rotation = (member.rotation + 90) mod 360
+ *
+ * The convention matches `applyGroupTransformToSiblings` so a group saved via
+ * the Transformer in /cocina/diseno and a group rotated via this helper in
+ * /cocina/reservas persist identically.
+ *
+ * Pure function — no side effects, no mutation of input. Returns a NEW array;
+ * each entry is a fresh object (caller may `Object.assign` it onto the store
+ * Mesa without aliasing the input).
+ *
+ * @param members array of Mesas forming a fused group (or, defensively, any
+ *                array of Mesas). Assumed to share the same id_fusion; the
+ *                composable guards this at the call site.
+ * @returns SiblingTransform[] with new absolute { posicion_x, posicion_y,
+ *          rotacion } for each member in the same order as the input.
+ */
+export function rotateGroupAroundCentroid90CW(
+  members: Array<Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'rotacion'>>,
+): SiblingTransform[] {
+  if (members.length === 0) return []
+
+  // Group centroid = average of member visual centers.
+  let sumCx = 0
+  let sumCy = 0
+  for (const m of members) {
+    sumCx += m.posicion_x + m.ancho / 2
+    sumCy += m.posicion_y + m.alto / 2
+  }
+  const cx = sumCx / members.length
+  const cy = sumCy / members.length
+
+  // 90° CW: cos=0, sin=1 → d' = (-d.y, d.x).
+  return members.map((m) => {
+    const dx = m.posicion_x + m.ancho / 2 - cx
+    const dy = m.posicion_y + m.alto / 2 - cy
+    const newCenterX = cx + -dy
+    const newCenterY = cy + dx
+    const newRot = (((m.rotacion + 90) % 360) + 360) % 360
+    return {
+      id: m.id,
+      posicion_x: Math.round(newCenterX - m.ancho / 2),
+      posicion_y: Math.round(newCenterY - m.alto / 2),
+      rotacion: Math.round(newRot),
+    }
+  })
+}
