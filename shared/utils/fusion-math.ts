@@ -239,3 +239,185 @@ export function getMesaEstado(
 
   return 'libre'
 }
+
+// ---------------------------------------------------------------------------
+// applyGroupTransformToSiblings
+// ---------------------------------------------------------------------------
+
+/**
+ * Snapshot record for one sibling's post-gesture absolute position/rotation.
+ */
+export interface SiblingTransform {
+  id: string
+  posicion_x: number
+  posicion_y: number
+  rotacion: number
+}
+
+/**
+ * Compute new absolute positions/rotations for fused siblings after the parent
+ * mesa was translated and/or rotated. Pure function — no Konva, no side effects.
+ *
+ * Math:
+ *   P = (parentBefore.x + parentBefore.width/2, parentBefore.y + parentBefore.height/2)
+ *       — parent's centroid evaluated at the pre-gesture state.
+ *   dx = parentAfter.x - parentBefore.x
+ *   dy = parentAfter.y - parentBefore.y
+ *   dRot = parentAfter.rotation - parentBefore.rotation  (degrees, CW positive)
+ *
+ *   For each sibling:
+ *     - delta rotation around (dx, dy) when dRot !== 0:
+ *       rotated = P + R(dRot) · (sib.(x,y) − P)
+ *       final_pos = rotated + (dx, dy)
+ *     - pure translation when dRot === 0:
+ *       final_pos = sib.(x,y) + (dx, dy)
+ *     - final_rot = sib.rotation + dRot
+ *
+ *   Radians = dRot * π / 180. Konva rotation is CW positive (matches Math.cos/ sin
+ *   when treated as image-coordinate y-down: (r·cos θ, r·sin θ)).
+ *
+ * Result fields are rounded to integers (matches existing Math.round usage in
+ * TableCanvas handleTransformEnd).
+ *
+ * @param parentBefore   parent's {x, y, rotation, width, height} before gesture
+ * @param parentAfter    parent's {x, y, rotation} at the current event
+ * @param siblingsBefore array of {id, x, y, rotation} for every non-parent member
+ *                       of the fusion (snapshot taken at gesture start)
+ * @returns SiblingTransform[] with new absolute coords per sibling id
+ */
+export function applyGroupTransformToSiblings(
+  parentBefore: { x: number; y: number; rotation: number; width: number; height: number },
+  parentAfter: { x: number; y: number; rotation: number },
+  siblingsBefore: Array<{ id: string; x: number; y: number; rotation: number }>,
+): SiblingTransform[] {
+  const dx = parentAfter.x - parentBefore.x
+  const dy = parentAfter.y - parentBefore.y
+  const dRot = parentAfter.rotation - parentBefore.rotation
+
+  // Pure translation fast path
+  if (dRot === 0) {
+    return siblingsBefore.map((sib) => ({
+      id: sib.id,
+      posicion_x: Math.round(sib.x + dx),
+      posicion_y: Math.round(sib.y + dy),
+      rotacion: Math.round(sib.rotation),
+    }))
+  }
+
+  // Rotation around parent's pre-gesture centroid
+  const cx = parentBefore.x + parentBefore.width / 2
+  const cy = parentBefore.y + parentBefore.height / 2
+  const rad = (dRot * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+
+  return siblingsBefore.map((sib) => {
+    const rx = sib.x - cx
+    const ry = sib.y - cy
+    const rotatedX = rx * cos - ry * sin
+    const rotatedY = rx * sin + ry * cos
+    return {
+      id: sib.id,
+      posicion_x: Math.round(cx + rotatedX + dx),
+      posicion_y: Math.round(cy + rotatedY + dy),
+      rotacion: Math.round(sib.rotation + dRot),
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// rotateGroupAroundCentroid90CW
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the absolute positions/rotations of every member of a fused group
+ * after rotating the whole group 90° clockwise around its visual centroid.
+ *
+ * Used by the "Rotar 90°" button in /cocina/reservas (operation mode) where
+ * there is NO Konva Transformer and NO active drag gesture — the rotation is
+ * a programmatic one-shot applied to the parent + every sibling as a rigid
+ * block.
+ *
+ * Math (BEWARE: naive posicion_x + ancho/2 is WRONG for rotated tables):
+ *
+ *   In Konva a group at (x, y) with rotation θ contains its shape at local
+ *   center (w/2, h/2). The stage-space (visual) center is:
+ *
+ *     cvx = x + cos(θ)·w/2 − sin(θ)·h/2
+ *     cvy = y + sin(θ)·w/2 + cos(θ)·h/2
+ *
+ *   This is the ONLY correct pivot for rigid group rotation.
+ *
+ *   1. Compute the group centroid C = average of all members' visual centers.
+ *   2. For each member: d = cv − C → rotate d 90° CW → cv' = C + R(d)
+ *   3. Derive the NEW top-left from cv' using the NEW rotation θ' = θ+90:
+ *        pos' = cv' − (cos(θ')·w/2 − sin(θ')·h/2, sin(θ')·w/2 + cos(θ')·h/2)
+ *
+ * Pure function — no side effects, no mutation of input. Returns a NEW array;
+ * each entry is a fresh object (caller may `Object.assign` it onto the store
+ * Mesa without aliasing the input).
+ *
+ * @param members array of Mesas forming a fused group (or, defensively, any
+ *                array of Mesas). Assumed to share the same id_fusion; the
+ *                composable guards this at the call site.
+ * @returns SiblingTransform[] with new absolute { posicion_x, posicion_y,
+ *          rotacion } for each member in the same order as the input.
+ */
+export function rotateGroupAroundCentroid90CW(
+  members: Array<Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'rotacion'>>,
+): SiblingTransform[] {
+  if (members.length === 0) return []
+
+  // Step 1: compute visual centers (accounts for each member's current rotation)
+  const halfW = members.map((m) => m.ancho / 2)
+  const halfH = members.map((m) => m.alto / 2)
+  const cosOrig = members.map((m) => {
+    if (m.rotacion === 0) return 1
+    return Math.cos((m.rotacion * Math.PI) / 180)
+  })
+  const sinOrig = members.map((m) => {
+    if (m.rotacion === 0) return 0
+    return Math.sin((m.rotacion * Math.PI) / 180)
+  })
+
+  const cvx = members.map((m, i) => m.posicion_x + cosOrig[i] * halfW[i] - sinOrig[i] * halfH[i])
+  const cvy = members.map((m, i) => m.posicion_y + sinOrig[i] * halfW[i] + cosOrig[i] * halfH[i])
+
+  // Group centroid = average of visual centers
+  const gcx = cvx.reduce((s, v) => s + v, 0) / members.length
+  const gcy = cvy.reduce((s, v) => s + v, 0) / members.length
+
+  // Step 2: rotate each member 90° CW around the group centroid
+  return members.map((m, i) => {
+    const ddx = cvx[i] - gcx
+    const ddy = cvy[i] - gcy
+    // 90° CW: R(90°) of (dx, dy) = (−dy, dx)
+    const ncvx = gcx + (-ddy)
+    const ncvy = gcy + ddx
+
+    const newRot = (((m.rotacion + 90) % 360) + 360) % 360
+
+    // Step 3: back-calculate top-left from visual centre using the NEW rotation
+    const newRad = (newRot * Math.PI) / 180
+    // We special-case the common angles (90°, 180°, 270°, 0°) to avoid
+    // floating-point rounding near π/2 etc.
+    let cosNew: number
+    let sinNew: number
+    const r = newRot % 360
+    if (r === 0) { cosNew = 1; sinNew = 0 }
+    else if (r === 90) { cosNew = 0; sinNew = 1 }
+    else if (r === 180) { cosNew = -1; sinNew = 0 }
+    else if (r === 270) { cosNew = 0; sinNew = -1 }
+    else { cosNew = Math.cos(newRad); sinNew = Math.sin(newRad) }
+
+    const npx = ncvx - (cosNew * halfW[i] - sinNew * halfH[i])
+    const npy = ncvy - (sinNew * halfW[i] + cosNew * halfH[i])
+
+    return {
+      id: m.id,
+      posicion_x: Math.round(npx),
+      posicion_y: Math.round(npy),
+      rotacion: Math.round(newRot),
+    }
+  })
+}

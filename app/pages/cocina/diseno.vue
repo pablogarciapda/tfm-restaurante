@@ -166,7 +166,7 @@ async function handleSaveMesa() {
         posicion_y: pos?.y ?? mesa.posicion_y,
         ancho: mesa.ancho,
         alto: mesa.alto,
-        rotacion: mesa.rotacion,
+        rotacion: pos?.rotation ?? mesa.rotacion,
       } as unknown as Partial<Mesa>)
     }
     showToast('Posiciones guardadas', 'success')

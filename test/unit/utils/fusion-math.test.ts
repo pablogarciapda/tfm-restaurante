@@ -17,6 +17,8 @@ import {
   unfuseTables,
   getAforoDisponible,
   getMesaEstado,
+  applyGroupTransformToSiblings,
+  rotateGroupAroundCentroid90CW,
 } from '../../../shared/utils/fusion-math'
 
 // --- Helpers ---
@@ -491,5 +493,218 @@ describe('getMesaEstado (MCA-005)', () => {
       },
     ]
     expect(getMesaEstado(mesa, reservas)).toBe('libre')
+  })
+})
+
+// ============================================================================
+// applyGroupTransformToSiblings
+// ============================================================================
+
+describe('applyGroupTransformToSiblings (fused-group rigid transform)', () => {
+  it('pure translation (dRot=0): siblings shift by (dx, dy), rotations unchanged', () => {
+    const parentBefore = { x: 100, y: 100, rotation: 0, width: 100, height: 100 }
+    const parentAfter = { x: 150, y: 120, rotation: 0 }
+    const siblingsBefore = [
+      { id: 'c1', x: 220, y: 100, rotation: 0 },
+      { id: 'c2', x: 340, y: 100, rotation: 45 },
+    ]
+
+    const result = applyGroupTransformToSiblings(parentBefore, parentAfter, siblingsBefore)
+
+    expect(result).toEqual([
+      { id: 'c1', posicion_x: 270, posicion_y: 120, rotacion: 0 },
+      { id: 'c2', posicion_x: 390, posicion_y: 120, rotacion: 45 },
+    ])
+  })
+
+  it('pure rotation +90° around parent centroid moves a sibling at (cx + r, cy) to (cx, cy + r)', () => {
+    // Parent centroid P = (100 + 100/2, 100 + 100/2) = (150, 150)
+    const parentBefore = { x: 100, y: 100, rotation: 0, width: 100, height: 100 }
+    const parentAfter = { x: 100, y: 100, rotation: 90 }
+    // Sibling at centroid_x + 100, centroid_y → rotate 90° CW должен land at (150, 250)
+    // Konva rotation is CW positive: (r, 0) → (0, r)
+    const siblingsBefore = [
+      { id: 'c1', x: 250, y: 150, rotation: 0 },
+    ]
+
+    const result = applyGroupTransformToSiblings(parentBefore, parentAfter, siblingsBefore)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('c1')
+    expect(result[0].posicion_x).toBe(150)
+    expect(result[0].posicion_y).toBe(250)
+    expect(result[0].rotacion).toBe(90)
+  })
+
+  it('translation + rotation compose: sibling rotates around pre-gesture centroid and then translates', () => {
+    const parentBefore = { x: 100, y: 100, rotation: 0, width: 100, height: 100 }
+    // rotate +90° AND translate by (50, 0)
+    const parentAfter = { x: 150, y: 100, rotation: 90 }
+    const siblingsBefore = [
+      { id: 'c1', x: 250, y: 150, rotation: 0 },
+    ]
+
+    const result = applyGroupTransformToSiblings(parentBefore, parentAfter, siblingsBefore)
+
+    // Rotate (250,150) around P=(150,150): (100, 0) → (0, 100) = (150, 250)
+    // Then translate by (50, 0): (200, 250)
+    expect(result[0].posicion_x).toBe(200)
+    expect(result[0].posicion_y).toBe(250)
+    expect(result[0].rotacion).toBe(90)
+  })
+
+  it('round-trip: +90° then -90° with zero translation returns siblings to original (within 1px)', () => {
+    const parentBefore1 = { x: 100, y: 100, rotation: 0, width: 100, height: 100 }
+    const parentAfter1 = { x: 100, y: 100, rotation: 90 }
+    const siblingsBefore1 = [
+      { id: 'c1', x: 250, y: 150, rotation: 30 },
+    ]
+
+    const after1 = applyGroupTransformToSiblings(parentBefore1, parentAfter1, siblingsBefore1)
+
+    // Now apply -90° starting from the post-rotation parent state
+    const parentBefore2 = { x: 100, y: 100, rotation: 90, width: 100, height: 100 }
+    const parentAfter2 = { x: 100, y: 100, rotation: 0 }
+    const siblingsBefore2 = after1.map((r) => ({
+      id: r.id,
+      x: r.posicion_x,
+      y: r.posicion_y,
+      rotation: r.rotacion,
+    }))
+
+    const after2 = applyGroupTransformToSiblings(parentBefore2, parentAfter2, siblingsBefore2)
+
+    expect(after2[0].posicion_x).toBeGreaterThanOrEqual(249)
+    expect(after2[0].posicion_x).toBeLessThanOrEqual(251)
+    expect(after2[0].posicion_y).toBeGreaterThanOrEqual(149)
+    expect(after2[0].posicion_y).toBeLessThanOrEqual(151)
+    expect(after2[0].rotacion).toBe(30)
+  })
+
+  it('empty siblings array returns []', () => {
+    const parentBefore = { x: 0, y: 0, rotation: 0, width: 100, height: 100 }
+    const parentAfter = { x: 50, y: 50, rotation: 30 }
+    expect(applyGroupTransformToSiblings(parentBefore, parentAfter, [])).toEqual([])
+  })
+
+  it('rounding: integer inputs produce integer output', () => {
+    const parentBefore = { x: 100, y: 100, rotation: 0, width: 100, height: 100 }
+    const parentAfter = { x: 150, y: 120, rotation: 90 }
+    const siblingsBefore = [
+      { id: 'c1', x: 250, y: 150, rotation: 0 },
+    ]
+
+    const result = applyGroupTransformToSiblings(parentBefore, parentAfter, siblingsBefore)
+
+    expect(Number.isInteger(result[0].posicion_x)).toBe(true)
+    expect(Number.isInteger(result[0].posicion_y)).toBe(true)
+    expect(Number.isInteger(result[0].rotacion)).toBe(true)
+  })
+})
+
+// ============================================================================
+// rotateGroupAroundCentroid90CW
+// ============================================================================
+
+describe('rotateGroupAroundCentroid90CW (rigid group rotation in reservas mode)', () => {
+  it('2-table fusion: both members rotate 90° CW around their joint centroid', () => {
+    // Parent + child side-by-side on a horizontal row.
+    const parent = makeMesa({
+      id: 'p', posicion_x: 100, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    const child = makeMesa({
+      id: 'c', posicion_x: 220, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    // Visual centers (150,150) and (270,150). Centroid = (210,150).
+    // 90° CW around centroid:
+    //   parent → cv'=(210,90); θ'=90 → topLeft=(210 - (0·50 - 1·50), 90 - (1·50 + 0))
+    //             = (260, 40)  rot 90
+    //   child  → cv'=(210,210) → topLeft = (260, 160)  rot 90
+    const result = rotateGroupAroundCentroid90CW([parent, child])
+
+    expect(result).toEqual([
+      { id: 'p', posicion_x: 260, posicion_y: 40, rotacion: 90 },
+      { id: 'c', posicion_x: 260, posicion_y: 160, rotacion: 90 },
+    ])
+  })
+
+  it('3-table fusion: all members rotate around the joint centroid', () => {
+    const parent = makeMesa({
+      id: 'p', posicion_x: 100, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    const middle = makeMesa({
+      id: 'm', posicion_x: 220, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    const far = makeMesa({
+      id: 'f', posicion_x: 340, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    // Visual centers (150,150), (270,150), (390,150). Centroid = (270,150).
+    //   parent → cv'=(270,30)  → topLeft=(320, -20) rot 90
+    //   middle → cv'=(270,150) → topLeft=(320, 100) rot 90
+    //   far    → cv'=(270,270) → topLeft=(320, 220) rot 90
+    const result = rotateGroupAroundCentroid90CW([parent, middle, far])
+
+    expect(result).toEqual([
+      { id: 'p', posicion_x: 320, posicion_y: -20, rotacion: 90 },
+      { id: 'm', posicion_x: 320, posicion_y: 100, rotacion: 90 },
+      { id: 'f', posicion_x: 320, posicion_y: 220, rotacion: 90 },
+    ])
+  })
+
+  it('round-trip: applying the helper 4× returns every member to its original state', () => {
+    const parent = makeMesa({
+      id: 'p', posicion_x: 100, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+    const child = makeMesa({
+      id: 'c', posicion_x: 220, posicion_y: 100, ancho: 100, alto: 100, rotacion: 0,
+    })
+
+    let currents: Mesa[] = [parent, child]
+    for (let i = 0; i < 4; i++) {
+      const transforms = rotateGroupAroundCentroid90CW(currents)
+      currents = currents.map((m) => {
+        const t = transforms.find((x) => x.id === m.id)!
+        return { ...m, posicion_x: t.posicion_x, posicion_y: t.posicion_y, rotacion: t.rotacion }
+      })
+    }
+
+    expect(currents[0]).toMatchObject({ posicion_x: 100, posicion_y: 100, rotacion: 0 })
+    expect(currents[1]).toMatchObject({ posicion_x: 220, posicion_y: 100, rotacion: 0 })
+  })
+
+  it('respects starting rotation: a member already rotated advances by another 90°', () => {
+    const m = makeMesa({
+      id: 'only', posicion_x: 100, posicion_y: 100, ancho: 100, alto: 100, rotacion: 30,
+    })
+    // Visual center at rot=30: (118.3, 168.3). After 90°CW around itself
+    // (centroid = same point since 1 member), newRot=120, and top-left
+    // recomputes to (187, 150) using the 120° offset.
+    const result = rotateGroupAroundCentroid90CW([m])
+
+    expect(result[0].posicion_x).toBe(187)
+    expect(result[0].posicion_y).toBe(150)
+    expect(result[0].rotacion).toBe(120)
+  })
+
+  it('preserves member order in the returned array', () => {
+    const mesas = [
+      makeMesa({ id: 'a', posicion_x: 100, posicion_y: 100, rotacion: 0 }),
+      makeMesa({ id: 'b', posicion_x: 220, posicion_y: 100, rotacion: 0 }),
+    ]
+    const result = rotateGroupAroundCentroid90CW(mesas)
+    expect(result.map((r) => r.id)).toEqual(['a', 'b'])
+  })
+
+  it('is a pure function: does not mutate the input array or its members', () => {
+    const parent = makeMesa({ id: 'p', posicion_x: 100, posicion_y: 100 })
+    const child = makeMesa({ id: 'c', posicion_x: 220, posicion_y: 100 })
+    const snap = JSON.parse(JSON.stringify([parent, child]))
+
+    const result = rotateGroupAroundCentroid90CW([parent, child])
+
+    expect([parent, child]).toEqual(snap)
+    // Result entries are NEW objects, not aliases of the inputs.
+    expect(result[0]).not.toBe(parent)
+    expect(result[1]).not.toBe(child)
   })
 })

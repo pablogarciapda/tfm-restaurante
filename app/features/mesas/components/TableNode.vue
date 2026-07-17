@@ -6,7 +6,7 @@
     reservasMap (optional) — mesa_id → client name for reserved tables
     fusionLabel (optional) — combined table numbers for fused groups
 
-  Emits: click, dragend, transformend
+  Emits: click, dragend, transformstart, transformend
 
   Text overlay layout:
     Top line: numero_mesa (bold, fontSize 16) — or fusionLabel if fused
@@ -48,7 +48,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   click: [e?: any]
   dragstart: []
+  dragmove: []
   dragend: []
+  transformstart: []
+  transform: []
   transformend: []
   hover: []
   unhover: []
@@ -278,7 +281,10 @@ const groupConfig = computed(() => ({
   dragBoundFunc: props.dragBoundFunc,
   onClick: (e: any) => emit('click', e?.evt),
   onDragStart: () => emit('dragstart'),
+  onDragMove: () => emit('dragmove'),
   onDragEnd: () => emit('dragend'),
+  onTransformStart: () => emit('transformstart'),
+  onTransform: () => emit('transform'),
   onTransformEnd: () => emit('transformend'),
   onMouseEnter: () => emit('hover'),
   onMouseLeave: () => emit('unhover'),

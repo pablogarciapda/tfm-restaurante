@@ -21,6 +21,7 @@ import {
 } from 'vue-konva'
 import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
+import { useFusionGroupDrag } from '../composables/useFusionGroupDrag'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
 import TableTooltip from './TableTooltip.vue'
@@ -102,6 +103,7 @@ const zoneImageScaleMap = computed(() => {
 
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
+const fusionDrag = useFusionGroupDrag(store)
 
 /** Scale factors for proportional zones (Bug 3 fix) */
 const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH)
@@ -458,23 +460,75 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
-function handleDragEnd(_mesa: Mesa) {
-  store.isDragging = false
-}
-
 /** Drag start: record state so Tooltip stays hidden during drag */
 function handleDragStart(_mesa: Mesa) {
   store.isDragging = true
+  if (_mesa.id_fusion) {
+    store.beginFusionDrag(_mesa)
+  }
 }
 
-/** Transform end: apply scale to dimensions (AD-10) + persist */
+/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
+function handleDragEnd(_mesa: Mesa) {
+  store.isDragging = false
+  store.endFusionDrag()
+}
+
+/**
+ * DragMove: imperatively translate fused siblings so the group stays rigid.
+ * No-op for non-fused tables or children (only the parent drives the sync).
+ */
+function handleDragMove(mesa: Mesa) {
+  if (!mesa.id_fusion) return
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+  fusionDrag.handleDragMove(mesa, layer)
+}
+
+/**
+ * TransformStart: capture the fused-group snapshot so the rigid-body math in
+ * useFusionGroupDrag.handleTransform has the pre-gesture positions. Without this,
+ * Konva's Transformer fires `transform` events on the parent node, but the
+ * composable's `handleTransform` returns early when `dragSnapshot` is null,
+ * so siblings keep their original positions and DO NOT rotate with the parent
+ * (bug: "se gira solo una mesa de las dos").
+ */
+function handleTransformStart(mesa: Mesa) {
+  if (mesa.id_fusion) {
+    store.beginFusionDrag(mesa)
+  }
+}
+
+/**
+ * Transform (live): imperatively rotate+translate fused siblings so the group
+ * stays rigid during the gesture. No-op for non-fused tables or children.
+ */
+function handleTransform(mesa: Mesa) {
+  if (!mesa.id_fusion) return
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+  fusionDrag.handleTransform(mesa, layer)
+}
+
+/** Transform end: apply scale to dimensions (AD-10) + persist.
+ *  All return paths call `store.endFusionDrag()` so the snapshot captured at
+ *  `transformstart` (via handleTransformStart) is guaranteed to be cleared,
+ *  even when the layer/node lookup fails mid-gesture. `endFusionDrag` is
+ *  idempotent (sets `dragSnapshot = null`), so calling it when the snapshot
+ *  was never populated (non-fused table) is a safe no-op.
+ */
 function handleTransformEnd(mesaId: string) {
   const mainLayer = mainLayerRef.value?.getNode()
-  if (!mainLayer) return
+  if (!mainLayer) {
+    store.endFusionDrag()
+    return
+  }
 
   const group = mainLayer.findOne(`#${mesaId}`)
-  if (!group) return
+  if (!group) {
+    store.endFusionDrag()
+    return
+  }
 
   // Konva Transformer changes scaleX/scaleY, NOT width/height
   const scaleX = group.scaleX()
@@ -502,7 +556,10 @@ function handleTransformEnd(mesaId: string) {
 
   // Get new values after scale reset
   const mesa = store.mesas.find((m) => m.id === mesaId)
-  if (!mesa) return
+  if (!mesa) {
+    store.endFusionDrag()
+    return
+  }
 
   const newWidth = (rect ? rect.width() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusX() * 2 : mesa.ancho)
   const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
@@ -514,6 +571,25 @@ function handleTransformEnd(mesaId: string) {
   mesa.rotacion = newRotation
   mesa.posicion_x = Math.round(group.x())
   mesa.posicion_y = Math.round(group.y())
+
+  // Fused group: Object.assign siblings with the synced absolute coords so
+  // the Save loop in /cocina/diseno persists the rigid-group state. Use the
+  // snapshot BEFORE clearing it.
+  if (mesa.id_fusion && mesa.mesa_padre_id === mesa.id) {
+    const siblingTransforms = fusionDrag.computeFinalSiblingTransforms(mesa, mainLayer)
+    for (const t of siblingTransforms) {
+      const sibling = store.mesas.find((m) => m.id === t.id)
+      if (sibling) {
+        Object.assign(sibling, {
+          posicion_x: t.posicion_x,
+          posicion_y: t.posicion_y,
+          rotacion: t.rotacion,
+        })
+      }
+    }
+  }
+
+  store.endFusionDrag()
 }
 
 // ── Canvas sizing: fill available width (Bug 3 fix) ──
@@ -565,19 +641,72 @@ onMounted(async () => {
 watch(() => store.filteredMesas, () => { updateCanvasSize() })
 
 // Expose: allow parent to read actual Konva node positions
-function getMesaPositions(): Record<string, { x: number; y: number }> {
-  const positions: Record<string, { x: number; y: number }> = {}
+function getMesaPositions(): Record<string, { x: number; y: number; rotation: number }> {
+  const positions: Record<string, { x: number; y: number; rotation: number }> = {}
   const layer = mainLayerRef.value?.getNode()
   if (!layer) return positions
   for (const mesa of store.filteredMesas) {
     const node = layer.findOne(`#${mesa.id}`)
     if (node) {
-      positions[mesa.id] = { x: Math.round(node.x()), y: Math.round(node.y()) }
+      positions[mesa.id] = {
+        x: Math.round(node.x()),
+        y: Math.round(node.y()),
+        rotation: Math.round(node.rotation()),
+      }
     }
   }
   return positions
 }
-defineExpose({ getMesaPositions })
+
+/**
+ * Rotate the selected fused group 90° CW as a rigid block (operation mode).
+ * No-early-return guards: only a fused PARENT driver (id_fusion != null AND
+ * mesa_padre_id === mesa.id) can drive the rotation from the toolbar button.
+ *
+ * After rotation, the parent + every sibling Mesa in the store is mutated in
+ * place with the new absolute { posicion_x, posicion_y, rotacion } so the
+ * 'Guardar' button can persist them. The user may click 'Rotar 90°' several
+ * times before saving — positions persist only on Save.
+ */
+function rotateSelectedGroup90CW() {
+  if (store.selectedMesaId === null) return
+  const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
+  if (!mesa) return
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return
+
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+
+  const transforms = fusionDrag.rotateGroup90CW(mesa, layer)
+  for (const t of transforms) {
+    const member = store.mesas.find((m) => m.id === t.id)
+    if (member) {
+      Object.assign(member, {
+        posicion_x: t.posicion_x,
+        posicion_y: t.posicion_y,
+        rotacion: t.rotacion,
+      })
+    }
+  }
+  layer.batchDraw()
+}
+
+/**
+ * Return the ids of the parent + every sibling in the currently selected
+ * fused group, or [] when nothing fused is selected. Used by the reservas
+ * 'Guardar' button to know exactly which Mesas need persistence.
+ */
+function getSelectedMesaIds(): string[] {
+  if (store.selectedMesaId === null) return []
+  const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
+  if (!mesa) return []
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return []
+  return store.mesas
+    .filter((m) => m.id_fusion === mesa.id_fusion)
+    .map((m) => m.id)
+}
+
+defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
 </script>
 
 <template>
@@ -655,7 +784,10 @@ defineExpose({ getMesaPositions })
           :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
           @dragstart="handleDragStart(mesa)"
+          @dragmove="handleDragMove(mesa)"
           @dragend="handleDragEnd(mesa)"
+          @transformstart="handleTransformStart(mesa)"
+          @transform="handleTransform(mesa)"
           @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"
           @unhover="handleTableUnhover"
