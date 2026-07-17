@@ -71,6 +71,7 @@ vi.mock('vue-konva', () => ({
         'data-testid': 'v-text',
         'data-text': String(props.config?.text ?? ''),
         'data-fontsize': String(props.config?.fontSize ?? ''),
+        'data-fontstyle': String(props.config?.fontStyle ?? ''),
         'data-fill': String(props.config?.fill ?? ''),
       })
     },
@@ -135,7 +136,7 @@ function makeMesa(overrides: Partial<Mesa> & { id: string }): Mesa {
 // TableNode Tests
 // ============================================================================
 
-describe('TableNode — renders group with rect + 2 texts', () => {
+describe('TableNode — renders group with rect + text', () => {
   async function mountNode(options: {
     mesa?: Mesa
     estado?: MesaEstado
@@ -166,10 +167,12 @@ describe('TableNode — renders group with rect + 2 texts', () => {
       expect(wrapper.find('[data-testid="v-rect"]').exists()).toBe(true)
     })
 
-    it('renders two v-text elements for normal-size tables (numero + capacidad)', async () => {
+    it('renders one v-text label for normal-size tables (number + capacity merged)', async () => {
       const wrapper = await mountNode()
       const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts).toHaveLength(2)
+      // Labels merged into single counter-rotated v-text.
+      // Turn overlay only shows with reservasMap, so default = 1.
+      expect(texts).toHaveLength(1)
     })
   })
 
@@ -232,54 +235,56 @@ describe('TableNode — renders group with rect + 2 texts', () => {
   })
 
   describe('text content', () => {
-    it('shows numero_mesa (bold, fontSize 16) in first text', async () => {
+    it('shows combined "numero\\ncapacidad" in the single label v-text', async () => {
+      const mesa = makeMesa({ id: 'a', numero_mesa: 7, capacidad_base: 6 })
+      const wrapper = await mountNode({ mesa })
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-text')).toBe('7\n6p')
+    })
+
+    it('uses fontSize 14 (baseFontSize) for the merged label', async () => {
       const mesa = makeMesa({ id: 'a', numero_mesa: 7 })
       const wrapper = await mountNode({ mesa })
-      const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts[0].attributes('data-text')).toBe('7')
-      // fontSize 16 for the numero (bold)
-      expect(texts[0].attributes('data-fontsize')).toBe('16')
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-fontsize')).toBe('14')
     })
 
-    it('shows "{capacidad_base}p" in second text', async () => {
-      const mesa = makeMesa({ id: 'a', capacidad_base: 6 })
-      const wrapper = await mountNode({ mesa })
-      const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts[1].attributes('data-text')).toBe('6p')
-      // fontSize 11 for capacity
-      expect(texts[1].attributes('data-fontsize')).toBe('11')
-    })
-
-    it('shows client name from reservasMap when estado is reservada', async () => {
-      const mesa = makeMesa({ id: 'res-1', numero_mesa: 8 })
+    it('shows client name (\\n separado) when estado is reservada with reservasMap', async () => {
+      const mesa = makeMesa({ id: 'res-1', numero_mesa: 8, capacidad_base: 4 })
       const wrapper = await mountNode({
         mesa,
         estado: 'reservada',
         reservasMap: { 'res-1': 'Juan Pérez' },
       })
-      const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts[1].attributes('data-text')).toBe('Juan Pérez')
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-text')).toBe('8\nJuan Pérez')
     })
 
-    it('shows capacity when estado is reservada but no reservasMap entry', async () => {
-      const mesa = makeMesa({ id: 'res-2', capacidad_base: 4 })
+    it('shows capacity when reservada but no reservasMap entry', async () => {
+      const mesa = makeMesa({ id: 'res-2', numero_mesa: 10, capacidad_base: 4 })
       const wrapper = await mountNode({
         mesa,
         estado: 'reservada',
         reservasMap: { 'other-mesa': 'Someone' },
       })
-      const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts[1].attributes('data-text')).toBe('4p')
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-text')).toBe('10\n4p')
     })
 
-    it('shows fusionLabel instead of numero_mesa when provided', async () => {
-      const mesa = makeMesa({ id: 'fused-1', numero_mesa: 3 })
+    it('shows fusionLabel instead of numero_mesa in the combined text', async () => {
+      const mesa = makeMesa({ id: 'fused-1', numero_mesa: 3, capacidad_base: 6 })
       const wrapper = await mountNode({
         mesa,
         fusionLabel: '3/4',
       })
-      const texts = wrapper.findAll('[data-testid="v-text"]')
-      expect(texts[0].attributes('data-text')).toBe('3/4')
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-text')).toBe('3/4\n6p')
+    })
+
+    it('uses bold fontStyle', async () => {
+      const wrapper = await mountNode()
+      const text = wrapper.find('[data-testid="v-text"]')
+      expect(text.attributes('data-fontstyle')).toBe('bold')
     })
   })
 
