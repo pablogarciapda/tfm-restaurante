@@ -25,7 +25,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useCanvasStore } from '../../../app/features/mesas/stores/canvas-store'
-import { useFusionGroupDrag } from '../../../app/features/mesas/composables/useFusionGroupDrag'
+import { useFusionGroupDrag, type KonvaLikeNode, type KonvaLikeLayer } from '../../../app/features/mesas/composables/useFusionGroupDrag'
 import type { Mesa } from '../../../shared/contracts/mesas.contract'
 
 function makeMesa(overrides: Partial<Mesa> & { id: string }): Mesa {
@@ -305,5 +305,111 @@ describe('useFusionGroupDrag', () => {
     expect(result[0].posicion_x).toBe(200)
     expect(result[0].posicion_y).toBe(220)
     expect(result[0].rotacion).toBe(90)
+  })
+
+  // ── rotateGroup90CW — programmatic 90° CW rigid rotation (no gesture) ──
+
+  describe('rotateGroup90CW (reservas button — no active gesture)', () => {
+    it('returns [] when called on a non-fused mesa', () => {
+      const { store } = setupTwoTableFusion()
+      const lonely = makeMesa({ id: 'lonely' })
+      const layer = makeStubLayer({})
+
+      const { rotateGroup90CW } = useFusionGroupDrag(store)
+      const result = rotateGroup90CW(lonely, layer)
+
+      expect(result).toEqual([])
+      expect(layer.batchDraw).not.toHaveBeenCalled()
+    })
+
+    it('returns [] when called on a fusion child (not the parent driver)', () => {
+      const { store, child } = setupTwoTableFusion()
+      const layer = makeStubLayer({})
+
+      const { rotateGroup90CW } = useFusionGroupDrag(store)
+      const result = rotateGroup90CW(child, layer)
+
+      expect(result).toEqual([])
+      expect(layer.batchDraw).not.toHaveBeenCalled()
+    })
+
+    it('rotates every member (parent + siblings) 90° CW, applies to live Konva nodes, and returns identical transforms', () => {
+      const { store, parent } = setupTwoTableFusion()
+      // parent at (100,100, 100x100), child at (220,100, 100x100), rot 0.
+      // Centroid = (210, 150). After +90° CW:
+      //   parent → pos (160, 40), rot 90
+      //   child  → pos (160, 160), rot 90
+      const parentNode = makeStubNode('parent', 100, 100, 0)
+      const childNode = makeStubNode('child', 220, 100, 0)
+      const layer = makeStubLayer({ parent: parentNode, child: childNode })
+
+      const { rotateGroup90CW } = useFusionGroupDrag(store)
+      const result = rotateGroup90CW(parent, layer)
+
+      expect(result).toHaveLength(2)
+      const parentT = result.find((t) => t.id === 'parent')!
+      const childT = result.find((t) => t.id === 'child')!
+      expect(parentT).toEqual({ id: 'parent', posicion_x: 160, posicion_y: 40, rotacion: 90 })
+      expect(childT).toEqual({ id: 'child', posicion_x: 160, posicion_y: 160, rotacion: 90 })
+
+      // Imperative application: each Konva node received x/y/rotation setters.
+      expect(parentNode.x).toHaveBeenCalledWith(160)
+      expect(parentNode.y).toHaveBeenCalledWith(40)
+      expect(parentNode.rotation).toHaveBeenCalledWith(90)
+      expect(childNode.x).toHaveBeenCalledWith(160)
+      expect(childNode.y).toHaveBeenCalledWith(160)
+      expect(childNode.rotation).toHaveBeenCalledWith(90)
+
+      // Single batchDraw at the end.
+      expect(layer.batchDraw).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT require a dragSnapshot (works without beginFusionDrag)', () => {
+      const { store, parent } = setupTwoTableFusion()
+      // Intentionally skip beginFusionDrag → snapshot must remain null.
+      const parentNode = makeStubNode('parent', 100, 100, 0)
+      const childNode = makeStubNode('child', 220, 100, 0)
+      const layer = makeStubLayer({ parent: parentNode, child: childNode })
+
+      const { rotateGroup90CW } = useFusionGroupDrag(store)
+      const result = rotateGroup90CW(parent, layer)
+
+      expect(result).toHaveLength(2)
+      expect(store.dragSnapshot).toBeNull()
+    })
+
+    it('clamps member positions to (0, stageWidth-50) x (0, stageHeight-50)', () => {
+      // Smaller stage so the rotated parent lands off-screen.
+      const store = useCanvasStore()
+      store.stageWidth = 300
+      store.stageHeight = 300
+      const parent = makeMesa({
+        id: 'parent', posicion_x: 100, posicion_y: 100,
+        ancho: 100, alto: 100, rotacion: 0,
+        id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+      })
+      const child = makeMesa({
+        id: 'child', posicion_x: 220, posicion_y: 100,
+        ancho: 100, alto: 100, rotacion: 0,
+        id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+      })
+      store.setMesas([parent, child])
+
+      const parentNode = makeStubNode('parent', 100, 100, 0)
+      const childNode = makeStubNode('child', 220, 100, 0)
+      const layer = makeStubLayer({ parent: parentNode, child: childNode })
+
+      const maxX = store.stageWidth - 50
+      const maxY = store.stageHeight - 50
+      const { rotateGroup90CW } = useFusionGroupDrag(store)
+      const result = rotateGroup90CW(parent, layer)
+
+      for (const t of result) {
+        expect(t.posicion_x).toBeGreaterThanOrEqual(0)
+        expect(t.posicion_x).toBeLessThanOrEqual(maxX)
+        expect(t.posicion_y).toBeGreaterThanOrEqual(0)
+        expect(t.posicion_y).toBeLessThanOrEqual(maxY)
+      }
+    })
   })
 })

@@ -20,7 +20,11 @@
  * Mesas in-place at transform-end so they reflect the synced state for the Save
  * loop in /cocina/diseno.
  */
-import { applyGroupTransformToSiblings, type SiblingTransform } from '#shared/utils/fusion-math'
+import {
+  applyGroupTransformToSiblings,
+  rotateGroupAroundCentroid90CW,
+  type SiblingTransform,
+} from '#shared/utils/fusion-math'
 import type { useCanvasStore as CanvasStore } from '../stores/canvas-store'
 import type { Mesa } from '#shared/contracts/mesas.contract'
 
@@ -183,9 +187,43 @@ export function useFusionGroupDrag(store: CanvasStoreType) {
     return applyGroupTransformToSiblings(parentBefore, parentAfter, siblingsBefore)
   }
 
+  /**
+   * Programmatic 90° CW rigid rotation of an entire fused group, used by the
+   * "Rotar 90°" button in /cocina/reservas (no active Konva gesture). Reads
+   * the current member positions straight from the store (no snapshot needed),
+   * delegates the math to `rotateGroupAroundCentroid90CW`, applies the result
+   * to every live Konva node (parent + siblings) and re-draws. Returns the
+   * same transforms so the caller can `Object.assign` them into the store
+   * Mesas for later persistence.
+   *
+   * Guards: no-op for non-fused tables and for fusion children (only the
+   * parent driver rotates the group from the toolbar button).
+   */
+  function rotateGroup90CW(mesa: Mesa, layer: KonvaLikeLayer): SiblingTransform[] {
+    if (!isParentDriver(mesa)) return []
+
+    const members = store.mesas.filter((m) => m.id_fusion === mesa.id_fusion)
+    if (members.length === 0) return []
+
+    const transforms = rotateGroupAroundCentroid90CW(members)
+
+    const maxX = store.stageWidth - 50
+    const maxY = store.stageHeight - 50
+    for (const t of transforms) {
+      const node = layer.findOne(`#${t.id}`)
+      if (!node) continue
+      node.x(clampToStage(t.posicion_x, maxX))
+      node.y(clampToStage(t.posicion_y, maxY))
+      node.rotation(t.rotacion)
+    }
+    layer.batchDraw()
+    return transforms
+  }
+
   return {
     handleDragMove,
     handleTransform,
     computeFinalSiblingTransforms,
+    rotateGroup90CW,
   }
 }
