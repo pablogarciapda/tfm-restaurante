@@ -341,10 +341,11 @@ const groupConfig = computed(() => ({
         listening: false,
         offsetX: 7,
         offsetY: 7,
+        rotation: -mesa.rotacion,
       }"
     />
 
-    <!-- Mesa number — bold, centered, larger font -->
+    <!-- Mesa number — bold, centered, larger font. Counter-rotated to stay readable -->
     <v-text
       :config="{
         x: textX,
@@ -358,10 +359,11 @@ const groupConfig = computed(() => ({
         fontFamily: 'Inter, sans-serif',
         fill: '#2D3748',
         listening: false,
+        rotation: -mesa.rotacion,
       }"
     />
 
-    <!-- Capacity or client name (hidden for small tables) -->
+    <!-- Capacity or client name (hidden for small tables). Counter-rotated -->
     <v-text
       v-if="!isSmall"
       :config="{
@@ -375,6 +377,7 @@ const groupConfig = computed(() => ({
         fontFamily: 'Inter, sans-serif',
         fill: '#4A5568',
         listening: false,
+        rotation: -mesa.rotacion,
       }"
     />
   </v-group>
