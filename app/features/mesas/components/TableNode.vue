@@ -159,6 +159,11 @@ const shapeConfig = computed(() => {
 })
 
 // ── Text overlay positioning ──
+//
+// Single v-text node spanning both table-number and capacity/client-name
+// lines, placed at the shape's GEOMETRIC CENTER in local group coordinates.
+// offsetX/offsetY center the text box at that anchor. Counter-rotation
+// (rotation: -mesa.rotacion) keeps text readable when the group rotates.
 
 // Text width depends on shape: for circle/ellipse use smaller max width
 const textWidth = computed(() => {
@@ -169,42 +174,37 @@ const textWidth = computed(() => {
   return props.mesa.ancho
 })
 
-// Vertical center of the shape relative to Group origin
-const centerY = computed(() => {
-  if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') return 0
-  if (props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
-  return props.mesa.alto / 2
+/** Shape's geometric center in local group coordinates. */
+const shapeCenter = computed(() => {
+  if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') {
+    return { x: 0, y: 0 }
+  }
+  if (props.mesa.forma === 'cuadrada') {
+    return { x: props.mesa.ancho / 2, y: props.mesa.ancho / 2 }
+  }
+  return { x: props.mesa.ancho / 2, y: props.mesa.alto / 2 }
 })
 
 const baseFontSize = computed(() => props.fontSize ?? 14)
-const fontSizeNumero = computed(() => baseFontSize.value + 2)  // 16 default
-const fontSizePax = computed(() => baseFontSize.value - 3)     // 11 default
 const fontSizeLabel = computed(() => baseFontSize.value)       // 14 default
 
-// Text X center position: differs by shape type
-// Circles/ellipses: center at Group origin → offset left to center text box
-// Rects: top-left at origin, full-width text box at x=0
-const textX = computed(() => {
-  if (props.mesa.forma === 'redonda' || props.mesa.forma === 'ovalada') return -textWidth.value / 2
-  return 0
-})
+/** Number of text lines (1 for small tables, 2 otherwise). */
+const lineCount = computed(() => isSmall.value ? 1 : 2)
 
-// Top text Y offset: center two-line block or single line for small tables
-const textOffsetY = computed(() => {
-  if (isSmall.value) {
-    return centerY.value - 8  // single 16px line centered vertically
-  }
-  const blockHeight = 16 + 2 + 11  // fontSizeNumero + gap + fontSizePax
-  return centerY.value - blockHeight / 2
-})
-
-// Bottom text Y offset (only used when !isSmall)
-const paxOffsetY = computed(() => textOffsetY.value + 16 + 2)  // after number + gap
+/** offsetY to center the line block vertically at the anchor. */
+const textOffsetY = computed(() => (baseFontSize.value * lineCount.value) / 2)
 
 // ── Text content ──
 
-// Show fusion label (e.g. "1/2") for fused tables, else just the table number
-const displayNumber = computed(() => props.fusionLabel || String(props.mesa.numero_mesa))
+// Single display text: "number\ncapacity" for normal tables, just "number" for small
+const displayText = computed(() => {
+  const number = props.fusionLabel || String(props.mesa.numero_mesa)
+  if (isSmall.value) return number
+  const capOrClient = props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]
+    ? props.reservasMap[props.mesa.id]
+    : `${props.mesa.capacidad_base}p`
+  return `${number}\n${capOrClient}`
+})
 
 // ── Turn overlay configs ──
 
@@ -261,14 +261,6 @@ const turnLabelPos = computed(() => {
   // Rect / Square: center of top half
   const h = props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto
   return { x: props.mesa.ancho * 0.5, y: h * 0.25 }
-})
-
-// Show client name when reserved, else capacity formatted as "4p"
-const bottomText = computed(() => {
-  if (props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]) {
-    return props.reservasMap[props.mesa.id]
-  }
-  return `${props.mesa.capacidad_base}p`
 })
 
 // Group config with Konva-native event handlers (avoids Vue fragment inheritance issue)
@@ -345,37 +337,21 @@ const groupConfig = computed(() => ({
       }"
     />
 
-    <!-- Mesa number — bold, centered, larger font. Counter-rotated to stay readable -->
+    <!-- Single label (number + capacity via \n), at shape center, offset-centered, counter-rotated -->
     <v-text
       :config="{
-        x: textX,
-        y: textOffsetY,
+        x: shapeCenter.x,
+        y: shapeCenter.y,
+        offsetX: textWidth / 2,
+        offsetY: textOffsetY,
         width: textWidth,
         align: 'center',
         verticalAlign: 'middle',
-        text: displayNumber,
-        fontSize: fontSizeNumero,
+        text: displayText,
+        fontSize: baseFontSize,
         fontStyle: 'bold',
         fontFamily: 'Inter, sans-serif',
         fill: '#2D3748',
-        listening: false,
-        rotation: -mesa.rotacion,
-      }"
-    />
-
-    <!-- Capacity or client name (hidden for small tables). Counter-rotated -->
-    <v-text
-      v-if="!isSmall"
-      :config="{
-        x: textX,
-        y: paxOffsetY,
-        width: textWidth,
-        align: 'center',
-        verticalAlign: 'middle',
-        text: bottomText,
-        fontSize: fontSizePax,
-        fontFamily: 'Inter, sans-serif',
-        fill: '#4A5568',
         listening: false,
         rotation: -mesa.rotacion,
       }"
