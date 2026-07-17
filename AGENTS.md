@@ -260,6 +260,7 @@
 - Carta con filtros de alérgenos y calorías, categorías ordenadas por `categorias.puesto`, sección recomendados configurable (título + toggle desde admin), subcategorías (familias) con FamilySelector horizontal scroll.
 - Menú diario dinámico (precio desde Configuración), con Realtime para toggle agotado en vivo, soporte domingo/festivos.
 - Reservas inteligentes: modo "cliente elige mesa" (selector sobre plano) o "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona/mesa según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
+  - ⚠️ **BUG conocido (17 Jul — pendiente):** Al hacer una reserva, la mesa se bloquea para TODOS los slots del turno (mañana/tarde), no solo para la hora reservada. No hay ventana de tiempo para que quede libre y otro cliente pueda reservarla en otro horario del mismo turno. Pendiente de corregir.
 - Eventos en cartelera.
 - Contacto con mapa y formulario.
 - Cancelación de reservas: página `/cancelar` con token único desde email, preview de datos, confirmación antes de cancelar.
@@ -348,9 +349,11 @@
 - **CFG-004/005 — Aforo del local:** Sección "Aforo del local" + radio Modo de ocupación (Automático/Manual) + input ocupacion_manual. Aforo respeta modo (Auto=SUM mesas, Manual=override).
 - **Reservas pasadas:** Bloquear Editar/Cancelar/Reasignar en reservas anteriores a hoy (`shared/utils/reserva-fecha.ts`).
 - **Canvas scroll:** Contenedor con overflow-auto (max-h-[600px]), `updateCanvasSize` adapta altura a mesas filtradas.
+- **Rotación rígida de grupos:** Botón "Rotar 90°" en `/cocina/reservas` y Transformer en `/cocina/diseno` rotan toda la fusión como bloque rígido vía `rotateGroupAroundCentroid90CW` en `shared/utils/fusion-math.ts` + composable `useFusionGroupDrag.ts` (handleDragMove, handleTransform, computeFinalSiblingTransforms, rotateGroup90CW).
+- **Texto contra-rotado centrado:** Un solo `v-text` con `\n` (número + capacidad) anclado al centro geométrico de la mesa, con `rotation: -mesa.rotacion` para que siempre se lea derecho a cualquier ángulo. Mesas chicas muestran solo el número.
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
-- **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado.
-- **Tests:** 917 passed (+62 tests nuevos desde inicio de Fase 3). 0 unit failures. 2 nuxt smoke pre-existing.
+- **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
+- **Tests:** 964 passed (+109 tests desde inicio de Fase 3). 0 unit failures. 2 nuxt smoke pre-existing.
 
 ## 8. Reglas para agentes IA
 
@@ -460,7 +463,8 @@ tfm-restaurant/
 | `ReservationForm` | Formulario reservas con slot grid + selector zona/mesa |
 | `SectionDivider` | Divisor de secciones |
 | `SmsVerificationStep` | Paso verificación SMS |
-| `TableTooltip` | Tooltip hover mesas en canvas (nuevo Fase 3) |
+| `TableNode` | Mesa interactiva Konva con forma, color de estado, turnos M/T, texto contra-rotado |
+| `TableTooltip` | Tooltip hover mesas en canvas |
 | `UsuarioForm` | CRUD formulario usuarios |
 | `UsuariosTable` | Tabla usuarios admin |
 
@@ -509,3 +513,5 @@ tfm-restaurant/
 | **Canvas scroll** | Mesas clipped sin scroll | Contenedor `max-h-[600px] overflow-auto`, `updateCanvasSize` adapta altura a mesas filtradas |
 | **Admin reservation bypass** | SMS/CAPTCHA aplicaba a admin | Flag `admin_created` en POST body — handler skipea gates SMS y Turnstile. Trusted porque API protegida por Supabase Auth |
 | **Error catch type-safe** | `String(data.error)` producía "true" | typeof guards en catch block de handleReservaSubmit. Fallback a `data.message` para compatibilidad h3/Nuxt |
+| **Rotación grupo rígido** | Fusión de mesas rotaba cada mesa por separado (traslapaban) | `rotateGroupAroundCentroid90CW` en fusion-math.ts: computa centro visual real de Konva (cvx = x + cos(θ)·w/2 - sin(θ)·h/2). Grupo entero rota como bloque. Round-trip 4×90°=360° verificado |
+| **Texto contra-rotado en mesas** | Texto se descentraba al contra-rotar porque eran dos v-text con offsets Y distintos | Un solo v-text con \n en el centro geométrico exacto + offsetX/offsetY centran el bloque + rotation: -mesa.rotacion contra-rota para mantener readable a cualquier ángulo |
