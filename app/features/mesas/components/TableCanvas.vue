@@ -21,6 +21,7 @@ import {
 } from 'vue-konva'
 import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
+import { useFusionGroupDrag } from '../composables/useFusionGroupDrag'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
 import TableTooltip from './TableTooltip.vue'
@@ -102,6 +103,7 @@ const zoneImageScaleMap = computed(() => {
 
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
+const fusionDrag = useFusionGroupDrag(store)
 
 /** Scale factors for proportional zones (Bug 3 fix) */
 const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH)
@@ -458,14 +460,40 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
-function handleDragEnd(_mesa: Mesa) {
-  store.isDragging = false
-}
-
 /** Drag start: record state so Tooltip stays hidden during drag */
 function handleDragStart(_mesa: Mesa) {
   store.isDragging = true
+  if (_mesa.id_fusion) {
+    store.beginFusionDrag(_mesa)
+  }
+}
+
+/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
+function handleDragEnd(_mesa: Mesa) {
+  store.isDragging = false
+  store.endFusionDrag()
+}
+
+/**
+ * DragMove: imperatively translate fused siblings so the group stays rigid.
+ * No-op for non-fused tables or children (only the parent drives the sync).
+ */
+function handleDragMove(mesa: Mesa) {
+  if (!mesa.id_fusion) return
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+  fusionDrag.handleDragMove(mesa, layer)
+}
+
+/**
+ * Transform (live): imperatively rotate+translate fused siblings so the group
+ * stays rigid during the gesture. No-op for non-fused tables or children.
+ */
+function handleTransform(mesa: Mesa) {
+  if (!mesa.id_fusion) return
+  const layer = mainLayerRef.value?.getNode()
+  if (!layer) return
+  fusionDrag.handleTransform(mesa, layer)
 }
 
 /** Transform end: apply scale to dimensions (AD-10) + persist */
@@ -514,6 +542,25 @@ function handleTransformEnd(mesaId: string) {
   mesa.rotacion = newRotation
   mesa.posicion_x = Math.round(group.x())
   mesa.posicion_y = Math.round(group.y())
+
+  // Fused group: Object.assign siblings with the synced absolute coords so
+  // the Save loop in /cocina/diseno persists the rigid-group state. Use the
+  // snapshot BEFORE clearing it.
+  if (mesa.id_fusion && mesa.mesa_padre_id === mesa.id) {
+    const siblingTransforms = fusionDrag.computeFinalSiblingTransforms(mesa, mainLayer)
+    for (const t of siblingTransforms) {
+      const sibling = store.mesas.find((m) => m.id === t.id)
+      if (sibling) {
+        Object.assign(sibling, {
+          posicion_x: t.posicion_x,
+          posicion_y: t.posicion_y,
+          rotacion: t.rotacion,
+        })
+      }
+    }
+  }
+
+  store.endFusionDrag()
 }
 
 // ── Canvas sizing: fill available width (Bug 3 fix) ──
@@ -565,14 +612,18 @@ onMounted(async () => {
 watch(() => store.filteredMesas, () => { updateCanvasSize() })
 
 // Expose: allow parent to read actual Konva node positions
-function getMesaPositions(): Record<string, { x: number; y: number }> {
-  const positions: Record<string, { x: number; y: number }> = {}
+function getMesaPositions(): Record<string, { x: number; y: number; rotation: number }> {
+  const positions: Record<string, { x: number; y: number; rotation: number }> = {}
   const layer = mainLayerRef.value?.getNode()
   if (!layer) return positions
   for (const mesa of store.filteredMesas) {
     const node = layer.findOne(`#${mesa.id}`)
     if (node) {
-      positions[mesa.id] = { x: Math.round(node.x()), y: Math.round(node.y()) }
+      positions[mesa.id] = {
+        x: Math.round(node.x()),
+        y: Math.round(node.y()),
+        rotation: Math.round(node.rotation()),
+      }
     }
   }
   return positions
@@ -655,7 +706,9 @@ defineExpose({ getMesaPositions })
           :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
           @dragstart="handleDragStart(mesa)"
+          @dragmove="handleDragMove(mesa)"
           @dragend="handleDragEnd(mesa)"
+          @transform="handleTransform(mesa)"
           @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"
           @unhover="handleTableUnhover"
