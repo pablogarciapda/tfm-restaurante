@@ -34,6 +34,7 @@ export interface ReservaDetail {
   nombre_cliente: string
   fecha_hora: string
   numero_comensales: number
+  referencia: string
 }
 
 function toMinutes(h: string): number {
@@ -45,7 +46,7 @@ const props = defineProps<{
   reservas?: { mesa_id: string | null; estado: string; fecha_hora: string }[]
   reservasMap?: Record<string, string>
   fusionLabels?: Record<string, string>
-  reservasDetailMap?: Record<string, ReservaDetail>
+  reservasDetailMap?: Record<string, ReservaDetail[]>
   horariosConfig?: HorarioConfig | null
   /** Zone configuration from DB: { id, nombre, capacidad, imagen_url? }[] */
   zonasConfig?: Array<{ id: string; nombre: string; imagen_url?: string | null }>
@@ -54,9 +55,15 @@ const props = defineProps<{
   singleZone?: boolean
   fontSize?: number
   selectedIds?: string[]
+  /** Show alignment grid overlay (diseño mode) */
+  showGrid?: boolean
   /** Selected date for "current service" matching in YYYY-MM-DD format.
    *  Defaults to today's ISO date. Drives MCA-005 mesa estado derivation. */
   selectedDate?: string
+  /** Canvas reference width (default: 1400) — used for zone scaling ratio */
+  canvasAnchoBase?: number
+  /** Canvas reference height (default: 900) — used for zone scaling ratio */
+  canvasAltoBase?: number
 }>()
 
 const emit = defineEmits<{
@@ -64,8 +71,12 @@ const emit = defineEmits<{
   'table-select': [mesa: Mesa]
 }>()
 
-const BASE_WIDTH = 1200
-const BASE_HEIGHT = 800
+/**
+ * Reference canvas dimensions — used to scale ZONE_DEFS positions
+ * relative to the actual stage size. Configurable via /api/diseno-config.
+ */
+const BASE_WIDTH = computed(() => props.canvasAnchoBase ?? 1400)
+const BASE_HEIGHT = computed(() => props.canvasAltoBase ?? 900)
 
 const ZONE_DEFS: { zona: Zona; x: number; y: number; w: number; h: number }[] = [
   { zona: 'Principal', x: 20, y: 20, w: 380, h: 370 },
@@ -101,13 +112,38 @@ const zoneImageScaleMap = computed(() => {
   return map
 })
 
+/** Grid spacing in pixels for alignment overlay */
+const GRID_SIZE = 50
+
+/** Generate grid line configs when showGrid is active */
+const gridLineConfigs = computed(() => {
+  if (!props.showGrid) return [] as Array<{ points: number[]; stroke: string; strokeWidth: number }>
+  const configs: Array<{ points: number[]; stroke: string; strokeWidth: number }> = []
+  const w = store.stageWidth
+  const h = store.stageHeight
+  const color = '#D1D5DB' // gray-300
+  const majorColor = '#9CA3AF' // gray-400
+
+  // Vertical lines (every GRID_SIZE)
+  for (let x = GRID_SIZE; x < w; x += GRID_SIZE) {
+    const isMajor = x % (GRID_SIZE * 5) === 0
+    configs.push({ points: [x, 0, x, h], stroke: isMajor ? majorColor : color, strokeWidth: isMajor ? 1.5 : 0.5 })
+  }
+  // Horizontal lines (every GRID_SIZE)
+  for (let y = GRID_SIZE; y < h; y += GRID_SIZE) {
+    const isMajor = y % (GRID_SIZE * 5) === 0
+    configs.push({ points: [0, y, w, y], stroke: isMajor ? majorColor : color, strokeWidth: isMajor ? 1.5 : 0.5 })
+  }
+  return configs
+})
+
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
 const fusionDrag = useFusionGroupDrag(store)
 
 /** Scale factors for proportional zones (Bug 3 fix) */
-const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH)
-const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT)
+const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH.value)
+const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT.value)
 
 /** Zone sections filtered by activeZona.
  *  - singleZone mode: active zone fills the full stage (0,0 → stageWidth,stageHeight)
@@ -151,35 +187,41 @@ const mesaTurnoStatus = computed(() => {
   const config = props.horariosConfig
   if (!config) return status
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = props.selectedDate ?? new Date().toISOString().slice(0, 10)
   const comidaStart = toMinutes(config.comida_inicio)
   const comidaEnd = toMinutes(config.comida_fin)
   const cenaStart = toMinutes(config.cena_inicio)
   const cenaEnd = toMinutes(config.cena_fin)
 
+  const EXCLUDED_ESTADOS = new Set(['cancelada', 'standby', 'completada'])
+
   for (const r of props.reservas ?? []) {
     if (!r.mesa_id) continue
-    if (!r.fecha_hora.startsWith(todayStr)) continue
-    const hora = r.fecha_hora.split('T')[1]?.slice(0, 5)
-    if (!hora) continue
-    const mins = toMinutes(hora)
+    // Skip estados that never mark a mesa (same as calcularEstadoMesa)
+    if (EXCLUDED_ESTADOS.has(r.estado)) continue
+    // Convert ISO timestamp to local date for comparison (reservas are stored
+    // in UTC; the restaurant runs on local time, e.g. CEST = UTC+2)
+    const d = new Date(r.fecha_hora)
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (localDate !== todayStr) continue
+    const mins = d.getHours() * 60 + d.getMinutes()
 
-    if (mins >= comidaStart && mins < comidaEnd) {
+    if (mins >= comidaStart && mins <= comidaEnd) {
       const s = status[r.mesa_id]
       if (s) s.comida = true
     }
     // Handle cena that may cross midnight
     if (cenaEnd <= cenaStart) {
-      // Crosses midnight: [cenaStart, 24:00) OR [00:00, cenaEnd)
+      // Crosses midnight: [cenaStart, 24:00) OR [00:00, cenaEnd]
       if (mins >= cenaStart && mins < 1440) {
         const s = status[r.mesa_id]
         if (s) s.cena = true
-      } else if (mins >= 0 && mins < cenaEnd) {
+      } else if (mins >= 0 && mins <= cenaEnd) {
         const s = status[r.mesa_id]
         if (s) s.cena = true
       }
     } else {
-      if (mins >= cenaStart && mins < cenaEnd) {
+      if (mins >= cenaStart && mins <= cenaEnd) {
         const s = status[r.mesa_id]
         if (s) s.cena = true
       }
@@ -237,19 +279,38 @@ const tooltipData = computed<TooltipData | null>(() => {
 
   const estado = mesaEstado(mesa)
 
-  // Lookup reservation details for reserved tables
-  let reserva: TooltipData['reserva'] = undefined
-  if (estado === 'reservada') {
-    const detail = props.reservasDetailMap?.[mesa.id]
-    if (detail) {
-      reserva = {
-        nombre_cliente: detail.nombre_cliente,
-        hora: new Date(detail.fecha_hora).toLocaleTimeString('es-ES', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        comensales: detail.numero_comensales,
+  // Lookup ALL reservations for this table with full details
+  const detalles = props.reservasDetailMap?.[mesa.id]
+  const reservas: TooltipData['reservas'] = []
+  if (detalles && detalles.length > 0) {
+    const h = props.horariosConfig
+    const turnos = h ? buildTurnoWindows(h) : null
+    for (const d of detalles) {
+      const hora = new Date(d.fecha_hora).toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      const fecha = new Date(d.fecha_hora).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+      // Determine turn (comida/cena) from the reservation time
+      let turno: 'comida' | 'cena' = 'comida'
+      if (turnos) {
+        const mins = new Date(d.fecha_hora).getHours() * 60 + new Date(d.fecha_hora).getMinutes()
+        if (mins >= turnos.cena.start || mins < turnos.comida.start) {
+          turno = 'cena'
+        }
       }
+      reservas.push({
+        nombre_cliente: d.nombre_cliente,
+        hora,
+        comensales: d.numero_comensales,
+        referencia: d.referencia,
+        fecha,
+        turno,
+      })
     }
   }
 
@@ -262,7 +323,7 @@ const tooltipData = computed<TooltipData | null>(() => {
     fusionCapacidad = mesa.capacidad_actual
   }
 
-  return { mesa, estado, reserva, fusionMesas, fusionCapacidad }
+  return { mesa, estado, reservas: reservas.length > 0 ? reservas : undefined, fusionMesas, fusionCapacidad }
 })
 
 /** Compute tooltip position: prefer right, fall back to left, then above */
@@ -339,10 +400,11 @@ const fusionGroupSelectedIds = computed(() => {
 
 // ── Drag bounds (MCA-004) — wired via TableNode group config ──
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+/** Snap drag position to integer pixels so tables align cleanly */
 function dragBoundFunc(pos: { x: number; y: number }) {
   return {
-    x: Math.max(0, Math.min(pos.x, store.stageWidth - 50)),
-    y: Math.max(0, Math.min(pos.y, store.stageHeight - 50)),
+    x: Math.round(Math.max(0, Math.min(pos.x, store.stageWidth - 50))),
+    y: Math.round(Math.max(0, Math.min(pos.y, store.stageHeight - 50))),
   }
 }
 
@@ -565,9 +627,9 @@ function handleTransformEnd(mesaId: string) {
   const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
   const newRotation = group.rotation()
 
-  // Mutate in-place (no store.updateMesa = no Vue re-render = no ghost)
-  mesa.ancho = newWidth
-  mesa.alto = newHeight
+  // Round to integer pixels (no fractional widths/heights)
+  mesa.ancho = Math.round(newWidth)
+  mesa.alto = Math.round(newHeight)
   mesa.rotacion = newRotation
   mesa.posicion_x = Math.round(group.x())
   mesa.posicion_y = Math.round(group.y())
@@ -594,32 +656,35 @@ function handleTransformEnd(mesaId: string) {
 
 // ── Canvas sizing: fill available width (Bug 3 fix) ──
 
-/** Recalculate stage size from container width, keeping 3:2 aspect ratio */
+/** Recalculate stage size from container width + mesa extents (MCA-001).
+ *  The stage grows to fit all visible mesas, and the parent container
+ *  provides scroll (both axes) when the stage exceeds the viewport.
+ *  This enables horizontal/vertical content-area scroll on mobile. */
 function updateCanvasSize() {
   if (!canvasContainer.value) return
   const rect = canvasContainer.value.getBoundingClientRect()
   if (rect.width <= 0) return
-  const newWidth = Math.floor(rect.width)
-  const ratioHeight = Math.floor(newWidth / (BASE_WIDTH / BASE_HEIGHT))
-  // In singleZone mode, use at least 1200px height for scrollable design
+  const containerW = Math.floor(rect.width)
+  const ratioHeight = Math.floor(containerW / (BASE_WIDTH.value / BASE_HEIGHT.value))
   const minH = props.singleZone ? 1200 : 400
-  // Operation mode: grow the stage to fit every visible mesa so none are
-  // clipped by the stage boundary (the parent container scrolls if needed).
+
+  let tablesWidth = 0
   let tablesHeight = 0
+
   if (!props.singleZone) {
     const mesas = store.filteredMesas
     if (mesas.length) {
-      tablesHeight =
-        Math.max(
-          ...mesas.map(
-            (m) => Number(m.posicion_y ?? 0) + Number(m.alto ?? 0),
-          ),
-        ) + 80
+      const xs = mesas.map((m) => Number(m.posicion_x ?? 0) + Number(m.ancho ?? 0))
+      const ys = mesas.map((m) => Number(m.posicion_y ?? 0) + Number(m.alto ?? 0))
+      tablesWidth = Math.max(...xs) + 80
+      tablesHeight = Math.max(...ys) + 80
     }
   }
-  const newHeight = Math.max(minH, ratioHeight, tablesHeight)
-  store.stageWidth = newWidth
-  store.stageHeight = newHeight
+
+  // Stage is at least container width (no scroll) but grows wider if mesas
+  // extend beyond the viewport (horizontal scroll via parent overflow-auto).
+  store.stageWidth = Math.max(containerW, Math.ceil(tablesWidth))
+  store.stageHeight = Math.max(minH, ratioHeight, tablesHeight)
 }
 
 // ── Performance: limit pixel ratio per AD-02 + dynamic sizing ──
@@ -721,6 +786,12 @@ defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
       <!-- Layer 1: Background — static zones, no events, cached       -->
       <!-- ============================================================ -->
       <v-layer :config="{ listening: false }">
+        <!-- Alignment grid (diseño mode) -->
+        <v-line
+          v-for="(line, i) in gridLineConfigs"
+          :key="'grid-' + i"
+          :config="line"
+        />
         <ZoneSection
           v-for="zone in filteredZones"
           :key="zone.zona"

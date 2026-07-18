@@ -353,6 +353,7 @@
 - **Texto contra-rotado centrado:** Un solo `v-text` con `\n` (número + capacidad) anclado al centro geométrico de la mesa, con `rotation: -mesa.rotacion` para que siempre se lea derecho a cualquier ángulo. Mesas chicas muestran solo el número.
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
 - **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
+- **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
 - **Tests:** 964 passed (+109 tests desde inicio de Fase 3). 0 unit failures. 2 nuxt smoke pre-existing.
 
 ## 8. Reglas para agentes IA
@@ -515,3 +516,4 @@ tfm-restaurant/
 | **Error catch type-safe** | `String(data.error)` producía "true" | typeof guards en catch block de handleReservaSubmit. Fallback a `data.message` para compatibilidad h3/Nuxt |
 | **Rotación grupo rígido** | Fusión de mesas rotaba cada mesa por separado (traslapaban) | `rotateGroupAroundCentroid90CW` en fusion-math.ts: computa centro visual real de Konva (cvx = x + cos(θ)·w/2 - sin(θ)·h/2). Grupo entero rota como bloque. Round-trip 4×90°=360° verificado |
 | **Texto contra-rotado en mesas** | Texto se descentraba al contra-rotar porque eran dos v-text con offsets Y distintos | Un solo v-text con \n en el centro geométrico exacto + offsetX/offsetY centran el bloque + rotation: -mesa.rotacion contra-rota para mantener readable a cualquier ángulo |
+| **Canvas dims configurables** | BASE_WIDTH/BASE_HEIGHT hardcoded 1200×800 en TableCanvas | Prop `canvasAnchoBase`/`canvasAltoBase` en TableCanvas. Default 1400×900. File-based storage via JSON en `server/data/diseno-config.json` + composable `useDisenoConfig`. Admin UI en "Diseño del plano" sección de Configuración. Para persistencia DB: migración `shared/db/migrations/002-add-canvas-dims.sql` |

@@ -211,8 +211,8 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       const wrapper = await mountCanvas(mesas)
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
-      // Each TableNode renders a v-group
-      expect(groups).toHaveLength(3)
+      // 3 mesas × 2 groups each (outer TableNode + inner upright-text wrapper)
+      expect(groups).toHaveLength(6)
     })
 
     it('renders no TableNodes when store is empty', async () => {
@@ -260,8 +260,8 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
-      // Each mesa renders a v-group (TableNode wrapper) — no drag-layer filter
-      expect(groups).toHaveLength(2)
+      // 2 mesas × 2 groups each (outer + inner upright-text wrapper)
+      expect(groups).toHaveLength(4)
     })
 
     it('TableNodes are not filtered during drag (no drag layer)', async () => {
@@ -274,7 +274,7 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       // All TableNodes render in main layer regardless of drag state
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
-      expect(groups).toHaveLength(2)
+      expect(groups).toHaveLength(4)
     })
   })
 
@@ -302,7 +302,8 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
 
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const groups = mainLayer.findAll('[data-testid="v-group"]')
-      expect(groups).toHaveLength(1)
+      // 1 mesa × 2 groups (outer + inner upright-text wrapper)
+      expect(groups).toHaveLength(2)
       // TableNode receives click handler (verified structurally)
       // Real click → select → Transformer attach tested in E2E (AD-13)
     })
@@ -508,13 +509,13 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       expect(rect.attributes('data-fill')).toBe('#F59E0B')
     })
 
-    it('colors mesa red (#EF4444) when reserva completada exists for today', async () => {
+    it('colors mesa green (#22C55E) when reserva completada (admin released table, no longer blocks)', async () => {
       const mesas = [makeMesa({ id: 'occupied-1', numero_mesa: 13 })]
       const reservas = [makeReserva({ mesa_id: 'occupied-1', estado: 'completada' })]
       const wrapper = await mountCanvas(mesas, reservas)
       const mainLayer = wrapper.findAll('[data-testid="v-layer"]')[2]
       const rect = mainLayer.find('[data-testid="v-rect"]')
-      expect(rect.attributes('data-fill')).toBe('#EF4444')
+      expect(rect.attributes('data-fill')).toBe('#22C55E')
     })
 
     it('colors mesa green (#22C55E) when reserva is for a different mesa', async () => {

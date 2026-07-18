@@ -49,9 +49,13 @@ function validateBody(body: ReservationBody): string[] {
   if (!body.fecha_hora || typeof body.fecha_hora !== 'string') {
     errors.push('fecha_hora')
   } else {
-    const fecha = new Date(body.fecha_hora)
-    if (isNaN(fecha.getTime())) errors.push('fecha_hora_invalida')
-    else if (fecha <= new Date()) errors.push('fecha_hora_futura')
+    if (isNaN(new Date(body.fecha_hora).getTime())) {
+      errors.push('fecha_hora_invalida')
+    } else {
+      const bookingDate = body.fecha_hora.slice(0, 10)
+      const todayLocal = new Date().toISOString().slice(0, 10)
+      if (bookingDate < todayLocal) errors.push('fecha_hora_futura')
+    }
   }
   if (body.numero_comensales === undefined || body.numero_comensales === null) {
     errors.push('numero_comensales')

@@ -417,7 +417,7 @@ describe('getMesaEstado (MCA-005)', () => {
     expect(getMesaEstado(mesa, reservas)).toBe('reservada')
   })
 
-  it('ocupada when completada today', () => {
+  it('libre when completada today (admin released table)', () => {
     const mesa = makeMesa({ id: 'a' })
     const reservas = [
       {
@@ -426,10 +426,10 @@ describe('getMesaEstado (MCA-005)', () => {
         fecha_hora: todayISO() + 'T12:00:00.000Z',
       },
     ]
-    expect(getMesaEstado(mesa, reservas)).toBe('ocupada')
+    expect(getMesaEstado(mesa, reservas)).toBe('libre')
   })
 
-  it('reservada takes priority over completada', () => {
+  it('reservada takes priority over completada (pendiente active, completada excluded)', () => {
     const mesa = makeMesa({ id: 'a' })
     const reservas = [
       {
@@ -443,7 +443,7 @@ describe('getMesaEstado (MCA-005)', () => {
         fecha_hora: todayISO() + 'T14:00:00.000Z',
       },
     ]
-    // pendiente/confirmada > completada → reservada
+    // completada excluded, pendiente remains → reservada
     expect(getMesaEstado(mesa, reservas)).toBe('reservada')
   })
 

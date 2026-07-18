@@ -213,11 +213,15 @@ export function getAforoDisponible(
 /**
  * Determine the occupancy state of a table based on today's reservations.
  *
- * Priority: reservada (pendiente/confirmada today) > ocupada (completada today) > libre.
+ * A table is 'reservada' when there's an active pendiente or confirmada
+ * reservation for today. Once admin marks a reservation 'completada',
+ * the table returns to 'libre' (the meal is done, table is available again).
+ *
+ * Priority: reservada (pendiente/confirmada today) > libre.
  *
  * @param mesa — The table to check
  * @param reservas — Array of reservation-like objects with mesa_id, estado, fecha_hora
- * @returns MesaEstado: 'libre' | 'ocupada' | 'reservada'
+ * @returns MesaEstado: 'libre' | 'reservada'
  */
 export function getMesaEstado(
   mesa: Mesa,
@@ -234,9 +238,7 @@ export function getMesaEstado(
   )
   if (hasReservada) return 'reservada'
 
-  const hasOcupada = todayReservas.some((r) => r.estado === 'completada')
-  if (hasOcupada) return 'ocupada'
-
+  // 'completada' is excluded — admin released the table
   return 'libre'
 }
 

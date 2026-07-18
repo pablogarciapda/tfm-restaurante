@@ -91,6 +91,8 @@ export type Database = {
         Row: {
           auto_comprimir_imagen: boolean
           calidad_imagen: number
+          canvas_ancho_base: number
+          canvas_alto_base: number
           capacidad_total_local: number | null
           captcha_habilitado: boolean
           cliente_elige_mesa: boolean | null
@@ -131,6 +133,8 @@ export type Database = {
         Insert: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
+          canvas_ancho_base?: number
+          canvas_alto_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
           cliente_elige_mesa?: boolean | null
@@ -171,6 +175,8 @@ export type Database = {
         Update: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
+          canvas_ancho_base?: number
+          canvas_alto_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
           cliente_elige_mesa?: boolean | null

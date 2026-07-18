@@ -1,5 +1,5 @@
 <!--
-  TableNode.vue — Single interactive table shape with multi-line text overlay
+  TableNode.vue — Single interactive table shape with two-stack text overlay
 
   Props:
     mesa (Mesa), estado (MesaEstado), selected (boolean)
@@ -8,10 +8,10 @@
 
   Emits: click, dragend, transformstart, transformend
 
-  Text overlay layout:
-    Top line: numero_mesa (bold, fontSize 16) — or fusionLabel if fused
-    Bottom line: capacidad_base formatted as "4p" — or client name if reserved
-    Small tables (ancho < 60 or alto < 60): only show numero_mesa
+  Text overlay (two stacked v-text nodes):
+    Top:    numero_mesa (2× fontSize, bold) — or fusionLabel if fused
+    Bottom: capacidad_base formatted as "4pax" — or client name if reserved
+    Small tables (ancho < 60 or alto < 60): only show numero_mesa at 1× size
 
   Status colors:
     libre=#22C55E, ocupada=#EF4444, reservada=#F59E0B
@@ -65,56 +65,64 @@ const STATUS_COLORS: Record<MesaEstado, string> = {
 
 // ── Turn visualization logic ──
 
-/** Determine the turn overlay type for this mesa */
-const turnOverlay = computed<'none' | 'half' | 'full'>(() => {
+/**
+ * Determine the turn overlay type for this mesa.
+ *
+ * 'comida' → red top half (mañana)
+ * 'cena'   → red bottom half (tarde)
+ * 'full'   → fully red (both turns)
+ */
+const turnOverlay = computed<'none' | 'comida' | 'cena' | 'full'>(() => {
   if (!props.turnoStatus) return 'none'
 
   const hasComida = props.turnoStatus.comida
   const hasCena = props.turnoStatus.cena
   const hasBoth = hasComida && hasCena
 
-  if (hasBoth) return 'full' // Both turns → full red
+  if (hasBoth) return 'full'
 
-  // 'todos' mode: show half overlay for whichever turn is reserved
+  // 'todos' mode: show overlay for whichever turn is reserved
   if (!props.activeTurno || props.activeTurno === 'todos') {
-    if (hasComida) return 'half'
-    if (hasCena) return 'half'
+    if (hasComida) return 'comida'
+    if (hasCena) return 'cena'
     return 'none'
   }
 
   if (props.activeTurno === 'comida') {
-    if (hasComida) return 'half'
-    return 'none'
+    return hasComida ? 'comida' : 'none'
   }
 
   if (props.activeTurno === 'cena') {
-    if (hasCena) return 'half'
-    return 'none'
+    return hasCena ? 'cena' : 'none'
   }
 
   return 'none'
 })
 
-/** Label to show on the colored half: 'M' for comida, 'T' for cena */
-const turnLabel = computed<string | null>(() => {
+/** Label to show on the colored top half: 'M' for comida, null otherwise */
+const topLabel = computed<string | null>(() => {
   if (turnOverlay.value === 'none') return null
-  if (turnOverlay.value === 'full') return 'M/T'
-  if (props.activeTurno === 'comida') return 'M'
-  if (props.activeTurno === 'cena') return 'T'
-  // 'todos' mode: show label for whichever turn is reserved
-  if (props.turnoStatus?.comida) return 'M'
-  if (props.turnoStatus?.cena) return 'T'
-  return null
+  if (turnOverlay.value === 'cena') return null
+  return 'M'
+})
+
+/** Label to show on the colored bottom half: 'T' for cena, null otherwise */
+const bottomLabel = computed<string | null>(() => {
+  if (turnOverlay.value === 'none') return null
+  if (turnOverlay.value === 'comida') return null
+  return 'T'
 })
 
 /**
- * Override fill color when both turns are reserved.
- * For 'half' overlay, base stays green (overlay handles the red).
+ * Fill color:
+ * When overlay active (comida/cena/full): green (libre),
+ * the overlay itself IS the occupancy indicator.
+ * Otherwise: normal estado color.
  */
 const baseFillColor = computed(() => {
-  if (props.selected) return '#C67B5C'
-  if (turnOverlay.value === 'full') return '#EF4444'
-  if (turnOverlay.value !== 'none') return '#22C55E' // green base for half overlay
+  if (turnOverlay.value === 'comida' || turnOverlay.value === 'cena' || turnOverlay.value === 'full') {
+    return STATUS_COLORS['libre']
+  }
   return STATUS_COLORS[props.estado]
 })
 
@@ -158,12 +166,13 @@ const shapeConfig = computed(() => {
   }
 })
 
-// ── Text overlay positioning ──
+// ── Text overlay (two stacked nodes) ──
 //
-// Single v-text node spanning both table-number and capacity/client-name
-// lines, placed at the shape's GEOMETRIC CENTER in local group coordinates.
-// offsetX/offsetY center the text box at that anchor. Counter-rotation
-// (rotation: -mesa.rotacion) keeps text readable when the group rotates.
+// Two separate v-text nodes:
+//   1. Table number (fontSize × 2) — positioned above center (numberY)
+//   2. Capacity "Xpax" or client name (fontSize × 1) — positioned below center (paxY)
+// Small tables (< 60px) only show the number at normal size.
+// offsetX/offsetY center each text independently. Both counter-rotate.
 
 // Text width depends on shape: for circle/ellipse use smaller max width
 const textWidth = computed(() => {
@@ -186,92 +195,153 @@ const shapeCenter = computed(() => {
 })
 
 const baseFontSize = computed(() => props.fontSize ?? 14)
-const fontSizeLabel = computed(() => baseFontSize.value)       // 14 default
+const numberFontSize = computed(() => baseFontSize.value * 2)
 
-/** Number of text lines (1 for small tables, 2 otherwise). */
-const lineCount = computed(() => isSmall.value ? 1 : 2)
-
-/** offsetY to center the line block vertically at the anchor. */
-const textOffsetY = computed(() => (baseFontSize.value * lineCount.value) / 2)
+/** Vertical gap between number and pax text centers inside the upright group */
+const textGap = computed(() => baseFontSize.value * 1.0)
 
 // ── Text content ──
 
-// Single display text: "number\ncapacity" for normal tables, just "number" for small
-const displayText = computed(() => {
-  const number = props.fusionLabel || String(props.mesa.numero_mesa)
-  if (isSmall.value) return number
-  const capOrClient = props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]
-    ? props.reservasMap[props.mesa.id]
-    : `${props.mesa.capacidad_base}p`
-  return `${number}\n${capOrClient}`
+/** Table number (or fusion label) rendered large, always shown. */
+const numberText = computed(() => props.fusionLabel || String(props.mesa.numero_mesa))
+
+/** Capacity suffix: "Xpax" or client name if reserved. Only for non-small tables. */
+const paxText = computed(() => {
+  if (isSmall.value) return ''
+  if (props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]) {
+    return props.reservasMap[props.mesa.id]
+  }
+  return `${props.mesa.capacidad_base}pax`
 })
 
 // ── Turn overlay configs ──
 
 const OVERLAY_RED = '#EF4444'
-const OVERLAY_OPACITY = 0.6
+const OVERLAY_OPACITY = 1.0
 
-/** Rect overlay for rectangular/square tables (top half) */
-const rectOverlayConfig = computed(() => ({
+/** Half dimension helper — returns height for rect/oval, side for square. */
+const halfH = computed(() => {
+  if (props.mesa.forma === 'cuadrada') return props.mesa.ancho / 2
+  return props.mesa.alto / 2
+})
+
+/**
+ * Rect overlay for rectangular/square tables — top half (comida). */
+const rectOverlayTop = computed(() => ({
   x: 0,
   y: 0,
   width: props.mesa.ancho,
-  height: (props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto) / 2,
-  fill: OVERLAY_RED,
-  opacity: OVERLAY_OPACITY,
-  listening: false,
-}))
-
-/** Wedge overlay for round tables (left half) */
-const roundOverlayConfig = computed(() => ({
-  x: props.mesa.ancho / 2,
-  y: props.mesa.ancho / 2,
-  radius: props.mesa.ancho / 2,
-  angle: 180,
-  rotation: -90,
-  fill: OVERLAY_RED,
-  opacity: OVERLAY_OPACITY,
-  listening: false,
-}))
-
-/** Rect overlay for oval tables (left half) */
-const ovalOverlayConfig = computed(() => ({
-  x: 0,
-  y: 0,
-  width: props.mesa.ancho / 2,
-  height: props.mesa.alto,
+  height: halfH.value,
   fill: OVERLAY_RED,
   opacity: OVERLAY_OPACITY,
   listening: false,
 }))
 
 /**
- * (x, y) center for the turn label on the colored half:
- * - Rect/square: center of top half at (ancho/2, alto/4)
- * - Round: center of left half at (ancho/4, ancho/2)
- * - Oval: center of left half at (ancho/4, alto/2)
+ * Rect overlay for rectangular/square tables — bottom half (cena). */
+const rectOverlayBottom = computed(() => ({
+  x: 0,
+  y: halfH.value,
+  width: props.mesa.ancho,
+  height: halfH.value,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * Wedge overlay for round tables — top semicircle (comida).
+ * Konva angle 0 = 3-o'clock, sweep is clockwise.
+ * rotation: -180 → starts at 9-o'clock, sweeps 180° clockwise → covers TOP half.
+ * VCircle is centered at (0,0), wedge shares that center. */
+const roundOverlayTop = computed(() => ({
+  x: 0,
+  y: 0,
+  radius: props.mesa.ancho / 2,
+  angle: 180,
+  rotation: -180,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * Wedge overlay for round tables — bottom semicircle (cena).
+ * rotation: 0 → starts at 3-o'clock, sweeps 180° clockwise → covers BOTTOM half. */
+const roundOverlayBottom = computed(() => ({
+  x: 0,
+  y: 0,
+  radius: props.mesa.ancho / 2,
+  angle: 180,
+  rotation: 0,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * Rect overlay for oval tables — top half (comida). */
+const ovalOverlayTop = computed(() => ({
+  x: -props.mesa.ancho / 2,
+  y: -halfH.value,
+  width: props.mesa.ancho,
+  height: halfH.value,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * Rect overlay for oval tables — bottom half (cena). */
+const ovalOverlayBottom = computed(() => ({
+  x: -props.mesa.ancho / 2,
+  y: 0,
+  width: props.mesa.ancho,
+  height: halfH.value,
+  fill: OVERLAY_RED,
+  opacity: OVERLAY_OPACITY,
+  listening: false,
+}))
+
+/**
+ * Center position for the top label ('M').
+ * - Rect/square: center of top half
+ * - Round: center of top semicircle
+ * - Oval: center of top half
  */
-const turnLabelPos = computed(() => {
-  if (props.mesa.forma === 'redonda') {
-    return { x: props.mesa.ancho * 0.25, y: props.mesa.ancho * 0.5 }
-  }
-  if (props.mesa.forma === 'ovalada') {
-    return { x: props.mesa.ancho * 0.25, y: props.mesa.alto * 0.5 }
-  }
-  // Rect / Square: center of top half
+const topLabelPos = computed(() => {
+  if (props.mesa.forma === 'redonda') return { x: 0, y: -props.mesa.ancho * 0.25 }
+  if (props.mesa.forma === 'ovalada') return { x: 0, y: -props.mesa.alto * 0.25 }
   const h = props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto
   return { x: props.mesa.ancho * 0.5, y: h * 0.25 }
 })
 
+/**
+ * Center position for the bottom label ('T').
+ * - Rect/square: center of bottom half
+ * - Round: center of bottom semicircle
+ * - Oval: center of bottom half
+ */
+const bottomLabelPos = computed(() => {
+  if (props.mesa.forma === 'redonda') return { x: 0, y: props.mesa.ancho * 0.25 }
+  if (props.mesa.forma === 'ovalada') return { x: 0, y: props.mesa.alto * 0.25 }
+  const h = props.mesa.forma === 'cuadrada' ? props.mesa.ancho : props.mesa.alto
+  return { x: props.mesa.ancho * 0.5, y: h * 0.75 }
+})
+
 // Group config with Konva-native event handlers (avoids Vue fragment inheritance issue)
+// dragDistance=5: requires 5px finger movement before initiating drag on
+// mobile/touch, so a simple tap still fires onClick/onTap properly.
 const groupConfig = computed(() => ({
   id: props.mesa.id,
   x: props.mesa.posicion_x,
   y: props.mesa.posicion_y,
   rotation: props.mesa.rotacion,
   draggable: true, // Always draggable (Transformer only in diseño mode)
+  dragDistance: 5,
   dragBoundFunc: props.dragBoundFunc,
   onClick: (e: any) => emit('click', e?.evt),
+  onTap: (e: any) => emit('click', e?.evt),
   onDragStart: () => emit('dragstart'),
   onDragMove: () => emit('dragmove'),
   onDragEnd: () => emit('dragend'),
@@ -301,32 +371,65 @@ const groupConfig = computed(() => ({
 
     <!-- ════════════════════════════════════════════════════════ -->
     <!-- Turn visualization overlay (Comida/Cena half-fill)     -->
+    <!-- Each half renders independently so 'full' shows both. -->
     <!-- ════════════════════════════════════════════════════════ -->
 
-    <!-- Rect/square: top half overlay -->
+    <!-- Top half (comida): rect/square -->
     <v-rect
-      v-if="turnOverlay === 'half' && (mesa.forma === 'rectangular' || mesa.forma === 'cuadrada')"
-      :config="rectOverlayConfig"
+      v-if="(turnOverlay === 'comida' || turnOverlay === 'full') && (mesa.forma === 'rectangular' || mesa.forma === 'cuadrada')"
+      :config="rectOverlayTop"
     />
-    <!-- Round: wedge for left half -->
+    <!-- Top half (comida): round -->
     <v-wedge
-      v-else-if="turnOverlay === 'half' && mesa.forma === 'redonda'"
-      :config="roundOverlayConfig"
+      v-else-if="(turnOverlay === 'comida' || turnOverlay === 'full') && mesa.forma === 'redonda'"
+      :config="roundOverlayTop"
     />
-    <!-- Oval: left half rect overlay -->
+    <!-- Top half (comida): oval -->
     <v-rect
-      v-else-if="turnOverlay === 'half' && mesa.forma === 'ovalada'"
-      :config="ovalOverlayConfig"
+      v-else-if="(turnOverlay === 'comida' || turnOverlay === 'full') && mesa.forma === 'ovalada'"
+      :config="ovalOverlayTop"
     />
 
-    <!-- Turn label ('M' for comida, 'T' for cena) on the colored half -->
+    <!-- Bottom half (cena): rect/square -->
+    <v-rect
+      v-if="(turnOverlay === 'cena' || turnOverlay === 'full') && (mesa.forma === 'rectangular' || mesa.forma === 'cuadrada')"
+      :config="rectOverlayBottom"
+    />
+    <!-- Bottom half (cena): round -->
+    <v-wedge
+      v-else-if="(turnOverlay === 'cena' || turnOverlay === 'full') && mesa.forma === 'redonda'"
+      :config="roundOverlayBottom"
+    />
+    <!-- Bottom half (cena): oval -->
+    <v-rect
+      v-else-if="(turnOverlay === 'cena' || turnOverlay === 'full') && mesa.forma === 'ovalada'"
+      :config="ovalOverlayBottom"
+    />
+
+    <!-- Turn label: 'M' on top (comida), 'T' on bottom (cena) -->
     <v-text
-      v-if="turnLabel && turnOverlay === 'half'"
+      v-if="topLabel"
       :config="{
-        x: turnLabelPos.x,
-        y: turnLabelPos.y,
-        text: turnLabel,
-        fontSize: fontSizeLabel,
+        x: topLabelPos.x,
+        y: topLabelPos.y,
+        text: topLabel,
+        fontSize: baseFontSize,
+        fontStyle: 'bold',
+        fontFamily: 'Inter, sans-serif',
+        fill: '#FFFFFF',
+        listening: false,
+        offsetX: 7,
+        offsetY: 7,
+        rotation: -mesa.rotacion,
+      }"
+    />
+    <v-text
+      v-if="bottomLabel"
+      :config="{
+        x: bottomLabelPos.x,
+        y: bottomLabelPos.y,
+        text: bottomLabel,
+        fontSize: baseFontSize,
         fontStyle: 'bold',
         fontFamily: 'Inter, sans-serif',
         fill: '#FFFFFF',
@@ -337,24 +440,49 @@ const groupConfig = computed(() => ({
       }"
     />
 
-    <!-- Single label (number + capacity via \n), at shape center, offset-centered, counter-rotated -->
-    <v-text
-      :config="{
-        x: shapeCenter.x,
-        y: shapeCenter.y,
-        offsetX: textWidth / 2,
-        offsetY: textOffsetY,
-        width: textWidth,
-        align: 'center',
-        verticalAlign: 'middle',
-        text: displayText,
-        fontSize: baseFontSize,
-        fontStyle: 'bold',
-        fontFamily: 'Inter, sans-serif',
-        fill: '#2D3748',
-        listening: false,
-        rotation: -mesa.rotacion,
-      }"
-    />
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- Text overlay — upright group counter-rotates the       -->
+    <!-- table rotation so y-offset always means visually down. -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <v-group :config="{ x: shapeCenter.x, y: shapeCenter.y, rotation: -mesa.rotacion }">
+      <!-- Number (2× fontSize), above center in upright space -->
+      <v-text
+        :config="{
+          x: 0,
+          y: isSmall ? 0 : -textGap,
+          offsetX: textWidth / 2,
+          offsetY: isSmall ? baseFontSize / 2 : numberFontSize / 2,
+          width: textWidth,
+          align: 'center',
+          verticalAlign: 'middle',
+          text: numberText,
+          fontSize: isSmall ? baseFontSize : numberFontSize,
+          fontStyle: 'bold',
+          fontFamily: 'Inter, sans-serif',
+          fill: '#2D3748',
+          listening: false,
+        }"
+      />
+
+      <!-- Capacity / client name (1× fontSize), below center in upright space -->
+      <v-text
+        v-if="!isSmall"
+        :config="{
+          x: 0,
+          y: textGap,
+          offsetX: textWidth / 2,
+          offsetY: baseFontSize / 2,
+          width: textWidth,
+          align: 'center',
+          verticalAlign: 'middle',
+          text: paxText,
+          fontSize: baseFontSize,
+          fontStyle: 'bold',
+          fontFamily: 'Inter, sans-serif',
+          fill: '#2D3748',
+          listening: false,
+        }"
+      />
+    </v-group>
   </v-group>
 </template>

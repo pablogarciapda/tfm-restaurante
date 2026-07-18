@@ -10,7 +10,7 @@
   No reservation functionality — pure layout editing.
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import TableCanvas from '../../features/mesas/components/TableCanvas.vue'
 import TableToolbar from '../../features/mesas/components/TableToolbar.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
@@ -18,6 +18,7 @@ import { useMesas } from '../../features/mesas/composables/useMesas'
 import { getAforoDisponible } from '#shared/utils/fusion-math'
 import type { AforoInfo, Mesa } from '#shared/contracts/mesas.contract'
 import type { FormaMesa } from '#shared/contracts/mesas.contract'
+import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
 definePageMeta({
   middleware: ['auth', 'role', 'permissions'],
@@ -98,11 +99,19 @@ const aforoInfo = computed<AforoInfo>(() => {
   }
 })
 
+// ── Grid toggle ──
+const showGrid = ref(false)
+
+// ── Diseño config (canvas reference dimensions) ──
+const { config: disenoConfig, load: loadDisenoConfig } = useDisenoConfig()
+
 // ── Handlers ──
 
 // Editable properties for selected mesa
 const editNumero = ref<number | null>(null)
 const editCapacidad = ref<number | null>(null)
+const editAncho = ref<number | null>(null)
+const editAlto = ref<number | null>(null)
 const editError = ref('')
 
 function startEditMesa() {
@@ -110,6 +119,8 @@ function startEditMesa() {
   if (!mesa) return
   editNumero.value = mesa.numero_mesa
   editCapacidad.value = mesa.capacidad_base
+  editAncho.value = mesa.ancho
+  editAlto.value = mesa.alto
   editError.value = ''
 }
 
@@ -120,18 +131,24 @@ async function saveEditMesa() {
     editError.value = 'Número >= 0 y capacidad >= 1'
     return
   }
+  // Validate dimensions
+  const ancho = Math.max(40, editAncho.value ?? mesa.ancho)
+  const alto = Math.max(40, editAlto.value ?? mesa.alto)
   await updateMesa(mesa.id, {
     numero_mesa: editNumero.value,
     capacidad_base: editCapacidad.value,
     capacidad_actual: editCapacidad.value,
+    ancho,
+    alto,
   } as unknown as Partial<Mesa>)
   showToast('Mesa actualizada', 'success')
 }
 
 async function handleAddMesa(forma: string) {
   const activeZone = store.activeZona || zonasConfig.value[0]?.nombre || 'Principal'
-  const nextNumero = store.mesas.length > 0
-    ? Math.max(...store.mesas.map((m) => m.numero_mesa)) + 1
+  const mesasZona = store.mesas.filter((m) => m.zona === activeZone)
+  const nextNumero = mesasZona.length > 0
+    ? Math.max(...mesasZona.map((m) => m.numero_mesa)) + 1
     : 1
 
   await createMesa({
@@ -139,8 +156,8 @@ async function handleAddMesa(forma: string) {
     capacidad_base: 4,
     posicion_x: 50,
     posicion_y: 50,
-    ancho: 100,
-    alto: 100,
+    ancho: 160,
+    alto: 160,
     rotacion: 0,
     zona: activeZone,
     forma: forma as FormaMesa,
@@ -246,6 +263,7 @@ store.activeZona = 'Principal'
 onMounted(async () => {
   await loadConfiguracion()
   await loadZonasConfig()
+  await loadDisenoConfig()
   await loadMesas()
   subscribeRealtime()
 
@@ -257,6 +275,25 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unsubscribeRealtime()
+})
+
+// ── Auto-load edit values when selection changes ──
+watch(() => store.selectedMesaId, () => {
+  if (store.selectedMesaId) {
+    startEditMesa()
+  }
+})
+
+// ── Square tables: keep ancho = alto in sync ──
+watch(editAncho, (val) => {
+  if (store.selectedMesa?.forma === 'cuadrada' && val != null) {
+    editAlto.value = val
+  }
+})
+watch(editAlto, (val) => {
+  if (store.selectedMesa?.forma === 'cuadrada' && val != null) {
+    editAncho.value = val
+  }
 })
 </script>
 
@@ -287,10 +324,12 @@ onUnmounted(() => {
       :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
       :saving="saving"
       :font-size="store.fontSize"
+      :show-grid="showGrid"
       @add="(forma: string) => handleAddMesa(forma)"
       @delete="handleDeleteMesa"
       @save="handleSaveMesa"
       @toggle-drawing="store.toggleDrawing()"
+      @toggle-grid="showGrid = !showGrid"
       @clear-walls="store.clearWallLines()"
       @background-image-uploaded="handleBackgroundImageUpload"
       @font-size-change="(size: number) => store.fontSize = size"
@@ -315,6 +354,22 @@ onUnmounted(() => {
             v-model.number="editCapacidad"
             type="number" min="1" max="20"
             class="ml-1 w-12 rounded border border-amber-300 px-1 py-0.5 text-xs"
+            @focus="startEditMesa"
+          />
+        </label>
+        <label class="text-xs text-amber-700">
+          Ancho <input
+            v-model.number="editAncho"
+            type="number" min="40" max="400"
+            class="ml-1 w-14 rounded border border-amber-300 px-1 py-0.5 text-xs"
+            @focus="startEditMesa"
+          />
+        </label>
+        <label class="text-xs text-amber-700">
+          Alto <input
+            v-model.number="editAlto"
+            type="number" min="40" max="400"
+            class="ml-1 w-14 rounded border border-amber-300 px-1 py-0.5 text-xs"
             @focus="startEditMesa"
           />
         </label>
@@ -374,7 +429,18 @@ onUnmounted(() => {
       >
         Dibujo libre
       </button>
+      <!-- Clear walls button (always visible when drawing is active) -->
+      <button
+        v-if="store.wallLines.length > 0"
+        class="rounded-md bg-red-400 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500"
+        @click="store.clearWallLines()"
+        title="Borrar todos los dibujos"
+      >
+        Borrar dibujo
+      </button>
     </div>
+
+
     </div> <!-- end sticky header -->
 
     <!-- Scrollable canvas -->
@@ -385,6 +451,9 @@ onUnmounted(() => {
         :design-mode="true"
         :single-zone="true"
         :font-size="store.fontSize"
+        :show-grid="showGrid"
+        :canvas-ancho-base="disenoConfig.canvas_ancho_base"
+        :canvas-alto-base="disenoConfig.canvas_alto_base"
       />
     </div>
 
