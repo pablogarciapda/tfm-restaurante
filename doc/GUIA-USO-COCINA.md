@@ -222,6 +222,17 @@ Gestiona las categorías que se usan en los eventos (Festivo, Espectáculo, y la
 
 > 💡 Al guardar cualquier cambio verás un mensaje verde de confirmación. Si algo falla, verás un mensaje rojo.
 
+### Diseño del plano (Canvas)
+
+Configura las dimensiones del lienzo del plano interactivo de mesas:
+
+| Opción | Descripción |
+|--------|-------------|
+| Ancho base | Ancho del canvas en píxeles (default: 1400) |
+| Alto base | Alto del canvas en píxeles (default: 900) |
+
+> Afecta tanto al editor de diseño (`/cocina/diseno`) como al gestor de reservas (`/cocina/reservas`).
+
 ---
 
 ## 6. Gestión de Usuarios
@@ -271,6 +282,9 @@ Gestiona las categorías que se usan en los eventos (Festivo, Espectáculo, y la
 | ¿Por qué un plato muestra "Consultar" en la web? | Porque su precio está a 0. Así lo ves en la carta pública |
 | ¿Las categorías de eventos son solo "Festivo" y "Espectáculo"? | No, puedes crear las que quieras desde Configuración |
 | ¿Cómo reordeno las categorías en Configuración? | Arrástralas con el handle ⠿ y pulsa Guardar |
+| ¿Qué indica el color de una mesa en el plano? | Verde = libre, Rojo = ocupada, Naranja = reservada |
+| ¿Qué significan M y T en las mesas? | M = turno de mañana/comida, T = turno de tarde/cena. Verás la M en la mitad superior si hay reserva de comida, y la T abajo si hay reserva de cena. Cuando hay ambos turnos ocupados, se muestran M arriba y T abajo simultáneamente. |
+| ¿Las mesas redondas también muestran los turnos? | Sí, igual que las cuadradas y rectangulares: la mitad de arriba se sombrea para comida y la de abajo para cena. |
 
 ---
 
@@ -280,4 +294,4 @@ Gestiona las categorías que se usan en los eventos (Festivo, Espectáculo, y la
 
 ---
 
-> **Documento v1.2** — Última actualización: Julio 2026. Añadido: estrella recomendado clicable, precio 0 = "Consultar", categorías dinámicas de eventos, drag & drop en configuración.
+> **Documento v1.3** — Última actualización: Julio 2026. Añadido: diseño del plano (canvas dimensions), FAQ turnos M/T y colores de mesa.

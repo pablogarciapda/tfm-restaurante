@@ -354,7 +354,7 @@
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
 - **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
 - **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
-- **Tests:** 964 passed (+109 tests desde inicio de Fase 3). 0 unit failures. 2 nuxt smoke pre-existing.
+- **Tests:** 920 passed, 45 pre-existing failures (same patterns — useMesasFusion, useMenuDiario, layouts/cocina, nuxt smoke).
 
 ## 8. Reglas para agentes IA
 
@@ -375,7 +375,7 @@ tfm-restaurant/
 │   ├── app.vue                # Entry point Nuxt
 │   ├── assets/                # Imágenes, estilos globales
 │   ├── components/            # 29 componentes (ver listado abajo)
-│   ├── composables/           # useAuth, usePlatos, useMenuDiario, useEventos, useRestaurantConfig, useImageUpload
+│   ├── composables/           # useAuth, usePlatos, useMenuDiario, useEventos, useRestaurantConfig, useImageUpload, useDisenoConfig
 │   ├── features/              # Módulos feature
 │   │   └── mesas/             # Motor de mesas (stores, components, composables)
 │   ├── layouts/               # Layouts Nuxt
@@ -404,6 +404,8 @@ tfm-restaurant/
 │   │   ├── config.get.ts      # GET /api/config (admin-only)
 │   │   ├── config.post.ts     # POST /api/config (admin)
 │   │   ├── config.handlers.ts # Lógica compartida config
+│   │   ├── diseno-config.get.ts # GET /api/diseno-config (canvas dimensions)
+│   │   ├── diseno-config.post.ts # POST /api/diseno-config (guardar canvas dims)
 │   │   ├── public-config.get.ts # GET /api/public-config (público)
 │   │   ├── reservas.handlers.ts # Lógica compartida reservas
 │   │   ├── images/[...path].get.ts # Proxy de imágenes Supabase Storage
@@ -411,10 +413,12 @@ tfm-restaurant/
 │   │   └── ...                # Endpoints existentes
 │   ├── plugins/               # Hooks server (Supabase admin client, security-headers, etc.)
 │   ├── sms/                   # Lógica SMS (verificación)
-│   └── utils/                 # email.ts, rate-limit.ts, validation.ts, sms-*.ts, image-security.ts
+│   ├── data/                  # Archivos de configuración (diseno-config.json)
+│   └── utils/                 # email.ts, rate-limit.ts, validation.ts, sms-*.ts, image-security.ts, diseno-config.ts
 ├── shared/                    # Contratos, tipos, utilidades compartidas (ambos lados)
 │   ├── contracts/             # mesas.contract.ts, reservation.contract.ts, sms.contract.ts
 │   ├── db/                    # Acceso a base de datos (compartido)
+│   │   └── migrations/        # Migraciones SQL (002-add-canvas-dims.sql)
 │   ├── fixtures/              # Datos de prueba
 │   ├── types/                 # Tipos compartidos
 │   └── utils/                 # phone.ts, slots.ts, fusion-math.ts, referencia.ts, mesa-estado.ts, capacidad-from-zonas.ts, reserva-fecha.ts
@@ -517,3 +521,6 @@ tfm-restaurant/
 | **Rotación grupo rígido** | Fusión de mesas rotaba cada mesa por separado (traslapaban) | `rotateGroupAroundCentroid90CW` en fusion-math.ts: computa centro visual real de Konva (cvx = x + cos(θ)·w/2 - sin(θ)·h/2). Grupo entero rota como bloque. Round-trip 4×90°=360° verificado |
 | **Texto contra-rotado en mesas** | Texto se descentraba al contra-rotar porque eran dos v-text con offsets Y distintos | Un solo v-text con \n en el centro geométrico exacto + offsetX/offsetY centran el bloque + rotation: -mesa.rotacion contra-rota para mantener readable a cualquier ángulo |
 | **Canvas dims configurables** | BASE_WIDTH/BASE_HEIGHT hardcoded 1200×800 en TableCanvas | Prop `canvasAnchoBase`/`canvasAltoBase` en TableCanvas. Default 1400×900. File-based storage via JSON en `server/data/diseno-config.json` + composable `useDisenoConfig`. Admin UI en "Diseño del plano" sección de Configuración. Para persistencia DB: migración `shared/db/migrations/002-add-canvas-dims.sql` |
+| **Fecha hora futura (timezone-safe)** | `new Date(body.fecha_hora) <= new Date()` fallaba para horas CEST (14:00 → 12:00 UTC, servidor en ~19:00 UTC) | Comparar solo fecha YYYY-MM-DD via `body.fecha_hora.slice(0, 10) >= new Date().toISOString().slice(0, 10)` |
+| **Mesa redonda Wedge Konva** | Semicírculo comida (top) se renderizaba abajo y cena (bottom) arriba | Konva Wedge `rotation:0` = bottom half (empieza a las 3, barre 180° CW). `rotation:-180` = top half. Swapped valores: `roundOverlayTop → rotation: -180`, `roundOverlayBottom → rotation: 0` |
+| **Etiquetas M/T full turno** | Ambos turnos mostraban "M/T" centrado en vez de M arriba + T abajo | `turnLabel` partido en `topLabel`/`bottomLabel`. `turnLabelPos` partido en `topLabelPos`/`bottomLabelPos`. Template rinde dos `<v-text>` independientes |
