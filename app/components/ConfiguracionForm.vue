@@ -1,15 +1,16 @@
 <!--
-  ConfiguracionForm — System settings form with 12 sections
+  ConfiguracionForm — System settings form with 13 sections
   Sections order: Horarios, Precios, Días bloqueados, Zonas restaurante,
-                  Elección mesa, General, Recomendaciones, Reservas,
+                  Elección mesa, General, Diseño, Recomendaciones, Reservas,
                   Datos restaurante, Protección datos, Optimización imágenes,
                   Correo saliente
 -->
 <script setup lang="ts">
-import { reactive, ref, watch, computed } from 'vue'
+import { reactive, ref, watch, computed, onMounted } from 'vue'
 import { generateSlots } from '#shared/utils/slots'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { toProxyUrl } from '~/utils/image-url'
+import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
 type OcupacionModo = 'auto' | 'manual'
 type ReservaModo = 'automatica' | 'verificada'
@@ -151,6 +152,24 @@ const form = reactive<ConfigFormData>({
 const testEmail = ref('')
 const errors = ref<Record<string, string>>({})
 const showPassword = ref(false)
+
+// ── Diseño config (canvas dimensions) ──
+const {
+  config: disenoConfig,
+  load: loadDisenoConfig,
+  save: saveDisenoConfig,
+  loading: disenoSaving,
+  error: disenoError,
+} = useDisenoConfig()
+
+const canvasAncho = ref(1400)
+const canvasAlto = ref(900)
+
+onMounted(async () => {
+  await loadDisenoConfig()
+  canvasAncho.value = disenoConfig.value.canvas_ancho_base
+  canvasAlto.value = disenoConfig.value.canvas_alto_base
+})
 
 // ── Horarios preview ──
 const horarioErrors = ref<Record<string, string>>({})
@@ -458,6 +477,12 @@ function handleSubmit() {
   if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
   if (data.precio_menu_domingo === '') data.precio_menu_domingo = null
   emit('submit', data)
+
+  // Also save diseño config (fire-and-forget, non-blocking)
+  saveDisenoConfig({
+    canvas_ancho_base: canvasAncho.value,
+    canvas_alto_base: canvasAlto.value,
+  })
 }
 
 function handleSmtpTest() {
@@ -899,7 +924,49 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 7: Recomendaciones -->
+    <!-- Section 7: Diseño (canvas dimensions) -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Diseño del plano</h2>
+      <p class="mb-4 text-xs text-gray-400">
+        Dimensiones de referencia del lienzo del gestor de mesas. Determinan la escala proporcional
+        de las zonas en el plano. Valores más altos dan más espacio para distribuir las mesas.
+      </p>
+      <div class="flex gap-6">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-canvas-ancho">
+            Ancho base (px)
+          </label>
+          <input
+            id="cfg-canvas-ancho"
+            v-model.number="canvasAncho"
+            type="number"
+            min="800"
+            max="4000"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+            :class="canvasAncho < 800 || canvasAncho > 4000 ? 'border-red-500' : 'border-gray-300'"
+          />
+          <p class="mt-1 text-xs text-gray-400">800 – 4000 px</p>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate" for="cfg-canvas-alto">
+            Alto base (px)
+          </label>
+          <input
+            id="cfg-canvas-alto"
+            v-model.number="canvasAlto"
+            type="number"
+            min="600"
+            max="3000"
+            class="w-32 rounded-lg border border-gray-300 px-3 py-2"
+            :class="canvasAlto < 600 || canvasAlto > 3000 ? 'border-red-500' : 'border-gray-300'"
+          />
+          <p class="mt-1 text-xs text-gray-400">600 – 3000 px</p>
+        </div>
+      </div>
+      <p v-if="disenoError" class="mt-2 text-xs text-red-600">{{ disenoError }}</p>
+    </div>
+
+    <!-- Section 8: Recomendaciones -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Recomendaciones</h2>
       <div class="flex items-center gap-3 mb-3">
@@ -926,7 +993,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 8: Reservas -->
+    <!-- Section 9: Reservas -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Reservas</h2>
 
@@ -1051,7 +1118,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 9: Datos del restaurante -->
+    <!-- Section 10: Datos del restaurante -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Datos del restaurante</h2>
       <p class="mb-4 text-xs text-gray-400">
@@ -1245,7 +1312,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       <p v-if="imageUploadError" class="mt-3 text-sm text-red-600">{{ imageUploadError }}</p>
     </div>
 
-    <!-- Section 10: Protección de datos -->
+    <!-- Section 11: Protección de datos -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Protección de datos</h2>
       <p class="mb-3 text-xs text-gray-400">
@@ -1265,7 +1332,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 11: Optimización de imágenes -->
+    <!-- Section 12: Optimización de imágenes -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Optimización de imágenes</h2>
       <p class="mb-4 text-xs text-gray-400">
@@ -1303,7 +1370,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </div>
     </div>
 
-    <!-- Section 12: Correo saliente (SMTP) -->
+    <!-- Section 13: Correo saliente (SMTP) -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Correo saliente (SMTP)</h2>
       <p class="mb-4 text-xs text-gray-400">

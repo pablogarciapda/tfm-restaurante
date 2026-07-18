@@ -26,6 +26,7 @@ const props = defineProps<{
   activeTurno?: TurnoFilter
   // Drawing / walls (diseño mode)
   isDrawing?: boolean
+  showGrid?: boolean
   wallLinesCount?: number
   activeZona?: string
   uploading?: boolean
@@ -43,6 +44,7 @@ const emit = defineEmits<{
   unfuse: []
   'update:activeTurno': [value: TurnoFilter]
   toggleDrawing: []
+  toggleGrid: []
   clearWalls: []
   backgroundImageUploaded: [url: string]
   'font-size-change': [size: number]
@@ -163,14 +165,18 @@ const activeTurnoValue = computed({
           Dibujar
         </button>
 
-        <!-- Clear walls button (only if walls exist) -->
+        <!-- Grid alignment toggle (between Dibujar and Subir fondo) -->
         <button
-          v-if="wallLinesCount && wallLinesCount > 0"
-          class="rounded-md bg-red-400 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
-          @click="emit('clearWalls')"
-          title="Borrar todos los dibujos"
+          class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2"
+          :class="
+            showGrid
+              ? 'bg-terracotta text-white hover:bg-terracotta/90 focus:ring-terracotta/50'
+              : 'bg-slate-100 text-slate hover:bg-slate-200 focus:ring-slate-500/50'
+          "
+          @click="$emit('toggleGrid')"
+          title="Mostrar rejilla de alineación"
         >
-          Borrar dibujo
+          Rejilla
         </button>
 
         <!-- Background image upload -->

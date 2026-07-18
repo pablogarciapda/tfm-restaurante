@@ -21,8 +21,10 @@ import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
 import { getAforoDisponible, calculateFusedCapacity } from '#shared/utils/fusion-math'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { esReservaPasada } from '#shared/utils/reserva-fecha'
+import { generarReferencia } from '#shared/utils/referencia'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
+import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
 // ── Canvas exposed API (rotateSelectedGroup90CW + getSelectedMesaIds) ──
 const canvasRef = ref<InstanceType<typeof TableCanvas> | null>(null)
@@ -167,6 +169,9 @@ const capacidadTotal = ref(80)
 const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 const horariosConfig = ref<HorarioConfig | null>(null)
+
+// ── Diseño config (canvas reference dimensions) ──
+const { config: disenoConfig, load: loadDisenoConfig } = useDisenoConfig()
 
 // Generate time slots from horarios_config for the reservation modal
 const timeSlots = computed(() => {
@@ -364,7 +369,12 @@ async function handleReservaSubmit() {
   reservaSaving.value = true
 
   try {
-    const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00`
+    // Include timezone offset so the server interprets the time correctly
+    const tzOffset = -new Date().getTimezoneOffset()
+    const tzSign = tzOffset >= 0 ? '+' : '-'
+    const tzPad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, '0')
+    const tz = `${tzSign}${tzPad(tzOffset / 60)}:${tzPad(tzOffset % 60)}`
+    const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00${tz}`
 
     const result = await $fetch<{ success: boolean; reserva_id?: string; error?: string }>(
       '/api/reservas',
@@ -389,7 +399,10 @@ async function handleReservaSubmit() {
 
     if (result.reserva_id) {
       const client = useSupabaseClient()
-      await client.from('reservas').update({ mesa_id: reservaModalMesa.value.id }).eq('id', result.reserva_id)
+      await client.from('reservas').update({
+        mesa_id: reservaModalMesa.value.id,
+        zona_id: reservaModalMesa.value.zona_nombre || reservaModalMesa.value.zona,
+      }).eq('id', result.reserva_id)
     }
 
     reservaSuccess.value = true
@@ -560,6 +573,31 @@ const reasignarSaving = ref(false)
 const reasignarError = ref('')
 const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
+/** Mesas disponible for reasignar — exclude occupied ones */
+const reasignarMesasDisponibles = computed(() => {
+  // Get occupied mesa IDs (reservas activas: confirmada o pendiente)
+  const ocupadas = new Set<string>()
+  for (const r of reservasList.value) {
+    if (r.mesa_id && (r.estado === 'confirmada' || r.estado === 'pendiente')) {
+      ocupadas.add(r.mesa_id)
+    }
+  }
+
+  // Filter: parent mesas (no children of fused groups), not occupied, optionally by zone
+  const zonaNombre = reasignarZonaId.value
+    ? zonasConfig.value.find((z) => z.id === reasignarZonaId.value)?.nombre ?? null
+    : null
+
+  const comensales = reasignarReserva.value?.numero_comensales ?? 0
+
+  return store.parentMesas.filter(
+    (m) =>
+      !ocupadas.has(m.id) &&
+      m.capacidad_actual >= comensales &&
+      (!zonaNombre || m.zona === zonaNombre),
+  )
+})
+
 function showToast(msg: string, type: 'success' | 'error') {
   toastReasignar.value = { message: msg, type }
   setTimeout(() => { toastReasignar.value = null }, 3000)
@@ -723,6 +761,17 @@ async function cancelarReserva(reserva: ReservaRow) {
   }
 }
 
+async function completarReserva(reserva: ReservaRow) {
+  if (!confirm(`¿Marcar como completada la reserva de ${(reserva.cliente as any)?.nombre || '—'}? La mesa quedará libre.`)) return
+  try {
+    await client.from('reservas').update({ estado: 'completada' }).eq('id', reserva.id)
+    await loadReservas()
+    showToast('Reserva completada — mesa liberada', 'success')
+  } catch {
+    showToast('Error al completar', 'error')
+  }
+}
+
 // ── Editar reserva ──
 const editarShow = ref(false)
 const editarReserva = ref<ReservaRow | null>(null)
@@ -766,8 +815,17 @@ async function handleReasignar() {
   reasignarError.value = ''
   reasignarSaving.value = true
 
-  if (!reasignarMotivo.value.trim()) {
-    reasignarError.value = 'El motivo es obligatorio'
+  if (!reasignarMesaId.value) {
+    reasignarError.value = 'Debe seleccionar una mesa'
+    reasignarSaving.value = false
+    return
+  }
+
+  // Validate capacity
+  const mesaSeleccionada = store.mesas.find((m) => m.id === reasignarMesaId.value)
+  const comensales = reasignarReserva.value.numero_comensales ?? 0
+  if (mesaSeleccionada && mesaSeleccionada.capacidad_actual < comensales) {
+    reasignarError.value = `La mesa ${mesaSeleccionada.numero_mesa} tiene capacidad para ${mesaSeleccionada.capacidad_actual} comensales, pero la reserva es de ${comensales}`
     reasignarSaving.value = false
     return
   }
@@ -775,10 +833,10 @@ async function handleReasignar() {
   try {
     const body: Record<string, unknown> = {
       reserva_id: reasignarReserva.value.id,
-      motivo: reasignarMotivo.value.trim(),
+      nueva_mesa_id: reasignarMesaId.value,
     }
     if (reasignarZonaId.value) body.nueva_zona_id = reasignarZonaId.value
-    if (reasignarMesaId.value) body.nueva_mesa_id = reasignarMesaId.value
+    if (reasignarMotivo.value.trim()) body.motivo = reasignarMotivo.value.trim()
 
     await $fetch('/api/admin/reasignar', {
       method: 'POST',
@@ -807,40 +865,47 @@ const reservasForCanvas = computed(() => {
   }))
 })
 
-/** Map mesa_id → client name for today's reserved tables */
+/** Map mesa_id → reservation reference (e.g. "240718-A4C9") for today's reserved tables */
 const reservasMap = computed(() => {
   const map: Record<string, string> = {}
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
-    const nombre = (r.cliente as any)?.nombre
-    if (!nombre) continue
-    const fecha = r.fecha_hora?.split('T')[0]
-    if (fecha === todayStr) {
-      map[r.mesa_id] = nombre
-    }
+    if (r.estado !== 'pendiente' && r.estado !== 'confirmada') continue
+    // Local-time date comparison (same as mesaTurnoStatus)
+    const d = new Date(r.fecha_hora)
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (localDate !== todayStr) continue
+    map[r.mesa_id] = generarReferencia(r.id, r.fecha_hora)
   }
   return map
 })
 
-/** Map mesa_id → full reservation details for tooltip (MCA-009) */
+/** Estados that should NOT appear in the tooltip (same as mesa-estado EXCLUDED_ESTADOS) */
+const TOOLTIP_EXCLUDED_ESTADOS = new Set(['cancelada', 'standby', 'completada'])
+
+/** Map mesa_id → detailed reservation info for TODAY only (multiple per mesa) for tooltip */
 const reservasDetailMap = computed(() => {
-  const map: Record<string, { nombre_cliente: string; fecha_hora: string; numero_comensales: number }> = {}
-  const todayStr = new Date().toISOString().split('T')[0]
+  const map: Record<string, { nombre_cliente: string; fecha_hora: string; numero_comensales: number; referencia: string }[]> = {}
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
+    if (TOOLTIP_EXCLUDED_ESTADOS.has(r.estado)) continue
     const nombre = (r.cliente as any)?.nombre
     if (!nombre) continue
-    const fecha = r.fecha_hora?.split('T')[0]
-    if (fecha === todayStr) {
-      map[r.mesa_id] = {
-        nombre_cliente: nombre,
-        fecha_hora: r.fecha_hora,
-        numero_comensales: r.numero_comensales ?? 0,
-      }
-    }
+    // Local-time date comparison (same logic as mesaTurnoStatus in TableCanvas)
+    const d = new Date(r.fecha_hora)
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (localDate !== todayStr) continue
+    if (!map[r.mesa_id]) map[r.mesa_id] = []
+    map[r.mesa_id].push({
+      nombre_cliente: nombre,
+      fecha_hora: r.fecha_hora,
+      numero_comensales: r.numero_comensales ?? 0,
+      referencia: generarReferencia(r.id, r.fecha_hora),
+    })
   }
   return map
 })
@@ -870,6 +935,7 @@ const fusionLabels = computed(() => {
 
 onMounted(async () => {
   await loadConfiguracion()
+  await loadDisenoConfig()
   await loadMesas()
   subscribeRealtime()
   await refreshStandbyReservations()
@@ -957,7 +1023,8 @@ onUnmounted(() => {
     </div> <!-- end sticky header -->
 
     <!-- Konva canvas — designMode always false (no Transformer) -->
-    <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+    <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm"
+      style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
       <TableCanvas
         ref="canvasRef"
         :reservas="reservasForCanvas"
@@ -968,6 +1035,8 @@ onUnmounted(() => {
         :zonas-config="zonasConfig"
         :design-mode="false"
         :selected-ids="selectedIds"
+        :canvas-ancho-base="disenoConfig.canvas_ancho_base"
+        :canvas-alto-base="disenoConfig.canvas_alto_base"
         @table-click-reservation="handleTableClickWithMode"
       />
     </div>
@@ -1067,14 +1136,22 @@ onUnmounted(() => {
               </td>
                <td class="px-4 py-2 text-right">
                  <div class="flex justify-end gap-2">
-                   <button
-                     v-if="reserva.estado === 'pendiente'"
-                     type="button"
-                     class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
-                     @click="openConfirmar(reserva)"
-                   >
-                     Confirmar
-                   </button>
+                    <button
+                      v-if="reserva.estado === 'pendiente'"
+                      type="button"
+                      class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
+                      @click="openConfirmar(reserva)"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      v-if="reserva.estado === 'confirmada' && !esReservaPasada(reserva.fecha_hora)"
+                      type="button"
+                      class="rounded bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                      @click="completarReserva(reserva)"
+                    >
+                      Liberar
+                    </button>
                     <button
                       v-if="reserva.estado !== 'cancelada' && reserva.estado !== 'completada' && !esReservaPasada(reserva.fecha_hora)"
                       type="button"
@@ -1146,25 +1223,35 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <!-- Mesa dropdown -->
+          <!-- Mesa dropdown (obligatorio) -->
           <div class="mb-3">
             <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-mesa">
-              Nueva mesa (opcional)
+              Nueva mesa <span class="text-red-500">*</span>
             </label>
-            <input
+            <select
               id="reasignar-mesa"
               v-model="reasignarMesaId"
-              type="text"
-              placeholder="ID de mesa (opcional)"
               data-testid="reasignar-mesa"
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+            >
+              <option value="">— Seleccionar mesa —</option>
+              <option
+                v-for="mesa in reasignarMesasDisponibles"
+                :key="mesa.id"
+                :value="mesa.id"
+              >
+                Mesa {{ mesa.numero_mesa }} ({{ mesa.capacidad_actual }} pax — {{ mesa.zona }})
+              </option>
+            </select>
+            <p v-if="reasignarMesasDisponibles.length === 0" class="mt-1 text-xs text-amber-600">
+              No hay mesas disponibles en la zona seleccionada
+            </p>
           </div>
 
-          <!-- Motivo -->
+          <!-- Motivo (opcional) -->
           <div class="mb-4">
             <label class="mb-1 block text-sm font-medium text-slate" for="reasignar-motivo">
-              Motivo *
+              Motivo
             </label>
             <textarea
               id="reasignar-motivo"
@@ -1172,7 +1259,7 @@ onUnmounted(() => {
               rows="3"
               data-testid="reasignar-motivo"
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              placeholder="Ej: El cliente prefiere terraza..."
+              placeholder="Opcional — razón del cambio"
             />
           </div>
 

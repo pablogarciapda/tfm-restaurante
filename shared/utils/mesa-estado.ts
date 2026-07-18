@@ -6,8 +6,12 @@
  *
  * Acceptance (spec MCA-005, mesas-canvas):
  *   Libre     — no active reserva                          → #22C55E
- *   Ocupada   — estado='confirmada', current service       → #EF4444
+ *   Ocupada   — estado='confirmada', same day+turn         → #EF4444
  *   Reservada — estado='pendiente', future                 → #F59E0B
+ *
+ * ⚠️ A reservation BLOCKS the table for the ENTIRE turn (comida or cena), not
+ *    just the specific time slot. Once admin marks a reservation 'completada'
+ *    (meal finished), the table returns to 'libre' immediately.
  *
  * "Current service" = selectedDate + active turn window. A reserva matches the
  * current service when its fecha_hora date equals selectedDate and its HH:MM
@@ -15,7 +19,7 @@
  * selectedDate counts.
  *
  * Priority: ocupada > reservada > libre.
- * Excluded estados: 'cancelada' and 'standby' (these never mark a mesa).
+ * Excluded estados: 'cancelada', 'completada', and 'standby' (these never mark a mesa).
  *
  * Reserva→mesa linking is via `reservas.mesa_id` (direct FK → mesas.id).
  * Zona-level reservations (zona_id only, no mesa_id) are ignored at the
@@ -88,21 +92,28 @@ export function buildTurnoWindows(h: HorarioConfig): {
 /** Check if a given minute-of-day falls inside a (possibly wrap-around) window. */
 function timeInWindow(mins: number, w: TurnoWindow): boolean {
   if (w.end > w.start) {
-    return mins >= w.start && mins < w.end
+    return mins >= w.start && mins <= w.end
   }
-  // Crosses midnight: [start, 24:00) OR [00:00, end)
-  return mins >= w.start || mins < w.end
+  // Crosses midnight: [start, 24:00) OR [00:00, end]
+  return mins >= w.start || mins <= w.end
 }
 
-/** Extract YYYY-MM-DD from an ISO fecha_hora string (no tz shift). */
+/** Extract YYYY-MM-DD in local timezone from an ISO fecha_hora string. */
 function reservaDate(fecha_hora: string): string {
-  return fecha_hora.slice(0, 10)
+  const d = new Date(fecha_hora)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Extract HH:MM in minutes from an ISO fecha_hora string. */
+/**
+ * Extract HH:MM in local-time minutes from an ISO fecha_hora string.
+ *
+ * Converts UTC timestamps to the runtime's local timezone (CEST for the
+ * restaurant), so a reservation at `13:00+00:00` correctly maps to
+ * the comida window (13:30-15:30 local) instead of being treated as 13:00.
+ */
 function reservaMinutes(fecha_hora: string): number {
-  const time = fecha_hora.slice(11, 16) // "HH:MM"
-  return toMinutes(time)
+  const d = new Date(fecha_hora)
+  return d.getHours() * 60 + d.getMinutes()
 }
 
 // ──────────────────────────── Core ─────────────────────────────────
@@ -147,8 +158,11 @@ export function calcularEstadoMesa(
     // "Future": strictly after selectedDate.
     const isFuture = date > selectedDate
 
-    if (r.estado === 'confirmada' || r.estado === 'completada') {
+    if (r.estado === 'confirmada') {
       // Ocupada only when in the current service.
+      // Aplicación: una reserva confirmada bloquea la mesa para TODO el turno
+      // (comida o cena). El admin puede liberarla manualmente marcándola
+      // como 'completada' (la mesa vuelve a libre).
       if (inCurrentService) isOcupada = true
     } else if (r.estado === 'pendiente') {
       // Reservada when it is on the selected day (any turn — waitlist alert

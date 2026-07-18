@@ -14,12 +14,15 @@ export interface TooltipReservaDetail {
   nombre_cliente: string
   hora: string
   comensales: number
+  referencia: string
+  fecha: string
+  turno: 'comida' | 'cena'
 }
 
 export interface TooltipData {
   mesa: Mesa
   estado: MesaEstado
-  reserva?: TooltipReservaDetail
+  reservas?: TooltipReservaDetail[]
   /** Sorted mesa numbers in the fusion group */
   fusionMesas?: number[]
   /** Combined capacity when fused */
@@ -34,6 +37,11 @@ const STATUS_LABELS: Record<MesaEstado, { label: string; color: string }> = {
   libre: { label: 'Libre', color: '#22C55E' },
   ocupada: { label: 'Ocupada', color: '#EF4444' },
   reservada: { label: 'Reservada', color: '#F59E0B' },
+}
+
+const TURNO_LABELS: Record<string, { label: string; bg: string }> = {
+  comida: { label: 'M', bg: '#EF4444' },
+  cena: { label: 'T', bg: '#EF4444' },
 }
 </script>
 
@@ -87,24 +95,42 @@ const STATUS_LABELS: Record<MesaEstado, { label: string; color: string }> = {
         </span>
       </div>
 
-      <!-- Reservation details -->
-      <template v-if="data.reserva">
+      <!-- Reservation details (may be multiple for same table) -->
+      <template v-if="data.reservas && data.reservas.length > 0">
         <hr class="border-gray-100">
-        <div class="space-y-1">
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-500">Cliente</span>
-            <span class="truncate font-medium text-slate">
-              {{ data.reserva.nombre_cliente }}
+        <div
+          v-for="(r, i) in data.reservas"
+          :key="i"
+          class="space-y-1"
+        >
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              :style="{ backgroundColor: TURNO_LABELS[r.turno].bg }"
+            >
+              {{ TURNO_LABELS[r.turno].label }}
             </span>
+            <span class="text-xs font-medium text-gray-500">{{ r.referencia }}</span>
           </div>
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-500">Hora</span>
-            <span class="font-medium text-slate">{{ data.reserva.hora }}</span>
+          <div class="ml-7 space-y-0.5">
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-gray-500">Cliente</span>
+              <span class="truncate font-medium text-slate">{{ r.nombre_cliente }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-gray-500">Día</span>
+              <span class="font-medium text-slate">{{ r.fecha }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-gray-500">Hora</span>
+              <span class="font-medium text-slate">{{ r.hora }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-gray-500">Comensales</span>
+              <span class="font-medium text-slate">{{ r.comensales }}</span>
+            </div>
           </div>
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-500">Comensales</span>
-            <span class="font-medium text-slate">{{ data.reserva.comensales }}</span>
-          </div>
+          <hr v-if="i < data.reservas.length - 1" class="border-gray-100">
         </div>
       </template>
 

@@ -7,9 +7,11 @@
  *
  * Acceptance (spec MCA-005, mesas-canvas):
  *   Libre     — no active reserva                          → #22C55E
- *   Ocupada   — estado='confirmada', current service       → #EF4444
+ *   Ocupada   — estado='confirmada', same day+turn         → #EF4444
  *   Reservada — estado='pendiente', future                 → #F59E0B
- * Priority: ocupada > reservada > libre. cancelada/standby excluded.
+ * Priority: ocupada > reservada > libre.
+ * Excluded estados: 'cancelada', 'completada', 'standby' (these never mark a mesa).
+ *   completada = admin released the table; it returns to libre.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -22,6 +24,20 @@ import {
 // --- Helpers ---
 
 const TODAY = '2026-07-16'
+
+/**
+ * Convert a local date+time string to a UTC ISO string.
+ *
+ * `new Date(localDateStr).getHours()` must produce `time`'s hours in whatever
+ *   timezone the test runner is in.
+ * We construct a Date using the local-time string, then call .toISOString() to
+ *   get the UTC representation. When the code later parses that ISO string and
+ *   calls .getHours(), it converts back to the same local time via the runtime
+ *   timezone offset — so round-trip works identically regardless of timezone.
+ */
+function localTime(date: string, time: string): string {
+  return new Date(`${date}T${time}`).toISOString()
+}
 
 /** Comida 13:30-15:30, Cena 21:00-23:30 — like the default config. */
 const CTX_BASE: Omit<MesaEstadoContext, 'currentTurn'> = {
@@ -45,7 +61,7 @@ function reserva(
   return {
     estado: overrides.estado ?? 'confirmada',
     fecha_hora:
-      overrides.fecha_hora ?? `${TODAY}T14:00:00.000Z`,
+      overrides.fecha_hora ?? localTime(TODAY, '14:00'),
     ...overrides,
   }
 }
@@ -85,7 +101,7 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     const r = reserva({
       mesa_id: 'm1',
       estado: 'confirmada',
-      fecha_hora: '2026-07-10T14:00:00.000Z',
+      fecha_hora: localTime('2026-07-10', '14:00'),
     })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
   })
@@ -93,39 +109,38 @@ describe('calcularEstadoMesa (MCA-005)', () => {
   // ── Ocupada (confirmada in current service) ──
 
   it('ocupada when confirmada today in comida window and currentTurn=comida', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T14:00:00.000Z` })
-    // 14:00 UTC ≈ 14:00 local (test uses parsed HH:MM; no tz shift in the pure fn)
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '14:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
   })
 
   it('ocupada when confirmada today in cena window and currentTurn=cena', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T22:00:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '22:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('cena'))).toBe('ocupada')
   })
 
   it('ocupada when confirmada today and currentTurn=todos (any turn counts as current service)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T14:00:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '14:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('todos'))).toBe('ocupada')
   })
 
   it('libre when confirmada today but in cena window while currentTurn=comida (wrong turn)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T22:00:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '22:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
   })
 
   it('ocupada when confirmada exactly at comida_inicio boundary', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T13:30:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '13:30') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
   })
 
-  it('libre when confirmada exactly at comida_fin (exclusive end)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T15:30:00.000Z` })
+  it('ocupada when confirmada exactly at comida_fin (inclusive end, matching slot generator)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '15:30') })
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
+  })
+
+  it('libre when completada today (admin released the table)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'completada', fecha_hora: localTime(TODAY, '14:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
-  })
-
-  it('ocupada when completada today in current service (completed counts as occupied)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'completada', fecha_hora: `${TODAY}T14:00:00.000Z` })
-    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
   })
 
   // ── Reservada (pendiente future / today current service) ──
@@ -134,18 +149,18 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     const r = reserva({
       mesa_id: 'm1',
       estado: 'pendiente',
-      fecha_hora: '2026-08-01T14:00:00.000Z',
+      fecha_hora: localTime('2026-08-01', '14:00'),
     })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('reservada')
   })
 
   it('reservada when pendiente today in current service (current table reserved but not yet confirmed)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: `${TODAY}T14:00:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '14:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('reservada')
   })
 
   it('reservada when pendiente today in cena but currentTurn=comida (today, wrong turn — still reserved)', () => {
-    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: `${TODAY}T22:00:00.000Z` })
+    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '22:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('reservada')
   })
 
@@ -153,7 +168,7 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     const r = reserva({
       mesa_id: 'm1',
       estado: 'pendiente',
-      fecha_hora: '2026-07-01T14:00:00.000Z',
+      fecha_hora: localTime('2026-07-01', '14:00'),
     })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
   })
@@ -162,7 +177,7 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     const r = reserva({
       mesa_id: 'm1',
       estado: 'cancelada',
-      fecha_hora: '2026-08-01T14:00:00.000Z',
+      fecha_hora: localTime('2026-08-01', '14:00'),
     })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
   })
@@ -171,24 +186,24 @@ describe('calcularEstadoMesa (MCA-005)', () => {
 
   it('priority: ocupada wins over reservada (confirmada + pendiente both in current service)', () => {
     const rs = [
-      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: `${TODAY}T14:00:00.000Z` }),
-      reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: `${TODAY}T14:30:00.000Z` }),
+      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '14:00') }),
+      reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '14:30') }),
     ]
     expect(calcularEstadoMesa('m1', rs, ctx('comida'))).toBe('ocupada')
   })
 
-  it('priority: ocupada wins over reservada (completada today + pendiente future)', () => {
+  it('priority: reservada wins (completada excluded, pendiente future remains)', () => {
     const rs = [
-      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: '2026-08-01T14:00:00.000Z' }),
-      reserva({ mesa_id: 'm1', estado: 'completada', fecha_hora: `${TODAY}T14:00:00.000Z` }),
+      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime('2026-08-01', '14:00') }),
+      reserva({ mesa_id: 'm1', estado: 'completada', fecha_hora: localTime(TODAY, '14:00') }),
     ]
-    expect(calcularEstadoMesa('m1', rs, ctx('comida'))).toBe('ocupada')
+    expect(calcularEstadoMesa('m1', rs, ctx('comida'))).toBe('reservada')
   })
 
   it('priority: reservada wins over libre (no ocupada candidate', () => {
     const rs = [
-      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: '2026-08-01T14:00:00.000Z' }),
-      reserva({ mesa_id: 'm1', estado: 'cancelada', fecha_hora: `${TODAY}T14:00:00.000Z` }),
+      reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime('2026-08-01', '14:00') }),
+      reserva({ mesa_id: 'm1', estado: 'cancelada', fecha_hora: localTime(TODAY, '14:00') }),
     ]
     expect(calcularEstadoMesa('m1', rs, ctx('comida'))).toBe('reservada')
   })
@@ -200,7 +215,7 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     // 1. idem green
     expect(calcularEstadoMesa(mesaId, [], ctx('comida'))).toBe('libre')
     // 2. after a confirmada is created in the comida window
-    const reservas = [reserva({ mesa_id: mesaId, estado: 'confirmada', fecha_hora: `${TODAY}T14:00:00.000Z` })]
+    const reservas = [reserva({ mesa_id: mesaId, estado: 'confirmada', fecha_hora: localTime(TODAY, '14:00') })]
     expect(calcularEstadoMesa(mesaId, reservas, ctx('comida'))).toBe('ocupada')
   })
 })

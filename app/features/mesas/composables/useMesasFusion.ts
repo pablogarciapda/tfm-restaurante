@@ -71,22 +71,37 @@ export function useMesasFusion() {
     const parentId = selectedIds[0]
     const fusedCapacity = calculateFusedCapacity(selectedMesas)
 
-    // Update DB: set id_fusion + mesa_padre_id on all selected mesas
-    const { error } = await client
+    // ── DB: update fusion metadata ──
+    // Parent: id_fusion + capacidad_actual (mesa_padre_id stays null for parentMesas)
+    const { error: parentError } = await client
       .from('mesas')
-      .update({ id_fusion: fusionId, mesa_padre_id: parentId, capacidad_actual: fusedCapacity })
-      .in('id', selectedIds)
+      .update({ id_fusion: fusionId, capacidad_actual: fusedCapacity })
+      .eq('id', parentId)
 
-    if (error) {
-      return { success: false, error: `Error al fusionar: ${error.message}` }
+    if (parentError) {
+      return { success: false, error: `Error al fusionar: ${parentError.message}` }
     }
 
-    // Update store: fusion metadata
+    // Children: id_fusion + mesa_padre_id + capacidad_actual
+    const childIds = selectedIds.filter((id) => id !== parentId)
+    if (childIds.length > 0) {
+      const { error: childError } = await client
+        .from('mesas')
+        .update({ id_fusion: fusionId, mesa_padre_id: parentId, capacidad_actual: fusedCapacity })
+        .in('id', childIds)
+
+      if (childError) {
+        return { success: false, error: `Error al fusionar: ${childError.message}` }
+      }
+    }
+
+    // ── Store: update fusion metadata ──
     for (const mesa of store.mesas) {
       if (selectedIds.includes(mesa.id)) {
+        const isParent = mesa.id === parentId
         store.updateMesa(mesa.id, {
           id_fusion: fusionId,
-          mesa_padre_id: parentId,
+          mesa_padre_id: isParent ? null : parentId,
           capacidad_actual: fusedCapacity,
         } as Partial<Mesa>)
       }

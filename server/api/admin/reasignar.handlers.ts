@@ -55,7 +55,7 @@ export async function handleReasignReserva(
   if (nueva_mesa_id) {
     const { data: mesa } = await supabase
       .from('mesas')
-      .select('id, zona, zona_nombre')
+      .select('id, zona, zona_nombre, capacidad_actual')
       .eq('id', nueva_mesa_id)
       .maybeSingle()
 
@@ -78,6 +78,24 @@ export async function handleReasignReserva(
             status: 400,
             body: { error: 'La mesa no pertenece a la zona seleccionada' },
           }
+        }
+      }
+    }
+
+    // Validate capacity against reserva comensales
+    const { data: reserva } = await supabase
+      .from('reservas')
+      .select('numero_comensales')
+      .eq('id', reserva_id)
+      .maybeSingle()
+
+    if (reserva?.numero_comensales) {
+      if (mesa.capacidad_actual < reserva.numero_comensales) {
+        return {
+          status: 400,
+          body: {
+            error: `La mesa tiene capacidad para ${mesa.capacidad_actual} comensales, pero la reserva es de ${reserva.numero_comensales}`,
+          },
         }
       }
     }
