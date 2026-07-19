@@ -8,6 +8,20 @@ function sentenceCase(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
 }
 
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+function formatFechaSpan(desde: string, hasta: string): string {
+  const d = new Date(desde + 'T12:00:00')
+  const h = new Date(hasta + 'T12:00:00')
+  if (desde === hasta) {
+    return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`
+  }
+  if (d.getMonth() === h.getMonth() && d.getFullYear() === h.getFullYear()) {
+    return `Del ${d.getDate()} al ${h.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`
+  }
+  return `Del ${d.getDate()} de ${MONTHS[d.getMonth()]} al ${h.getDate()} de ${MONTHS[h.getMonth()]} de ${d.getFullYear()}`
+}
+
 /**
  * Menu Diario page — 5-section daily menu from Supabase (MD-001, MD-004, MD-005)
  *
@@ -34,7 +48,7 @@ interface SeccionConfig {
 }
 
 const client = useSupabaseClient()
-const { config, items, precio, isHoliday, dayLabel } = useMenuDiario()
+const { config, items, precio, isHoliday, dayLabel, blockedDay } = useMenuDiario()
 const liveItems = ref<Record<string, MenuDish[]> | null>(null)
 const livePrecio = ref<string | null>(null)
 const channelRef = ref<RealtimeChannel | null>(null)
@@ -50,8 +64,11 @@ const isAvailable = computed(() => config.value !== null && precio.value !== nul
 const dayOfWeek = new Date().getDay()
 const isSunday = dayOfWeek === 0
 
-// Combined: no menu on Sunday or holidays (regardless of DB config)
-const noMenuToday = computed(() => isSunday || isHoliday.value || !isAvailable.value)
+// Restaurant is closed (blocked day) — takes priority over everything
+const isClosed = computed(() => blockedDay.value !== null)
+
+// Combined: no menu on blocked days, Sunday, holidays, or inactive config
+const noMenuToday = computed(() => isClosed.value || isSunday || isHoliday.value || !isAvailable.value)
 
 // Default section labels (fallback when secciones_config is not set)
 const DEFAULT_SECCIONES: Record<string, SeccionConfig> = {
@@ -165,9 +182,28 @@ onUnmounted(() => {
     <PageHero title="Menú del Día" :subtitle="dayLabel || 'Cocina casera'" />
 
     <div class="mx-auto max-w-3xl px-4 py-12">
+      <!-- Cerrado por vacaciones / blocked day -->
+      <div
+        v-if="isClosed && blockedDay"
+        class="mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 px-8 py-12 text-center shadow-sm"
+      >
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+          <svg class="h-8 w-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+          </svg>
+        </div>
+        <h2 class="mb-2 text-2xl font-bold text-amber-900">Cerrado</h2>
+        <p class="mb-4 text-lg text-amber-800">{{ sentenceCase(blockedDay.motivo) }}</p>
+        <p class="text-sm text-amber-600">
+          {{ formatFechaSpan(blockedDay.desde, blockedDay.hasta) }}
+        </p>
+        <p class="mt-6 text-sm text-amber-500">Vuelva pronto</p>
+      </div>
+
       <!-- No menu today: Sunday, holiday, or no active config -->
       <div
-        v-if="noMenuToday"
+        v-else-if="noMenuToday"
         class="py-20 text-center text-gray-500"
       >
         <p class="text-xl">Hoy no disponemos de menú</p>

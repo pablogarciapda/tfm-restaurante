@@ -112,6 +112,39 @@ export function useMenuDiario() {
         isHoliday = holidayData !== null
       }
 
+      // 7) Check if today is a blocked day
+      let blockedDay: { motivo: string; desde: string; hasta: string } | null = null
+      const { data: blockedDays } = await client
+        .from('dias_bloqueados')
+        .select('fecha, fecha_fin, motivo, recurrente')
+        .order('fecha', { ascending: true })
+
+      if (blockedDays) {
+        for (const bd of blockedDays) {
+          const bdFecha = (bd as any).fecha as string
+          const bdFechaFin = (bd as any).fecha_fin as string | null
+          const bdRecurrente = (bd as any).recurrente as boolean
+          const bdMotivo = (bd as any).motivo as string | null
+
+          if (bdRecurrente) {
+            if (todayStr.slice(5) === bdFecha.slice(5)) {
+              blockedDay = { motivo: bdMotivo || 'Cerrado', desde: bdFecha, hasta: bdFechaFin || bdFecha }
+              break
+            }
+          } else if (bdFechaFin) {
+            if (todayStr >= bdFecha && todayStr <= bdFechaFin) {
+              blockedDay = { motivo: bdMotivo || 'Cerrado', desde: bdFecha, hasta: bdFechaFin }
+              break
+            }
+          } else {
+            if (todayStr === bdFecha) {
+              blockedDay = { motivo: bdMotivo || 'Cerrado', desde: bdFecha, hasta: bdFecha }
+              break
+            }
+          }
+        }
+      }
+
       // Group items by seccion
       interface MenuItem {
         id: string
@@ -147,6 +180,7 @@ export function useMenuDiario() {
         matchType,
         isHoliday,
         dayLabel,
+        blockedDay,
       }
     },
   )
@@ -156,5 +190,6 @@ export function useMenuDiario() {
   const precio = computed(() => (data.value as { precio: unknown } | null)?.precio ?? null)
   const isHoliday = computed(() => (data.value as { isHoliday: boolean } | null)?.isHoliday ?? false)
   const dayLabel = computed(() => (data.value as { dayLabel: string } | null)?.dayLabel ?? '')
-  return { config, items, precio, isHoliday, dayLabel, data, error, pending, refresh }
+  const blockedDay = computed(() => (data.value as { blockedDay: unknown } | null)?.blockedDay ?? null)
+  return { config, items, precio, isHoliday, dayLabel, blockedDay, data, error, pending, refresh }
 }
