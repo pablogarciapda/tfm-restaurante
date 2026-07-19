@@ -14,12 +14,14 @@ const mockConfigRef = ref<unknown>(null)
 const mockItemsRef = ref<Record<string, unknown[]> | null>(null)
 const mockPrecioRef = ref<string | null>(null)
 const mockIsHolidayRef = ref(false)
+const mockBlockedDayRef = ref<{ motivo: string; desde: string; hasta: string } | null>(null)
 
 const mockUseMenuDiario = () => ({
   config: mockConfigRef,
   items: mockItemsRef,
   precio: mockPrecioRef,
   isHoliday: mockIsHolidayRef,
+  blockedDay: mockBlockedDayRef,
   data: ref(null),
   error: ref(null),
   pending: ref(false),
@@ -43,6 +45,7 @@ describe('Menu Diario page — migrated to useMenuDiario (MD-001, MD-004, MD-005
     mockItemsRef.value = null
     mockPrecioRef.value = null
     mockIsHolidayRef.value = false
+    mockBlockedDayRef.value = null
   })
 
   async function mountMenuDiario() {
