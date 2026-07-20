@@ -677,10 +677,12 @@ function updateCanvasSize() {
     }
   }
 
-  // Stage is at least container width (no scroll) but grows wider if mesas
-  // extend beyond the viewport (horizontal scroll via parent overflow-auto).
-  store.stageWidth = Math.max(containerW, Math.ceil(tablesWidth))
-  store.stageHeight = Math.max(minH, ratioHeight, tablesHeight)
+  // Stage respects:
+  //  - container width (responsive, fills viewport)
+  //  - table positions (grows to fit all mesas)
+  //  - canvasAnchoBase / canvasAltoBase from config (user-defined minimum)
+  store.stageWidth = Math.max(containerW, Math.ceil(tablesWidth), BASE_WIDTH.value)
+  store.stageHeight = Math.max(minH, ratioHeight, tablesHeight, BASE_HEIGHT.value)
 }
 
 // ── Performance: limit pixel ratio per AD-02 + dynamic sizing ──
