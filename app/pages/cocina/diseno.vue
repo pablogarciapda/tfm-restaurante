@@ -306,18 +306,42 @@ watch(editAlto, (val) => {
   <div class="flex h-full flex-col">
     <!-- Sticky header: zone tabs + toolbar + edit panel + drawing controls -->
     <div class="flex-shrink-0 space-y-3 bg-cream pb-2">
-    <!-- Zone tabs — only enabled zones, no "Todas" -->
-    <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
-      <button
-        v-for="zona in zonasConfig"
-        :key="zona.id"
-        class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-        :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-        @click="store.activeZona = zona.nombre"
-      >
-        {{ zona.nombre }}
-      </button>
-    </nav>
+    <!-- Zone tabs + original design buttons -->
+    <div class="flex items-center gap-2 pt-2">
+      <nav class="flex flex-1 flex-wrap gap-2" aria-label="Zonas del local">
+        <button
+          v-for="zona in zonasConfig"
+          :key="zona.id"
+          class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
+          :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
+          @click="store.activeZona = zona.nombre"
+        >
+          {{ zona.nombre }}
+        </button>
+      </nav>
+      <div class="flex items-center gap-2">
+        <div class="relative group">
+          <button
+            class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+            :disabled="savingOriginal"
+            @click="handleSaveOriginal"
+          >
+            {{ savingOriginal ? 'Guardando...' : '💾 Guardar diseño original' }}
+          </button>
+          <span class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-3 py-1.5 text-xs text-white shadow-lg group-hover:block">Guarda la disposición actual como plantilla base para todos los días.</span>
+        </div>
+        <div class="relative group">
+          <button
+            class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+            :disabled="restoringOriginal"
+            @click="handleRestoreOriginal"
+          >
+            {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
+          </button>
+          <span class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-3 py-1.5 text-xs text-white shadow-lg group-hover:block">Revierte todos los cambios y vuelve a la última versión guardada.</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Toolbar in diseño mode -->
     <TableToolbar
@@ -338,25 +362,6 @@ watch(editAlto, (val) => {
       @background-image-uploaded="handleBackgroundImageUpload"
       @font-size-change="(size: number) => store.fontSize = size"
     />
-
-    <!-- Original design management -->
-    <div class="flex items-center gap-2 border-t border-gray-200 pt-2">
-      <button
-        class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
-        :disabled="savingOriginal"
-        @click="handleSaveOriginal"
-      >
-        {{ savingOriginal ? 'Guardando...' : '💾 Guardar diseño original' }}
-      </button>
-      <button
-        class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
-        :disabled="restoringOriginal"
-        @click="handleRestoreOriginal"
-      >
-        {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
-      </button>
-      <span class="text-xs text-gray-400">El diseño original es la plantilla base para todos los días.</span>
-    </div>
 
     <!-- Edit panel — reserves space so canvas doesn't jump -->
     <div class="flex items-center gap-2 rounded-lg px-3 py-1 text-sm h-8"
