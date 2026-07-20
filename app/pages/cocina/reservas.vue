@@ -929,15 +929,27 @@ async function completarReserva(reserva: ReservaRow) {
 const editarShow = ref(false)
 const editarReserva = ref<ReservaRow | null>(null)
 const editarNombre = ref('')
+const editarApellidos = ref('')
 const editarTelefono = ref('')
+const editarEmail = ref('')
 const editarComensales = ref<number | null>(null)
+const editarFecha = ref('')
+const editarHora = ref('')
+const editarReenviar = ref(false)
 const editarSaving = ref(false)
 
 function openEditarReserva(reserva: ReservaRow) {
   editarReserva.value = reserva
   editarNombre.value = (reserva.cliente as any)?.nombre || ''
+  editarApellidos.value = (reserva.cliente as any)?.apellidos || ''
   editarTelefono.value = (reserva.cliente as any)?.telefono || ''
+  editarEmail.value = (reserva.cliente as any)?.email || ''
   editarComensales.value = reserva.numero_comensales
+  // Parse fecha_hora into date (YYYY-MM-DD) and time (HH:MM)
+  const d = new Date(reserva.fecha_hora)
+  editarFecha.value = d.toISOString().slice(0, 10)
+  editarHora.value = d.toTimeString().slice(0, 5)
+  editarReenviar.value = false
   editarShow.value = true
 }
 
@@ -947,17 +959,28 @@ function closeEditarReserva() {
 }
 
 async function handleEditarReserva() {
-  if (!editarReserva.value) return
+  if (!editarReserva.value || !editarFecha.value || !editarHora.value) return
   editarSaving.value = true
   try {
-    await client.from('reservas').update({
-      numero_comensales: editarComensales.value,
-    }).eq('id', editarReserva.value.id)
+    const fecha_hora = `${editarFecha.value}T${editarHora.value}:00`
+    await $fetch('/api/cocina/reservas/editar', {
+      method: 'POST',
+      body: {
+        reserva_id: editarReserva.value.id,
+        fecha_hora,
+        numero_comensales: editarComensales.value,
+        cliente_nombre: editarNombre.value,
+        cliente_apellidos: editarApellidos.value,
+        cliente_telefono: editarTelefono.value,
+        cliente_email: editarEmail.value,
+        reenviar_notificacion: editarReenviar.value,
+      },
+    })
     await loadReservas()
-    showToast('Reserva actualizada', 'success')
+    showToast(editarReenviar.value ? 'Reserva actualizada y notificación enviada' : 'Reserva actualizada', 'success')
     closeEditarReserva()
-  } catch {
-    showToast('Error al actualizar', 'error')
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || 'Error al actualizar', 'error')
   } finally {
     editarSaving.value = false
   }
@@ -1740,25 +1763,65 @@ onMounted(async () => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       @click.self="closeEditarReserva"
     >
-      <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <h3 class="mb-4 text-lg font-semibold text-slate">Editar Reserva</h3>
-        <p class="mb-4 text-sm text-gray-500">
-          {{ editarReserva ? new Date(editarReserva.fecha_hora).toLocaleString('es-ES') : '' }}
-        </p>
+
         <div class="space-y-3">
-          <div>
-            <label class="mb-1 block text-xs text-gray-500">Nombre</label>
-            <input v-model="editarNombre" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+          <!-- Fecha y hora -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="mb-1 block text-xs text-gray-500">Fecha</label>
+              <input v-model="editarFecha" type="date" :min="new Date().toISOString().slice(0,10)" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs text-gray-500">Hora</label>
+              <input v-model="editarHora" type="time" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            </div>
           </div>
-          <div>
-            <label class="mb-1 block text-xs text-gray-500">Teléfono</label>
-            <input v-model="editarTelefono" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-          </div>
+
+          <!-- Comensales -->
           <div>
             <label class="mb-1 block text-xs text-gray-500">Comensales</label>
             <input v-model.number="editarComensales" type="number" min="1" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
           </div>
+
+          <!-- Datos cliente -->
+          <div class="border-t border-gray-100 pt-3">
+            <p class="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">Datos del cliente</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Nombre</label>
+                <input v-model="editarNombre" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Apellidos</label>
+                <input v-model="editarApellidos" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div class="mt-2 grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Teléfono</label>
+                <input v-model="editarTelefono" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Email</label>
+                <input v-model="editarEmail" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Reenviar notificación -->
+          <div class="border-t border-gray-100 pt-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input v-model="editarReenviar" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-terracotta focus:ring-terracotta" />
+              <span class="text-sm text-gray-700">Reenviar confirmación (email/SMS según configuración)</span>
+            </label>
+            <p v-if="editarReenviar" class="mt-1 text-xs text-amber-600">
+              Se generará un nuevo enlace de cancelación. El enlace anterior quedará anulado.
+            </p>
+          </div>
         </div>
+
         <div class="mt-6 flex justify-end gap-3">
           <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="closeEditarReserva">Cancelar</button>
           <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="editarSaving" @click="handleEditarReserva">
