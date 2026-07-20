@@ -47,7 +47,7 @@ function closeMobileMenu() {
     <div class="flex flex-1 flex-col overflow-hidden">
       <!-- Top bar -->
       <header
-        class="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm"
+        class="mb-2 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm"
       >
         <div class="flex items-center gap-3">
           <!-- Mobile hamburger (always visible when sidebar is hidden) -->
