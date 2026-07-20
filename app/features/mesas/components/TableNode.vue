@@ -43,6 +43,12 @@ const props = defineProps<{
   /** Bound function for Konva drag constraints (stage/zone limits) */
   dragBoundFunc?: (pos: { x: number; y: number }) => { x: number; y: number }
   fontSize?: number
+  /**
+   * When true, this table is rendered inside a FusionGroupNode.
+   * Disables dragging, events, dashed border, and removes the Konva node id
+   * so the Transformer targets the outer FusionGroupNode instead.
+   */
+  isInFusionGroup?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -113,6 +119,8 @@ const bottomLabel = computed<string | null>(() => {
   return 'T'
 })
 
+
+
 /**
  * Fill color:
  * When overlay active (comida/cena/full): green (libre),
@@ -126,7 +134,8 @@ const baseFillColor = computed(() => {
   return STATUS_COLORS[props.estado]
 })
 
-const isFused = computed(() => props.mesa.id_fusion !== null)
+/** Fused tables get dashed border — but NOT when inside a FusionGroupNode wrapper */
+const showDashBorder = computed(() => props.mesa.id_fusion !== null && !props.isInFusionGroup)
 const isSmall = computed(() => props.mesa.ancho < 60 || props.mesa.alto < 60)
 
 // Shape-specific configs
@@ -137,7 +146,7 @@ const shapeConfig = computed(() => {
     strokeWidth: 2,
     shadowBlur: 4,
     perfectDrawEnabled: false,
-    strokeDash: isFused.value ? [5, 5] : undefined,
+    strokeDash: showDashBorder.value ? [5, 5] : undefined,
   }
 
   switch (props.mesa.forma) {
@@ -332,24 +341,25 @@ const bottomLabelPos = computed(() => {
 // Group config with Konva-native event handlers (avoids Vue fragment inheritance issue)
 // dragDistance=5: requires 5px finger movement before initiating drag on
 // mobile/touch, so a simple tap still fires onClick/onTap properly.
+// When isInFusionGroup: non-interactive — the outer FusionGroupNode handles all events.
 const groupConfig = computed(() => ({
-  id: props.mesa.id,
+  id: props.isInFusionGroup ? undefined : props.mesa.id,
   x: props.mesa.posicion_x,
   y: props.mesa.posicion_y,
   rotation: props.mesa.rotacion,
-  draggable: true, // Always draggable (Transformer only in diseño mode)
+  draggable: !props.isInFusionGroup,
   dragDistance: 5,
   dragBoundFunc: props.dragBoundFunc,
-  onClick: (e: any) => emit('click', e?.evt),
-  onTap: (e: any) => emit('click', e?.evt),
-  onDragStart: () => emit('dragstart'),
-  onDragMove: () => emit('dragmove'),
-  onDragEnd: () => emit('dragend'),
-  onTransformStart: () => emit('transformstart'),
-  onTransform: () => emit('transform'),
-  onTransformEnd: () => emit('transformend'),
-  onMouseEnter: () => emit('hover'),
-  onMouseLeave: () => emit('unhover'),
+  onClick: props.isInFusionGroup ? undefined : (e: any) => emit('click', e?.evt),
+  onTap: props.isInFusionGroup ? undefined : (e: any) => emit('click', e?.evt),
+  onDragStart: props.isInFusionGroup ? undefined : () => emit('dragstart'),
+  onDragMove: props.isInFusionGroup ? undefined : () => emit('dragmove'),
+  onDragEnd: props.isInFusionGroup ? undefined : () => emit('dragend'),
+  onTransformStart: props.isInFusionGroup ? undefined : () => emit('transformstart'),
+  onTransform: props.isInFusionGroup ? undefined : () => emit('transform'),
+  onTransformEnd: props.isInFusionGroup ? undefined : () => emit('transformend'),
+  onMouseEnter: props.isInFusionGroup ? undefined : () => emit('hover'),
+  onMouseLeave: props.isInFusionGroup ? undefined : () => emit('unhover'),
 }))
 </script>
 

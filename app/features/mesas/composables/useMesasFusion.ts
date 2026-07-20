@@ -70,9 +70,21 @@ export function useMesasFusion() {
     const fusionId = crypto.randomUUID()
     const parentId = selectedIds[0]
     const fusedCapacity = calculateFusedCapacity(selectedMesas)
+    const childIds = selectedIds.filter((id) => id !== parentId)
 
-    // ── DB: update fusion metadata ──
-    // Parent: id_fusion + capacidad_actual (mesa_padre_id stays null for parentMesas)
+    // ── Calculate new positions for children (before any DB/store update) ──
+    const parentMesa = selectedMesas.find((m) => m.id === parentId)
+    const childMesas = selectedMesas.filter((m) => m.id !== parentId)
+    // Pass existing mesas (same zone, not in fusion group) for collision detection
+    const existingForCollision = store.mesas.filter(
+      (m) => !selectedIds.includes(m.id) && m.zona === parentMesa?.zona,
+    )
+    const positions = (parentMesa && childMesas.length > 0)
+      ? calculateFusionPositions(parentMesa, childMesas, store.stageWidth, store.stageHeight, existingForCollision)
+      : []
+
+    // ── DB: single update per mesa with ALL fields ──
+    // Parent: id_fusion + capacidad_actual
     const { error: parentError } = await client
       .from('mesas')
       .update({ id_fusion: fusionId, capacidad_actual: fusedCapacity })
@@ -82,61 +94,50 @@ export function useMesasFusion() {
       return { success: false, error: `Error al fusionar: ${parentError.message}` }
     }
 
-    // Children: id_fusion + mesa_padre_id + capacidad_actual
-    const childIds = selectedIds.filter((id) => id !== parentId)
-    if (childIds.length > 0) {
+    // Children: id_fusion + mesa_padre_id + capacidad_actual + positions (if calculated)
+    for (const childId of childIds) {
+      const pos = positions.find((p) => p.id === childId)
+      const updateData: Record<string, unknown> = {
+        id_fusion: fusionId,
+        mesa_padre_id: parentId,
+        capacidad_actual: fusedCapacity,
+      }
+      if (pos) {
+        updateData.posicion_x = pos.posicion_x
+        updateData.posicion_y = pos.posicion_y
+      }
       const { error: childError } = await client
         .from('mesas')
-        .update({ id_fusion: fusionId, mesa_padre_id: parentId, capacidad_actual: fusedCapacity })
-        .in('id', childIds)
+        .update(updateData)
+        .eq('id', childId)
 
       if (childError) {
         return { success: false, error: `Error al fusionar: ${childError.message}` }
       }
     }
 
-    // ── Store: update fusion metadata ──
-    for (const mesa of store.mesas) {
-      if (selectedIds.includes(mesa.id)) {
-        const isParent = mesa.id === parentId
-        store.updateMesa(mesa.id, {
-          id_fusion: fusionId,
-          mesa_padre_id: isParent ? null : parentId,
-          capacidad_actual: fusedCapacity,
-        } as Partial<Mesa>)
+    // ── Store: atomic batch update ──
+    // CRITICAL: Must update ALL mesas in ONE operation so that fusionGroups
+    // computed sees the COMPLETE group (all members have id_fusion) on the
+    // first recomputation. Sequential replaceMesa calls cause intermediate
+    // renders with INCOMPLETE members — the group border is computed with
+    // partial data, and children appear outside the bounding box.
+    const batchUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
+    for (const id of selectedIds) {
+      const isParent = id === parentId
+      const pos = positions.find((p) => p.id === id)
+      const replaceData: Record<string, unknown> = {
+        id_fusion: fusionId,
+        mesa_padre_id: isParent ? null : parentId,
+        capacidad_actual: fusedCapacity,
       }
-    }
-
-    // ── Reposition child tables adjacent to parent ──
-    const parentMesa = selectedMesas.find((m) => m.id === parentId)
-    const childMesas = selectedMesas.filter((m) => m.id !== parentId)
-
-    if (parentMesa && childMesas.length > 0) {
-      const positions = calculateFusionPositions(
-        parentMesa,
-        childMesas,
-        store.stageWidth,
-        store.stageHeight,
-      )
-
-      // Update DB positions for each child
-      for (const pos of positions) {
-        const { error: posError } = await client
-          .from('mesas')
-          .update({ posicion_x: pos.posicion_x, posicion_y: pos.posicion_y })
-          .eq('id', pos.id)
-
-        if (posError) {
-          console.warn(`Error updating position for mesa ${pos.id}: ${posError.message}`)
-        }
-
-        // Update store silently
-        store.updateMesa(pos.id, {
-          posicion_x: pos.posicion_x,
-          posicion_y: pos.posicion_y,
-        } as Partial<Mesa>)
+      if (pos) {
+        replaceData.posicion_x = pos.posicion_x
+        replaceData.posicion_y = pos.posicion_y
       }
+      batchUpdates.push({ id, data: replaceData as Partial<Mesa> })
     }
+    store.batchUpdateMesas(batchUpdates)
 
     return { success: true, id_fusion: fusionId }
   }
@@ -296,20 +297,24 @@ export function useMesasFusion() {
       }
     }
 
-    // Update store: clear fusion fields + restore capacity
+    // Update store: atomic batch — clear fusion fields + restore capacity
     const updatedMesas = pureUnfuseTables(store.mesas, store.mesas.find((m) => fusedMesaIds.includes(m.id))?.id_fusion ?? '')
 
-    // Actually set each unfused mesa in the store
+    const batchUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
     for (const id of fusedMesaIds) {
       const updated = updatedMesas.find((m) => m.id === id)
       if (updated) {
-        store.updateMesa(id, {
-          id_fusion: null,
-          mesa_padre_id: null,
-          capacidad_actual: updated.capacidad_actual,
-        } as Partial<Mesa>)
+        batchUpdates.push({
+          id,
+          data: {
+            id_fusion: null,
+            mesa_padre_id: null,
+            capacidad_actual: updated.capacidad_actual,
+          } as Partial<Mesa>,
+        })
       }
     }
+    store.batchUpdateMesas(batchUpdates)
 
     return { success: true, hasReservations: false }
   }

@@ -27,7 +27,7 @@ definePageMeta({
 
 const client = useSupabaseClient()
 const store = useCanvasStore()
-const { loadMesas, createMesa, updateMesa, deleteMesa, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { loadMesas, createMesa, updateMesa, deleteMesa } = useMesas()
 
 // ── Admin guard ──
 const role = useState<string>('cocina-role')
@@ -193,6 +193,60 @@ async function handleSaveMesa() {
     saving.value = false
   }
 }
+
+// ── Original design: save / restore ──
+const savingOriginal = ref(false)
+const restoringOriginal = ref(false)
+
+/** Collect current mesa positions from Konva nodes */
+function collectMesaPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
+  return store.filteredMesas.map((mesa) => {
+    const pos = positionsMap[mesa.id]
+    return {
+      mesa_id: mesa.id,
+      posicion_x: pos?.x ?? mesa.posicion_x,
+      posicion_y: pos?.y ?? mesa.posicion_y,
+      rotacion: pos?.rotation ?? mesa.rotacion,
+      ancho: mesa.ancho,
+      alto: mesa.alto,
+      zona: mesa.zona,
+      forma: mesa.forma,
+    }
+  })
+}
+
+async function handleSaveOriginal() {
+  savingOriginal.value = true
+  try {
+    const positionsMap = canvasRef.value?.getMesaPositions?.() || {}
+    const positions = collectMesaPositions(positionsMap)
+    await $fetch('/api/canvas/save-original', {
+      method: 'POST',
+      body: { zona: store.activeZona, positions },
+    })
+    showToast('Diseño original guardado', 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al guardar diseño original', 'error')
+  } finally {
+    savingOriginal.value = false
+  }
+}
+
+async function handleRestoreOriginal() {
+  const zona = store.activeZona
+  if (!zona) { showToast('Seleccione una zona primero', 'error'); return }
+  if (!confirm(`¿Restaurar el diseño original de la zona "${zona}"? Se perderán los cambios actuales.`)) return
+  restoringOriginal.value = true
+  try {
+    const result = await $fetch('/api/canvas/restore-original', { method: 'POST', body: { zona } })
+    await loadMesas(store.activeZona || undefined)
+    showToast(`Diseño original restaurado (${result.restored} mesas en ${zona})`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
+  } finally {
+    restoringOriginal.value = false
+  }
+}
 let toastMessage = ref('')
 let toastType = ref<'success' | 'error'>('success')
 const toast = computed(() => toastMessage.value ? { message: toastMessage.value, type: toastType.value } : null)
@@ -265,16 +319,11 @@ onMounted(async () => {
   await loadZonasConfig()
   await loadDisenoConfig()
   await loadMesas()
-  subscribeRealtime()
 
   // Override with actual first enabled zone once config loads
   if (zonasConfig.value.length > 0) {
     store.activeZona = zonasConfig.value[0]!.nombre
   }
-})
-
-onUnmounted(() => {
-  unsubscribeRealtime()
 })
 
 // ── Auto-load edit values when selection changes ──
@@ -334,6 +383,25 @@ watch(editAlto, (val) => {
       @background-image-uploaded="handleBackgroundImageUpload"
       @font-size-change="(size: number) => store.fontSize = size"
     />
+
+    <!-- Original design management -->
+    <div class="flex items-center gap-2 border-t border-gray-200 pt-2">
+      <button
+        class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+        :disabled="savingOriginal"
+        @click="handleSaveOriginal"
+      >
+        {{ savingOriginal ? 'Guardando...' : '💾 Guardar diseño original' }}
+      </button>
+      <button
+        class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+        :disabled="restoringOriginal"
+        @click="handleRestoreOriginal"
+      >
+        {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
+      </button>
+      <span class="text-xs text-gray-400">El diseño original es la plantilla base para todos los días.</span>
+    </div>
 
     <!-- Edit panel — reserves space so canvas doesn't jump -->
     <div class="flex items-center gap-2 rounded-lg px-3 py-1 text-sm h-8"

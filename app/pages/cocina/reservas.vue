@@ -10,7 +10,7 @@
   Realtime sync from useMesas composable.
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import TableCanvas from '../../features/mesas/components/TableCanvas.vue'
 import TableToolbar from '../../features/mesas/components/TableToolbar.vue'
 import FusionConfirmDialog from '../../features/mesas/components/FusionConfirmDialog.vue'
@@ -18,7 +18,7 @@ import StandbyBanner from '../../features/mesas/components/StandbyBanner.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
-import { getAforoDisponible, calculateFusedCapacity } from '#shared/utils/fusion-math'
+import { calculateFusedCapacity } from '#shared/utils/fusion-math'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import { generarReferencia } from '#shared/utils/referencia'
@@ -38,7 +38,7 @@ const client = useSupabaseClient()
 const store = useCanvasStore()
 // Default to first zone immediately (prevents flash of all mesas)
 store.activeZona = 'Principal'
-const { loadMesas, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { loadMesas } = useMesas()
 const { updateMesa } = useMesas()
 const {
   fuseMesas,
@@ -52,12 +52,20 @@ const {
 
 // ── Fused group rotation toolbar (operación mode) ──
 
-/** The selected mesa is the fused parent that drives the rigid rotation button. */
+/**
+ * The selected mesa is the fused parent that drives the rigid rotation button.
+ *
+ * After AD-04 fix, the parent has mesa_padre_id = null (root of the fusion
+ * group). The old check `mesa_padre_id !== sel.id` was for the previous bug
+ * where the parent had mesa_padre_id = self.id (now corrected).
+ */
 const selectedFusedParent = computed(() => {
   const sel = store.selectedMesa
   if (!sel) return null
   if (!sel.id_fusion) return null
-  if (sel.mesa_padre_id !== sel.id) return null
+  // Parent is the fusion root: mesa_padre_id IS null.
+  // Children have mesa_padre_id pointing to the parent's id.
+  if (sel.mesa_padre_id !== null) return null
   return sel
 })
 
@@ -95,6 +103,110 @@ async function saveSelectedFusedPositions() {
     showToast(`Guardado con fallos: ${ok} OK, ${failed} error`, 'error')
   }
 }
+
+// ── Guardar / Restaurar canvas ──
+const guardarFecha = ref(new Date().toISOString().slice(0, 10))
+const guardarTurno = ref<'comida' | 'cena'>('comida')
+const savingCanvas = ref(false)
+const restoringOriginal = ref(false)
+const loadingAforo = ref(false)
+
+/** Collect current mesa positions from Konva nodes for the active zone */
+function collectLayoutPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
+  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  return mesasZona.map((mesa) => {
+    const pos = positionsMap[mesa.id]
+    return {
+      mesa_id: mesa.id,
+      posicion_x: pos?.x ?? mesa.posicion_x,
+      posicion_y: pos?.y ?? mesa.posicion_y,
+      rotacion: pos?.rotation ?? mesa.rotacion,
+    }
+  })
+}
+
+/** Guarda el layout actual para la fecha + turno seleccionado en canvas_layouts */
+async function handleGuardarCanvas() {
+  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  if (mesasZona.length === 0) {
+    showToast('No hay mesas en la zona activa', 'error')
+    return
+  }
+  savingCanvas.value = true
+  try {
+    const positionsMap = canvasRef.value?.getMesaPositions() ?? {}
+    const positions = collectLayoutPositions(positionsMap)
+    await $fetch('/api/canvas/save-layout', {
+      method: 'POST',
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions },
+    })
+    const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
+    showToast(`Layout guardado (${positions.length} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al guardar layout', 'error')
+  } finally {
+    savingCanvas.value = false
+  }
+}
+
+/** Restaura el diseño original para la fecha + turno seleccionados.
+ *  Guarda las posiciones originales en canvas_layouts y actualiza las mesas. */
+async function handleRestoreOriginal() {
+  const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
+  if (!confirm(`¿Restaurar diseño original para ${guardarFecha.value} (${turnoLabel})?\nSe guardará en layouts y se actualizarán las mesas.`)) return
+  restoringOriginal.value = true
+  try {
+    // 1. Get original design positions for this zone
+    const original = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
+    if (!original.exists || !Array.isArray(original.positions)) {
+      showToast('No hay diseño original guardado', 'error')
+      return
+    }
+    // 2. Save them as a layout for the selected date+turno
+    await $fetch('/api/canvas/save-layout', {
+      method: 'POST',
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions: original.positions },
+    })
+    // 3. Update mesas to match original positions
+    for (const pos of original.positions) {
+      await updateMesa(pos.mesa_id, { posicion_x: pos.posicion_x, posicion_y: pos.posicion_y, rotacion: pos.rotacion })
+    }
+    await loadMesas(store.activeZona)
+    showToast(`Diseño original restaurado para ${guardarFecha.value} (${turnoLabel}) — ${original.positions.length} mesas`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
+  } finally {
+    restoringOriginal.value = false
+  }
+}
+
+// ── Auto-load layout and refresh aforo when date or turno changes ──
+watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
+  if (!fecha || !turno) return
+  loadingAforo.value = true
+  await loadReservas()
+  try {
+    const data: any = await $fetch('/api/canvas/load-layout', {
+      params: { fecha, turno, zona: store.activeZona },
+    })
+    if (data?.positions?.length) {
+      for (const pos of data.positions) {
+        await updateMesa(pos.mesa_id, {
+          posicion_x: pos.posicion_x,
+          posicion_y: pos.posicion_y,
+          rotacion: pos.rotacion,
+        })
+      }
+      await loadMesas(store.activeZona)
+      const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
+      showToast(`Layout cargado: ${fecha} (${turnoLabel}) — ${data.positions.length} mesas`, 'success')
+    }
+  } catch {
+    // no layout for this date/turno — silently skip
+  } finally {
+    loadingAforo.value = false
+  }
+})
 
 // ── Fusion state ──
 const selectedIds = ref<string[]>([])
@@ -207,25 +319,47 @@ const timeSlots = computed(() => {
 })
 
 const aforoInfo = computed<AforoInfo>(() => {
-  const disponible = getAforoDisponible(
-    store.mesas,
-    capacidadTotal.value,
-    modoOcupacion.value,
-    ocupacionManual.value,
-  )
+  // Ocupación real: suma de comensales de reservas del día+turno seleccionado
+  let ocupacionReal = 0
+  const h = horariosConfig.value
+  if (h && reservasList.value.length > 0) {
+    const turnoInicio = guardarTurno.value === 'comida' ? h.comida_inicio : h.cena_inicio
+    const turnoFin = guardarTurno.value === 'comida' ? h.comida_fin : h.cena_fin
+    const fecha = guardarFecha.value
+    const zona = store.activeZona
 
-  const ocupacionAuto =
-    store.mesas
-      .filter((m) => m.mesa_padre_id === null)
-      .reduce((sum, m) => sum + m.capacidad_actual, 0)
+    ocupacionReal = reservasList.value
+      .filter((r) => {
+        if (r.estado !== 'pendiente' && r.estado !== 'confirmada') return false
+        // Convert to local time for date/time comparison
+        const d = new Date(r.fecha_hora)
+        if (isNaN(d.getTime())) return false
+        const localDate = d.toISOString().slice(0, 10)
+        if (localDate !== fecha) return false
+        const localMin = d.getHours() * 60 + d.getMinutes()
+        const [tIniH, tIniM] = turnoInicio.split(':').map(Number)
+        const [tFinH, tFinM] = turnoFin.split(':').map(Number)
+        const inicioMin = tIniH! * 60 + tIniM!
+        const finMin = tFinH! * 60 + tFinM!
+        if (localMin < inicioMin || localMin > finMin) return false
+        if (zona && r.zona_id && r.zona_id !== zona) return false
+        return true
+      })
+      .reduce((sum, r) => sum + (r.numero_comensales ?? 0), 0)
+  }
+
+  const ocupacion = modoOcupacion.value === 'manual'
+    ? ocupacionManual.value
+    : ocupacionReal
+  const disponible = capacidadTotal.value - ocupacion
 
   return {
     modo: modoOcupacion.value,
     capacidad_total: capacidadTotal.value,
-    ocupacion_auto: ocupacionAuto,
+    ocupacion_auto: ocupacion,
     ocupacion_manual: ocupacionManual.value,
     disponible,
-    overflow: aforoOverflowFlag.value || ocupacionAuto > capacidadTotal.value,
+    overflow: aforoOverflowFlag.value || ocupacion > capacidadTotal.value,
   }
 })
 
@@ -691,11 +825,20 @@ async function handleConfirmar(conMesa: boolean) {
 
 async function loadReservas() {
   try {
+    // Load reservations ±15 days from selected date for aforo + table
+    const center = new Date(guardarFecha.value || new Date().toISOString().slice(0, 10))
+    const from = new Date(center)
+    from.setDate(from.getDate() - 15)
+    const to = new Date(center)
+    to.setDate(to.getDate() + 15)
+
     const { data, error } = await client
       .from('reservas')
       .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cliente:cliente_id(nombre)')
+      .gte('fecha_hora', from.toISOString().slice(0, 10))
+      .lte('fecha_hora', to.toISOString().slice(0, 10) + 'T23:59:59')
       .order('fecha_hora', { ascending: true })
-      .limit(200)
+      .limit(500)
 
     if (error) throw error
     reservasList.value = (data || []) as unknown as ReservaRow[]
@@ -947,7 +1090,6 @@ onMounted(async () => {
   await loadConfiguracion()
   await loadDisenoConfig()
   await loadMesas()
-  subscribeRealtime()
   await refreshStandbyReservations()
   await loadReservas()
   await loadZonasConfig()
@@ -957,9 +1099,6 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
-  unsubscribeRealtime()
-})
 </script>
 
 <template>
@@ -980,14 +1119,47 @@ onUnmounted(() => {
       :can-fuse="canFuse"
       :can-unfuse="canUnfuse"
       :can-fusionar="canFusionar"
-      :active-turno="store.activeTurno"
       :multi-select="multiSelectMode"
       :multi-select-count="selectedIds.length"
-      @update:active-turno="(v: any) => store.activeTurno = v"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
       @toggle-multi-select="toggleMultiSelect"
-    />
+    >
+      <template #controls>
+        <div class="flex items-center gap-2">
+          <input
+            v-model="guardarFecha"
+            type="date"
+            :min="new Date().toISOString().slice(0, 10)"
+            class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          />
+          <select
+            v-model="guardarTurno"
+            class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          >
+            <option value="comida">Comida</option>
+            <option value="cena">Cena</option>
+          </select>
+          <button
+            type="button"
+            class="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:opacity-50"
+            :disabled="savingCanvas"
+            @click="handleGuardarCanvas"
+          >
+            {{ savingCanvas ? 'Guardando...' : '💾 Guardar layout' }}
+          </button>
+          <button
+            type="button"
+            class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+            title="Aplica el diseño original a la fecha y turno seleccionados"
+            :disabled="restoringOriginal"
+            @click="handleRestoreOriginal"
+          >
+            {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar original' }}
+          </button>
+        </div>
+      </template>
+    </TableToolbar>
 
     <!-- Rotar 90° / Guardar — only when a fused group parent is selected. -->
     <div
@@ -1640,5 +1812,30 @@ onUnmounted(() => {
     >
       {{ aforoOverflowToast }}
     </div>
+    <!-- Loading overlay: full-page spinner while computing aforo + loading layout -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="loadingAforo"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm"
+        >
+          <div class="flex flex-col items-center gap-3 rounded-xl bg-white px-8 py-6 shadow-lg">
+            <div class="h-8 w-8 animate-spin rounded-full border-3 border-gray-200 border-t-terracotta" />
+            <span class="text-sm font-medium text-slate">Cargando layout y ocupación...</span>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

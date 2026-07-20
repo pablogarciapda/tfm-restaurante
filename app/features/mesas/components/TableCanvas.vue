@@ -21,14 +21,15 @@ import {
 } from 'vue-konva'
 import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
-import { useFusionGroupDrag } from '../composables/useFusionGroupDrag'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
+import FusionGroupNode from './FusionGroupNode.vue'
 import TableTooltip from './TableTooltip.vue'
 import type { TooltipData } from './TableTooltip.vue'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { calcularEstadoMesa, buildTurnoWindows, type MesaEstadoContext } from '#shared/utils/mesa-estado'
+import { rotateGroupAroundCentroid90CW } from '#shared/utils/fusion-math'
 
 export interface ReservaDetail {
   nombre_cliente: string
@@ -139,7 +140,33 @@ const gridLineConfigs = computed(() => {
 
 const store = useCanvasStore()
 const { updateMesa } = useMesas()
-const fusionDrag = useFusionGroupDrag(store)
+
+// ── Computed: separate solo mesas from fusion groups ──
+
+/** Mesas without fusion (id_fusion === null) — rendered individually as TableNode */
+const soloMesas = computed(() => store.filteredMesas.filter((m) => m.id_fusion === null))
+
+/**
+ * Fusion groups — grouped by id_fusion, each rendered as a single FusionGroupNode block.
+ * Only the parent mesa (mesa_padre_id === null) represents the group; children are nested
+ * inside FusionGroupNode at positions relative to the parent.
+ */
+const fusionGroups = computed(() => {
+  const groups: Array<{ parent: Mesa; members: Mesa[] }> = []
+  const seen = new Set<string>()
+
+  for (const m of store.filteredMesas) {
+    if (!m.id_fusion) continue
+    if (seen.has(m.id_fusion)) continue
+    seen.add(m.id_fusion)
+
+    const members = store.filteredMesas.filter((mm) => mm.id_fusion === m.id_fusion)
+    const parent = members.find((mm) => mm.mesa_padre_id === null) ?? members[0]!
+    groups.push({ parent, members })
+  }
+
+  return groups
+})
 
 /** Scale factors for proportional zones (Bug 3 fix) */
 const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH.value)
@@ -385,18 +412,26 @@ function handleTooltipMouseLeave() {
 }
 
 /**
- * All mesa IDs in the same fusion group as the currently selected mesa.
- * When a fused table is selected, ALL tables in that fusion group highlight.
+ * Set of mesa IDs that are selected (either directly or via multi-select).
+ * Used for solo TableNode selection highlighting.
  */
-const fusionGroupSelectedIds = computed(() => {
-  const selected = store.selectedMesa
-  if (!selected?.id_fusion) return new Set<string>()
-  return new Set(
-    store.mesas
-      .filter((m) => m.id_fusion === selected.id_fusion)
-      .map((m) => m.id),
-  )
+const soloSelectedIds = computed(() => {
+  const direct = store.selectedMesaId ? new Set([store.selectedMesaId]) : new Set<string>()
+  for (const id of props.selectedIds ?? []) {
+    direct.add(id)
+  }
+  return direct
 })
+
+/**
+ * Check if a fusion group is selected (parent selected, or any member in selectedIds).
+ */
+function isFusionGroupSelected(members: Mesa[]): boolean {
+  if (!store.selectedMesaId && (!props.selectedIds || props.selectedIds.length === 0)) return false
+  return members.some(
+    (m) => m.id === store.selectedMesaId || (props.selectedIds ?? []).includes(m.id),
+  )
+}
 
 // ── Drag bounds (MCA-004) — wired via TableNode group config ──
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -417,7 +452,12 @@ async function updateTransformer() {
 
   if (store.selectedMesaId) {
     const stage = transformer.getStage()
-    const selectedNode = stage?.findOne(`#${store.selectedMesaId}`)
+    const selectedMesa = store.mesas.find((m) => m.id === store.selectedMesaId)
+    // Fusion groups use fusion_ prefix for the outer group node
+    const nodeId = selectedMesa?.id_fusion
+      ? `fusion_${selectedMesa.id}`
+      : store.selectedMesaId
+    const selectedNode = stage?.findOne(`#${nodeId}`)
     if (selectedNode) {
       transformer.nodes([selectedNode])
       transformer.getLayer()?.batchDraw()
@@ -431,12 +471,12 @@ async function updateTransformer() {
 // ── Event handlers ──
 
 function handleTableClick(mesa: Mesa, _e?: MouseEvent) {
-  // If table is part of a fusion group, select the parent table
-  // so ALL members of the fusion group get highlighted
+  // If mesa is a fusion child, find the parent (padre has mesa_padre_id === null).
+  // FusionGroupNode already emits the parent on click, but guard for safety.
   let targetMesa = mesa
-  if (mesa.id_fusion) {
+  if (mesa.id_fusion && mesa.mesa_padre_id !== null) {
     const parent = store.mesas.find(
-      (m) => m.id_fusion === mesa.id_fusion && m.mesa_padre_id === m.id,
+      (m) => m.id_fusion === mesa.id_fusion && m.mesa_padre_id === null,
     )
     if (parent) targetMesa = parent
   }
@@ -522,75 +562,53 @@ function handleStageMouseUp() {
   currentLinePoints.value = []
 }
 
-/** Drag start: record state so Tooltip stays hidden during drag */
+/** Drag start: record state so Tooltip stays hidden during drag (solo mesas only) */
 function handleDragStart(_mesa: Mesa) {
   store.isDragging = true
-  if (_mesa.id_fusion) {
-    store.beginFusionDrag(_mesa)
-  }
 }
 
-/** Drag end: Konva handles visual. Position saved on explicit "Guardar" button. */
-function handleDragEnd(_mesa: Mesa) {
+/**
+ * Drag end: sync solo mesa Konva node position back to the Pinia store.
+ * Fusion groups are handled by FusionGroupNode → handleFusionGroupDragend.
+ */
+function handleDragEnd(mesa: Mesa) {
   store.isDragging = false
-  store.endFusionDrag()
-}
-
-/**
- * DragMove: imperatively translate fused siblings so the group stays rigid.
- * No-op for non-fused tables or children (only the parent drives the sync).
- */
-function handleDragMove(mesa: Mesa) {
-  if (!mesa.id_fusion) return
   const layer = mainLayerRef.value?.getNode()
   if (!layer) return
-  fusionDrag.handleDragMove(mesa, layer)
+  const node = layer.findOne(`#${mesa.id}`)
+  if (!node) return
+  store.replaceMesa(mesa.id, {
+    posicion_x: Math.round(node.x()),
+    posicion_y: Math.round(node.y()),
+    rotacion: Math.round(node.rotation()),
+  } as Partial<Mesa>)
 }
 
 /**
- * TransformStart: capture the fused-group snapshot so the rigid-body math in
- * useFusionGroupDrag.handleTransform has the pre-gesture positions. Without this,
- * Konva's Transformer fires `transform` events on the parent node, but the
- * composable's `handleTransform` returns early when `dragSnapshot` is null,
- * so siblings keep their original positions and DO NOT rotate with the parent
- * (bug: "se gira solo una mesa de las dos").
+ * Handle drag-end from FusionGroupNode: update ALL member positions in the store.
+ * The outer group was moved as a single block — compute the delta and apply it
+ * to every member so the store stays in sync with Konva.
  */
-function handleTransformStart(mesa: Mesa) {
-  if (mesa.id_fusion) {
-    store.beginFusionDrag(mesa)
-  }
+function handleFusionGroupDragend(parentMesa: Mesa) {
+  store.isDragging = false
+
+  // The delta from the group's previous position to the new position
+  const oldParent = store.mesas.find((m) => m.id === parentMesa.id)
+  if (!oldParent) return
+  const dx = parentMesa.posicion_x - oldParent.posicion_x
+  const dy = parentMesa.posicion_y - oldParent.posicion_y
 }
 
-/**
- * Transform (live): imperatively rotate+translate fused siblings so the group
- * stays rigid during the gesture. No-op for non-fused tables or children.
- */
-function handleTransform(mesa: Mesa) {
-  if (!mesa.id_fusion) return
-  const layer = mainLayerRef.value?.getNode()
-  if (!layer) return
-  fusionDrag.handleTransform(mesa, layer)
-}
+// ── Transform handlers (design mode solo mesas) ──
+// FusionGroupNode handles its own transforms as a single block.
 
-/** Transform end: apply scale to dimensions (AD-10) + persist.
- *  All return paths call `store.endFusionDrag()` so the snapshot captured at
- *  `transformstart` (via handleTransformStart) is guaranteed to be cleared,
- *  even when the layer/node lookup fails mid-gesture. `endFusionDrag` is
- *  idempotent (sets `dragSnapshot = null`), so calling it when the snapshot
- *  was never populated (non-fused table) is a safe no-op.
- */
+/** Transform end: apply scale to dimensions (AD-10) + persist for solo mesas. */
 function handleTransformEnd(mesaId: string) {
   const mainLayer = mainLayerRef.value?.getNode()
-  if (!mainLayer) {
-    store.endFusionDrag()
-    return
-  }
+  if (!mainLayer) return
 
   const group = mainLayer.findOne(`#${mesaId}`)
-  if (!group) {
-    store.endFusionDrag()
-    return
-  }
+  if (!group) return
 
   // Konva Transformer changes scaleX/scaleY, NOT width/height
   const scaleX = group.scaleX()
@@ -618,10 +636,7 @@ function handleTransformEnd(mesaId: string) {
 
   // Get new values after scale reset
   const mesa = store.mesas.find((m) => m.id === mesaId)
-  if (!mesa) {
-    store.endFusionDrag()
-    return
-  }
+  if (!mesa) return
 
   const newWidth = (rect ? rect.width() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusX() * 2 : mesa.ancho)
   const newHeight = (rect ? rect.height() : circle ? circle.radius() * 2 : ellipse ? ellipse.radiusY() * 2 : mesa.alto)
@@ -633,25 +648,6 @@ function handleTransformEnd(mesaId: string) {
   mesa.rotacion = newRotation
   mesa.posicion_x = Math.round(group.x())
   mesa.posicion_y = Math.round(group.y())
-
-  // Fused group: Object.assign siblings with the synced absolute coords so
-  // the Save loop in /cocina/diseno persists the rigid-group state. Use the
-  // snapshot BEFORE clearing it.
-  if (mesa.id_fusion && mesa.mesa_padre_id === mesa.id) {
-    const siblingTransforms = fusionDrag.computeFinalSiblingTransforms(mesa, mainLayer)
-    for (const t of siblingTransforms) {
-      const sibling = store.mesas.find((m) => m.id === t.id)
-      if (sibling) {
-        Object.assign(sibling, {
-          posicion_x: t.posicion_x,
-          posicion_y: t.posicion_y,
-          rotacion: t.rotacion,
-        })
-      }
-    }
-  }
-
-  store.endFusionDrag()
 }
 
 // ── Canvas sizing: fill available width (Bug 3 fix) ──
@@ -681,10 +677,12 @@ function updateCanvasSize() {
     }
   }
 
-  // Stage is at least container width (no scroll) but grows wider if mesas
-  // extend beyond the viewport (horizontal scroll via parent overflow-auto).
-  store.stageWidth = Math.max(containerW, Math.ceil(tablesWidth))
-  store.stageHeight = Math.max(minH, ratioHeight, tablesHeight)
+  // Stage respects:
+  //  - container width (responsive, fills viewport)
+  //  - table positions (grows to fit all mesas)
+  //  - canvasAnchoBase / canvasAltoBase from config (user-defined minimum)
+  store.stageWidth = Math.max(containerW, Math.ceil(tablesWidth), BASE_WIDTH.value)
+  store.stageHeight = Math.max(minH, ratioHeight, tablesHeight, BASE_HEIGHT.value)
 }
 
 // ── Performance: limit pixel ratio per AD-02 + dynamic sizing ──
@@ -710,13 +708,39 @@ function getMesaPositions(): Record<string, { x: number; y: number; rotation: nu
   const positions: Record<string, { x: number; y: number; rotation: number }> = {}
   const layer = mainLayerRef.value?.getNode()
   if (!layer) return positions
+
   for (const mesa of store.filteredMesas) {
-    const node = layer.findOne(`#${mesa.id}`)
-    if (node) {
-      positions[mesa.id] = {
-        x: Math.round(node.x()),
-        y: Math.round(node.y()),
-        rotation: Math.round(node.rotation()),
+    if (mesa.id_fusion) {
+      // Fused mesa: find the FusionGroupNode outer group, read position,
+      // and compute absolute positions for ALL members of the group
+      if (!positions[mesa.id]) {
+        const parent = store.filteredMesas.find(
+          (m) => m.id_fusion === mesa.id_fusion && m.mesa_padre_id === null,
+        ) ?? mesa
+        const groupNode = layer.findOne(`#fusion_${parent.id}`)
+        if (groupNode) {
+          const gx = Math.round(groupNode.x())
+          const gy = Math.round(groupNode.y())
+          const gr = Math.round(groupNode.rotation())
+          // Compute absolute position for every member of this group
+          for (const member of store.filteredMesas) {
+            if (member.id_fusion === mesa.id_fusion) {
+              const dx = member.posicion_x - parent.posicion_x
+              const dy = member.posicion_y - parent.posicion_y
+              positions[member.id] = { x: gx + dx, y: gy + dy, rotation: gr }
+            }
+          }
+        }
+      }
+    } else {
+      // Solo mesa: find its individual TableNode
+      const node = layer.findOne(`#${mesa.id}`)
+      if (node) {
+        positions[mesa.id] = {
+          x: Math.round(node.x()),
+          y: Math.round(node.y()),
+          rotation: Math.round(node.rotation()),
+        }
       }
     }
   }
@@ -737,23 +761,21 @@ function rotateSelectedGroup90CW() {
   if (store.selectedMesaId === null) return
   const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
   if (!mesa) return
-  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== null) return
 
-  const layer = mainLayerRef.value?.getNode()
-  if (!layer) return
+  const members = store.mesas.filter((m) => m.id_fusion === mesa.id_fusion)
+  if (members.length === 0) return
 
-  const transforms = fusionDrag.rotateGroup90CW(mesa, layer)
+  const transforms = rotateGroupAroundCentroid90CW(members)
+
+  // Update store positions
   for (const t of transforms) {
-    const member = store.mesas.find((m) => m.id === t.id)
-    if (member) {
-      Object.assign(member, {
-        posicion_x: t.posicion_x,
-        posicion_y: t.posicion_y,
-        rotacion: t.rotacion,
-      })
-    }
+    store.replaceMesa(t.id, {
+      posicion_x: t.posicion_x,
+      posicion_y: t.posicion_y,
+      rotacion: t.rotacion,
+    })
   }
-  layer.batchDraw()
 }
 
 /**
@@ -765,7 +787,8 @@ function getSelectedMesaIds(): string[] {
   if (store.selectedMesaId === null) return []
   const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
   if (!mesa) return []
-  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return []
+  // After AD-04 fix: parent has mesa_padre_id = null (not self-id).
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== null) return []
   return store.mesas
     .filter((m) => m.id_fusion === mesa.id_fusion)
     .map((m) => m.id)
@@ -837,15 +860,16 @@ defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
       </v-layer>
 
       <!-- ============================================================ -->
-      <!-- Layer 2: Main — interactive tables + Transformer             -->
+      <!-- Layer 2: Main — solo tables + fusion groups + Transformer   -->
       <!-- ============================================================ -->
       <v-layer ref="mainLayerRef">
+        <!-- Solo (non-fused) mesas — each is an independent TableNode -->
         <TableNode
-          v-for="mesa in store.filteredMesas"
+          v-for="mesa in soloMesas"
           :key="mesa.id"
           :mesa="mesa"
           :estado="mesaEstado(mesa)"
-          :selected="store.selectedMesaId === mesa.id || (selectedIds?.includes(mesa.id) ?? false) || fusionGroupSelectedIds.has(mesa.id)"
+          :selected="soloSelectedIds.has(mesa.id)"
           :design-mode="designMode === true"
           :reservas-map="reservasMap"
           :fusion-label="fusionLabels?.[mesa.id]"
@@ -855,13 +879,29 @@ defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
           :drag-bound-func="dragBoundFunc"
           @click="handleTableClick(mesa)"
           @dragstart="handleDragStart(mesa)"
-          @dragmove="handleDragMove(mesa)"
           @dragend="handleDragEnd(mesa)"
-          @transformstart="handleTransformStart(mesa)"
-          @transform="handleTransform(mesa)"
           @transformend="designMode === true && handleTransformEnd(mesa.id)"
           @hover="handleTableHover(mesa)"
           @unhover="handleTableUnhover"
+        />
+
+        <!-- Fusion groups — each is a single FusionGroupNode block -->
+        <FusionGroupNode
+          v-for="group in fusionGroups"
+          :key="'fusion-' + group.parent.id"
+          :parent-mesa="group.parent"
+          :member-mesas="group.members"
+          :fusion-label="fusionLabels?.[group.parent.id] ?? ''"
+          :selected="isFusionGroupSelected(group.members)"
+          :design-mode="designMode === true"
+          :estado-map="Object.fromEntries(group.members.map(m => [m.id, mesaEstado(m)]))"
+          :turno-status-map="Object.fromEntries(group.members.map(m => [m.id, mesaTurnoStatus[m.id] ?? { comida: false, cena: false }]))"
+          :active-turno="store.activeTurno"
+          :reservas-map="reservasMap"
+          :font-size="fontSize"
+          :drag-bound-func="dragBoundFunc"
+          @click="handleTableClick($event)"
+          @dragend="handleFusionGroupDragend($event)"
         />
 
         <v-transformer

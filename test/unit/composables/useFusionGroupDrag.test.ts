@@ -107,7 +107,8 @@ describe('useFusionGroupDrag', () => {
       id: 'parent', numero_mesa: 1,
       posicion_x: 100, posicion_y: 100,
       ancho: 100, alto: 100, rotacion: 0,
-      id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+      // AD-04: parent has mesa_padre_id=null (not self.id)
+      id_fusion: 'gX', mesa_padre_id: null, capacidad_actual: 6,
     })
     const child = makeMesa({
       id: 'child', numero_mesa: 2,
@@ -194,7 +195,8 @@ describe('useFusionGroupDrag', () => {
       makeMesa({
         id: 'parent', posicion_x: 100, posicion_y: 100,
         ancho: 100, alto: 100, rotacion: 0,
-        id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+        // AD-04: parent has mesa_padre_id=null (not self.id)
+        id_fusion: 'gX', mesa_padre_id: null, capacidad_actual: 6,
       }),
       childStart,
     ])
@@ -387,7 +389,7 @@ describe('useFusionGroupDrag', () => {
       const parent = makeMesa({
         id: 'parent', posicion_x: 100, posicion_y: 100,
         ancho: 100, alto: 100, rotacion: 0,
-        id_fusion: 'gX', mesa_padre_id: 'parent', capacidad_actual: 6,
+        id_fusion: 'gX', mesa_padre_id: null, capacidad_actual: 6,
       })
       const child = makeMesa({
         id: 'child', posicion_x: 220, posicion_y: 100,

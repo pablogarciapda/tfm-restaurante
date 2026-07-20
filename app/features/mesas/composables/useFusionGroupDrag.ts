@@ -51,8 +51,13 @@ type CanvasStoreType = ReturnType<typeof CanvasStore>
  *               endFusionDrag, stageWidth, stageHeight)
  */
 export function useFusionGroupDrag(store: CanvasStoreType) {
+  /**
+   * A mesa is the parent (root) of a fused group when it has an id_fusion
+   * AND mesa_padre_id is null. After AD-04 fix, the fusion parent no longer
+   * has mesa_padre_id = self.id — it stays null (true root).
+   */
   function isParentDriver(mesa: Mesa): boolean {
-    return !!mesa.id_fusion && mesa.mesa_padre_id === mesa.id
+    return !!mesa.id_fusion && mesa.mesa_padre_id === null
   }
 
   function siblingsFromSnapshot(parentId: string): Array<{ id: string; x: number; y: number; rotation: number }> {
