@@ -327,10 +327,18 @@ const aforoInfo = computed<AforoInfo>(() => {
     ocupacionReal = reservasList.value
       .filter((r) => {
         if (r.estado !== 'pendiente' && r.estado !== 'confirmada') return false
-        if (!r.fecha_hora.startsWith(fecha)) return false
-        const hora = r.fecha_hora.slice(11, 16)
-        if (hora < turnoInicio || hora > turnoFin) return false
-        if (zona && r.zona_id !== zona) return false
+        // Convert to local time for date/time comparison
+        const d = new Date(r.fecha_hora)
+        if (isNaN(d.getTime())) return false
+        const localDate = d.toISOString().slice(0, 10)
+        if (localDate !== fecha) return false
+        const localMin = d.getHours() * 60 + d.getMinutes()
+        const [tIniH, tIniM] = turnoInicio.split(':').map(Number)
+        const [tFinH, tFinM] = turnoFin.split(':').map(Number)
+        const inicioMin = tIniH! * 60 + tIniM!
+        const finMin = tFinH! * 60 + tFinM!
+        if (localMin < inicioMin || localMin > finMin) return false
+        if (zona && r.zona_id && r.zona_id !== zona) return false
         return true
       })
       .reduce((sum, r) => sum + (r.numero_comensales ?? 0), 0)
