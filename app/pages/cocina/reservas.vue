@@ -149,14 +149,30 @@ async function handleGuardarCanvas() {
   }
 }
 
-/** Restaura todas las mesas al diseño original */
+/** Restaura el diseño original para la fecha + turno seleccionados.
+ *  Guarda las posiciones originales en canvas_layouts y actualiza las mesas. */
 async function handleRestoreOriginal() {
-  if (!confirm('¿Restaurar el diseño original? Se perderán los cambios actuales de posición.')) return
+  const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
+  if (!confirm(`¿Restaurar diseño original para ${guardarFecha.value} (${turnoLabel})?\nSe guardará en layouts y se actualizarán las mesas.`)) return
   restoringOriginal.value = true
   try {
-    const result = await $fetch('/api/canvas/restore-original', { method: 'POST' })
+    // 1. Get original design positions
+    const original = await $fetch('/api/canvas/original')
+    if (!original.exists || !Array.isArray(original.positions)) {
+      showToast('No hay diseño original guardado', 'error')
+      return
+    }
+    // 2. Save them as a layout for the selected date+turno
+    await $fetch('/api/canvas/save-layout', {
+      method: 'POST',
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions: original.positions },
+    })
+    // 3. Update mesas to match original positions
+    for (const pos of original.positions) {
+      await updateMesa(pos.mesa_id, { posicion_x: pos.posicion_x, posicion_y: pos.posicion_y, rotacion: pos.rotacion })
+    }
     await loadMesas(store.activeZona)
-    showToast(`Diseño original restaurado (${result.restored} mesas)`, 'success')
+    showToast(`Diseño original restaurado para ${guardarFecha.value} (${turnoLabel}) — ${original.positions.length} mesas`, 'success')
   } catch (e: any) {
     showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
   } finally {
@@ -1152,13 +1168,13 @@ onMounted(async () => {
       <button
         type="button"
         class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
-        title="Restaura todas las mesas a las posiciones del diseño original"
+        title="Aplica el diseño original a la fecha y turno seleccionados (guarda en canvas_layouts, no modifica el diseño maestro)"
         :disabled="restoringOriginal"
         @click="handleRestoreOriginal"
       >
         {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
       </button>
-      <span class="text-xs text-gray-400">Guardar guarda en layouts; Restaurar vuelve al diseño base.</span>
+      <span class="text-xs text-gray-400">Cada layout se guarda por fecha + turno. Restaurar aplica el diseño original a la fecha/turno seleccionados.</span>
     </div>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
