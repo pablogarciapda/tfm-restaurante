@@ -52,46 +52,56 @@ function todayISO(): string {
 // ============================================================================
 
 describe('calculateFusedCapacity (MFU-002)', () => {
-  it('[4,4] → 6 (floor(8*0.75)=6)', () => {
+  it('[4,4] → 6 (sum-2=6)', () => {
     const mesas = [{ capacidad_base: 4 }, { capacidad_base: 4 }]
     expect(calculateFusedCapacity(mesas)).toBe(6)
   })
 
-  it('[4,4,4] → 9 (floor(12*0.75)=9)', () => {
+  it('[4,4,4] → 8 (sum-4=8)', () => {
     const mesas = [
       { capacidad_base: 4 },
       { capacidad_base: 4 },
       { capacidad_base: 4 },
     ]
-    expect(calculateFusedCapacity(mesas)).toBe(9)
+    expect(calculateFusedCapacity(mesas)).toBe(8)
   })
 
-  it('[2,2] → 3 (floor(4*0.75)=3)', () => {
+  it('[2,2] → 2 (sum-2=2)', () => {
     const mesas = [{ capacidad_base: 2 }, { capacidad_base: 2 }]
-    expect(calculateFusedCapacity(mesas)).toBe(3)
+    expect(calculateFusedCapacity(mesas)).toBe(2)
   })
 
-  it('[6] → 4 (single table — floor(6*0.75)=4)', () => {
+  it('[6] → 6 (single table — no reduction)', () => {
     const mesas = [{ capacidad_base: 6 }]
-    expect(calculateFusedCapacity(mesas)).toBe(4)
+    expect(calculateFusedCapacity(mesas)).toBe(6)
   })
 
   it('[] → 0 (empty array)', () => {
     expect(calculateFusedCapacity([])).toBe(0)
   })
 
-  it('[4,4,2] → 7 (floor(10*0.75)=7) from spec', () => {
+  it('[4,4,2] → 6 (sum-4=6)', () => {
     const mesas = [
       { capacidad_base: 4 },
       { capacidad_base: 4 },
       { capacidad_base: 2 },
     ]
-    expect(calculateFusedCapacity(mesas)).toBe(7)
+    expect(calculateFusedCapacity(mesas)).toBe(6)
   })
 
-  it('handles fractional floor correctly: [3,3] → 4 (floor(6*0.75)=4)', () => {
+  it('[3,3] → 4 (sum-2=4)', () => {
     const mesas = [{ capacidad_base: 3 }, { capacidad_base: 3 }]
     expect(calculateFusedCapacity(mesas)).toBe(4)
+  })
+
+  it('[2,2,1,1] → 2 (sum-6=2, 4+ mesas)', () => {
+    const mesas = [
+      { capacidad_base: 2 },
+      { capacidad_base: 2 },
+      { capacidad_base: 1 },
+      { capacidad_base: 1 },
+    ]
+    expect(calculateFusedCapacity(mesas)).toBe(2)
   })
 })
 
@@ -229,7 +239,7 @@ describe('fuseTables (MFU-001/002)', () => {
 
     // Result shape
     expect(result.mesa_padre_id).toBe('id-1')
-    expect(result.capacidad_actual).toBe(6) // floor(8*0.75)
+    expect(result.capacidad_actual).toBe(6) // sum-2: 8-2=6
     expect(typeof result.id_fusion).toBe('string')
     expect(result.id_fusion.length).toBeGreaterThan(0)
 

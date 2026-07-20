@@ -191,12 +191,12 @@ describe('useMesasFusion — fuseMesas', () => {
     expect(store.mesas[0].id_fusion).toBe(result.id_fusion)
     expect(store.mesas[1].id_fusion).toBe(result.id_fusion)
 
-    // First table is parent
-    expect(store.mesas[0].mesa_padre_id).toBe('m1')
+    // First table is parent — stays root (mesa_padre_id = null)
+    expect(store.mesas[0].mesa_padre_id).toBeNull()
     // Child table has mesa_padre_id pointing to parent
     expect(store.mesas[1].mesa_padre_id).toBe('m1')
 
-    // Capacity: floor((4+4) * 0.75) = 6 on parent
+    // Capacity: sum-2 = (4+4)-2 = 6 on parent
     expect(store.mesas[0].capacidad_actual).toBe(6)
     // Child retains its original capacity
     expect(store.mesas[1].capacidad_actual).toBe(6)
@@ -267,8 +267,8 @@ describe('useMesasFusion — fuseMesas', () => {
     const result = await fuseMesas(['m1', 'm2', 'm3'])
 
     expect(result.success).toBe(true)
-    // floor((4+4+2) * 0.75) = floor(7.5) = 7
-    expect(store.mesas[0].capacidad_actual).toBe(7)
+    // sum-4: (4+4+2)-4 = 6
+    expect(store.mesas[0].capacidad_actual).toBe(6)
   })
 
   it('fuseMesas needs at least 2 tables', async () => {

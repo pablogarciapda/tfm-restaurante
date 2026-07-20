@@ -15,9 +15,13 @@ import type { Mesa, MesaEstado, AforoMode } from '../contracts/mesas.contract'
 
 /**
  * Calculate realistic capacity for fused tables.
- * Formula: floor(sum(capacidad_base) × 0.75)
+ * Formula (AD-04):
+ *   1 table  → sum (no reduction)
+ *   2 tables → sum - 2
+ *   3 tables → sum - 4
+ *   4+       → sum - 6
  *
- * Two 4-pax tables fuse to 6 (not 8). AD-04.
+ * Two 4-pax tables fuse to 6 (not 8). Three 4-pax tables fuse to 8 (not 12).
  *
  * @param mesas — Array of objects with `capacidad_base` property
  * @returns fused capacity (integer >= 0)
@@ -26,7 +30,16 @@ export function calculateFusedCapacity(
   mesas: Pick<Mesa, 'capacidad_base'>[],
 ): number {
   const sum = mesas.reduce((acc, m) => acc + m.capacidad_base, 0)
-  return Math.floor(sum * 0.75)
+  const n = mesas.length
+
+  if (n <= 1) return sum
+
+  // Never reduce below the largest individual table's capacity
+  const maxBase = mesas.reduce((acc, m) => Math.max(acc, m.capacidad_base), 0)
+
+  if (n === 2) return Math.max(sum - 2, maxBase, 0)
+  if (n === 3) return Math.max(sum - 4, maxBase, 0)
+  return Math.max(sum - 6, maxBase, 0)
 }
 
 // ---------------------------------------------------------------------------

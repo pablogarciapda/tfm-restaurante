@@ -563,8 +563,8 @@ describe('handleFuseMesas', () => {
     })
 
     expect(result.status).toBe(200)
-    // floor((4+4+2)*0.75)=floor(7.5)=7
-    expect(result.body.capacidad_actual).toBe(7)
+    // sum-4: (4+4+2)-4 = 6
+    expect(result.body.capacidad_actual).toBe(6)
   })
 })
 
