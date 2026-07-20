@@ -6,12 +6,14 @@
  * Also checks if today is a holiday via eventos table.
  * Uses useAsyncData for SSR-safe caching with dynamic key per day.
  */
+import { toLocalDateString } from '#shared/utils/date'
+
 export function useMenuDiario() {
   const client = useSupabaseClient()
   const today = new Date()
 
-  // Format date as YYYY-MM-DD for DB queries
-  const todayStr = today.toISOString().slice(0, 10)
+  // Format date as YYYY-MM-DD for DB queries (local timezone)
+  const todayStr = toLocalDateString(today)
   const dayOfWeek = today.getDay()
 
   const { data, error, pending, refresh } = useAsyncData(

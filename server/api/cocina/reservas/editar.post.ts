@@ -36,7 +36,8 @@ export default defineEventHandler(async (event) => {
 
   // Validate date is not in the past (compare YYYY-MM-DD only, timezone-safe)
   const dateStr = String(fecha_hora).slice(0, 10)
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   if (dateStr < todayStr) {
     throw createError({ statusCode: 400, statusMessage: 'No se puede reservar en el pasado' })
   }
