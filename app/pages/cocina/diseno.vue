@@ -15,8 +15,7 @@ import TableCanvas from '../../features/mesas/components/TableCanvas.vue'
 import TableToolbar from '../../features/mesas/components/TableToolbar.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
-import { getAforoDisponible } from '#shared/utils/fusion-math'
-import type { AforoInfo, Mesa } from '#shared/contracts/mesas.contract'
+import type { Mesa } from '#shared/contracts/mesas.contract'
 import type { FormaMesa } from '#shared/contracts/mesas.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
@@ -56,48 +55,6 @@ async function loadZonasConfig() {
     zonasConfig.value = []
   }
 }
-
-// ── Aforo ──
-const capacidadTotal = ref(80)
-const modoOcupacion = ref<'auto' | 'manual'>('auto')
-const ocupacionManual = ref(0)
-
-async function loadConfiguracion() {
-  try {
-    const { data, error } = await client
-      .from('configuracion')
-      .select('capacidad_total_local, modo_ocupacion, ocupacion_manual')
-      .single()
-    if (error) throw error
-    if (data) {
-      capacidadTotal.value = data.capacidad_total_local ?? 80
-      modoOcupacion.value = (data.modo_ocupacion ?? 'auto') as 'auto' | 'manual'
-      ocupacionManual.value = data.ocupacion_manual ?? 0
-    }
-  } catch {
-    // Keep defaults on error
-  }
-}
-
-const aforoInfo = computed<AforoInfo>(() => {
-  const disponible = getAforoDisponible(
-    store.mesas,
-    capacidadTotal.value,
-    modoOcupacion.value,
-    ocupacionManual.value,
-  )
-  const ocupacionAuto =
-    store.mesas
-      .filter((m) => m.mesa_padre_id === null)
-      .reduce((sum, m) => sum + m.capacidad_actual, 0)
-  return {
-    modo: modoOcupacion.value,
-    capacidad_total: capacidadTotal.value,
-    ocupacion_auto: ocupacionAuto,
-    ocupacion_manual: ocupacionManual.value,
-    disponible,
-  }
-})
 
 // ── Grid toggle ──
 const showGrid = ref(false)
@@ -315,7 +272,6 @@ store.activeZona = 'Principal'
 // ── Lifecycle ──
 
 onMounted(async () => {
-  await loadConfiguracion()
   await loadZonasConfig()
   await loadDisenoConfig()
   await loadMesas()
@@ -367,7 +323,6 @@ watch(editAlto, (val) => {
     <TableToolbar
       mode="diseno"
       :selected-mesa="store.selectedMesa"
-      :aforo-info="aforoInfo"
       :is-drawing="store.isDrawing"
       :wall-lines-count="store.wallLines.length"
       :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
