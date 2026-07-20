@@ -202,7 +202,6 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
 export function buildConfirmationHtml(
   params: ConfirmationParams,
   restaurant: RestaurantInfo,
-  fallbackSiteUrl?: string,
 ): string {
   const nombreCompleto = params.apellidos
     ? `${params.nombre} ${params.apellidos}`
@@ -270,12 +269,11 @@ export function buildConfirmationHtml(
 
         <!-- Cancel link (after reservation details, before restaurant info) -->
         ${params.cancel_token ? `
-        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 16px;">
         <table role="presentation" style="width: 100%; margin-bottom: 24px;">
           <tr>
             <td style="text-align: center;">
               <p style="margin: 0 0 6px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
-              <a href="${restaurant.site_url || fallbackSiteUrl || ''}/cancelar?token=${params.cancel_token}"
+              <a href="${(restaurant.site_url || '').replace(/\/$/, '')}/cancelar?token=${params.cancel_token}"
                  style="display: inline-block; padding: 8px 24px; border: 1px solid #c25b3c; border-radius: 4px; color: #c25b3c; font-size: 13px; text-decoration: none;">
                 Cancelar reserva
               </a>
@@ -459,7 +457,6 @@ export async function sendConfirmationEmail(
         cancel_token: (params as any).cancel_token,
       },
       restaurantInfo,
-      (runtimeConfig as any)?.public?.siteUrl,
     )
 
     const asunto = `Confirmación de reserva — ${restaurantInfo.nombre}`
