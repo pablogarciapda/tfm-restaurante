@@ -2772,10 +2772,9 @@ ON CONFLICT (id) DO NOTHING;
 -- CONFIGURACION — singleton row (upsert)
 -- =============================================================================
 
-INSERT INTO configuracion (id, cliente_elige_mesa, capacidad_total_local, created_at, updated_at)
+INSERT INTO configuracion (id, capacidad_total_local, created_at, updated_at)
 VALUES (
   gen_random_uuid(),
-  false,
   80,
   now(),
   now()

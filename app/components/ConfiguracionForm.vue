@@ -41,7 +41,6 @@ interface DiaBloqueadoForm {
 }
 
 interface ConfigFormData {
-  cliente_elige_mesa: boolean
   capacidad_total_local: number
   precio_menu_diario: number | null
   precio_menu_sabado: number | null
@@ -97,7 +96,6 @@ const emit = defineEmits<{
 }>()
 
 const form = reactive<ConfigFormData>({
-  cliente_elige_mesa: props.currentConfig.cliente_elige_mesa ?? false,
   capacidad_total_local: props.currentConfig.capacidad_total_local ?? 80,
   precio_menu_diario: props.currentConfig.precio_menu_diario ?? null,
   precio_menu_sabado: props.currentConfig.precio_menu_sabado ?? null,
@@ -407,7 +405,6 @@ watch(
   () => props.currentConfig,
   (cfg) => {
     if (!cfg || !Object.keys(cfg).length) return
-    if (cfg.cliente_elige_mesa !== undefined) form.cliente_elige_mesa = cfg.cliente_elige_mesa
     if (cfg.capacidad_total_local !== undefined) form.capacidad_total_local = cfg.capacidad_total_local
     if (cfg.precio_menu_diario !== undefined) form.precio_menu_diario = cfg.precio_menu_diario
     if (cfg.precio_menu_sabado !== undefined) form.precio_menu_sabado = cfg.precio_menu_sabado
@@ -837,24 +834,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       </button>
     </div>
 
-    <!-- Section 5: Elección de mesa -->
-    <div :class="sectionClass">
-      <h2 :class="sectionTitleClass">Elección de mesa</h2>
-      <div class="flex items-center gap-3">
-        <input
-          id="cfg-elige-mesa"
-          v-model="form.cliente_elige_mesa"
-          data-testid="cfg-elige-mesa"
-          type="checkbox"
-          class="h-4 w-4 rounded"
-        />
-        <label class="text-sm font-medium text-slate" for="cfg-elige-mesa">
-          Permitir que el cliente elija mesa
-        </label>
-      </div>
-    </div>
-
-    <!-- Section 6: General -->
+    <!-- Section 5: General -->
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Aforo del local</h2>
       <div class="flex items-baseline gap-2">

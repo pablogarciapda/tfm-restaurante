@@ -14,7 +14,6 @@ definePageMeta({
 import type { ConfigData, ConfigUpdatePayload } from '#shared/contracts/reservation.contract'
 
 const defaultConfig: ConfigData = {
-  cliente_elige_mesa: false,
   capacidad_total_local: 264,
   mostrar_recomendados: true,
   titulo_recomendados: 'NUESTRAS RECOMENDACIONES',
