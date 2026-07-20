@@ -156,8 +156,8 @@ async function handleRestoreOriginal() {
   if (!confirm(`¿Restaurar diseño original para ${guardarFecha.value} (${turnoLabel})?\nSe guardará en layouts y se actualizarán las mesas.`)) return
   restoringOriginal.value = true
   try {
-    // 1. Get original design positions
-    const original = await $fetch('/api/canvas/original')
+    // 1. Get original design positions for this zone
+    const original = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
     if (!original.exists || !Array.isArray(original.positions)) {
       showToast('No hay diseño original guardado', 'error')
       return
@@ -191,7 +191,7 @@ async function handleLoadLayout() {
   loadingLayout.value = true
   try {
     const data: any = await $fetch('/api/canvas/load-layout', {
-      params: { fecha: guardarFecha.value, turno: guardarTurno.value },
+      params: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona },
     })
     // Update mesas positions in DB and store
     for (const pos of data.positions) {
@@ -216,7 +216,7 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
   if (!fecha || !turno) return
   try {
     const data: any = await $fetch('/api/canvas/load-layout', {
-      params: { fecha, turno },
+      params: { fecha, turno, zona: store.activeZona },
     })
     if (!data?.positions?.length) return
     for (const pos of data.positions) {

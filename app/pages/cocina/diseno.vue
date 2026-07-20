@@ -222,7 +222,7 @@ async function handleSaveOriginal() {
     const positions = collectMesaPositions(positionsMap)
     await $fetch('/api/canvas/save-original', {
       method: 'POST',
-      body: { positions },
+      body: { zona: store.activeZona, positions },
     })
     showToast('Diseño original guardado', 'success')
   } catch (e: any) {
@@ -233,13 +233,14 @@ async function handleSaveOriginal() {
 }
 
 async function handleRestoreOriginal() {
-  if (!confirm('¿Restaurar el diseño original? Se perderán los cambios actuales de posición.')) return
+  const zona = store.activeZona
+  if (!zona) { showToast('Seleccione una zona primero', 'error'); return }
+  if (!confirm(`¿Restaurar el diseño original de la zona "${zona}"? Se perderán los cambios actuales.`)) return
   restoringOriginal.value = true
   try {
-    const result = await $fetch('/api/canvas/restore-original', { method: 'POST' })
-    // Reload mesas from DB to reflect restored positions
+    const result = await $fetch('/api/canvas/restore-original', { method: 'POST', body: { zona } })
     await loadMesas(store.activeZona || undefined)
-    showToast(`Diseño original restaurado (${result.restored} mesas)`, 'success')
+    showToast(`Diseño original restaurado (${result.restored} mesas en ${zona})`, 'success')
   } catch (e: any) {
     showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
   } finally {

@@ -1,40 +1,37 @@
 /**
  * POST /api/canvas/restore-original
  *
- * Restores all mesas to the "original design" stored in
- * configuracion.diseno_original.
+ * Restores mesas for a specific zone to the original design stored
+ * in configuracion.diseno_original[zona].
  *
- * Admin-only (authentication gated, pages are middleware-protected).
+ * Body: { zona: string }
+ *
+ * Admin-only.
  */
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
-  if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'No autorizado' })
-  }
+  if (!user) throw createError({ statusCode: 401, statusMessage: 'No autorizado' })
 
   const supabase = serverSupabaseServiceRole(event)
+  const body = await readBody(event)
+  if (!body?.zona) throw createError({ statusCode: 400, statusMessage: 'Se requiere zona' })
 
   const { data: config, error: configError } = await supabase
-    .from('configuracion')
-    .select('diseno_original')
-    .limit(1)
-    .single()
+    .from('configuracion').select('diseno_original').limit(1).single()
 
   if (configError || !config?.diseno_original) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'No hay diseño original guardado. Guarde primero desde /cocina/diseno.',
-    })
+    throw createError({ statusCode: 404, statusMessage: 'No hay diseño original guardado' })
   }
 
-  const positions = config.diseno_original as Array<{
+  const allDesigns = config.diseno_original as Record<string, Array<{
     mesa_id: string; posicion_x: number; posicion_y: number; rotacion: number
-  }>
+  }>>
+  const positions = allDesigns[body.zona]
 
   if (!Array.isArray(positions) || positions.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: 'Diseño original vacío o inválido' })
+    throw createError({ statusCode: 404, statusMessage: `No hay diseño original para la zona "${body.zona}"` })
   }
 
   let ok = 0
@@ -46,5 +43,5 @@ export default defineEventHandler(async (event) => {
     if (!error) ok++
   }
 
-  return { success: true, restored: ok, total: positions.length }
+  return { success: true, zona: body.zona, restored: ok, total: positions.length }
 })
