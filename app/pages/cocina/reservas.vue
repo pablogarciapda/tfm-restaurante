@@ -439,12 +439,17 @@ async function handleReservaSubmit() {
 async function handleFuse() {
   const ids = [...selectedIds.value]
   const selected = selectedMesas()
-  // Capacity that will become the new root after fusion (treated as added aforo for the gate)
-  const addedCapacity = selected.length >= 2
-    ? calculateFusedCapacity(selected)
+  // Net capacity change for aforo gate: fusedCapacity - sum of individual bases.
+  // Fusion always reduces total root capacity (fused < sum bases), so net ≤ 0.
+  // The old code passed the ABSOLUTE fused value, which wrongly treated fusion
+  // as if it consumed new capacity instead of reducing it.
+  const fusedCapacity = calculateFusedCapacity(selected)
+  const sumBase = selected.reduce((s, m) => s + m.capacidad_base, 0)
+  const netChange = selected.length >= 2
+    ? fusedCapacity - sumBase
     : 0
 
-  await guardAforo(addedCapacity, async () => {
+  await guardAforo(netChange, async () => {
     const result = await fuseMesas(ids)
     if (!result.success && result.error) {
       console.warn(result.error)
