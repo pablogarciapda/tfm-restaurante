@@ -519,4 +519,96 @@ describe('handleCreateReservation', () => {
     expect(result.status).toBe(200)
     expect(result.body).toHaveProperty('success', true)
   })
+
+  it('SMS notification includes cancel link using site_url from configuracion', async () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: {
+          modo_reserva: 'automatica',
+          notificacion_reserva: 'sms',
+          restaurant_nombre: 'La Zíngara',
+          site_url: 'https://www.lazingara.es',
+        },
+        error: null,
+      }),
+      clienteSelect: vi.fn().mockResolvedValue({
+        data: { id: 'existing-client-id' },
+        error: null,
+      }),
+      reservaInsert: vi.fn().mockResolvedValue({
+        data: { id: 'sms-reserva-id' },
+        error: null,
+      }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'SMS Test',
+      telefono: '600123456',
+      email: 'sms@test.com',
+      fecha_hora: futureISO,
+      numero_comensales: 2,
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toHaveProperty('cancel_token')
+
+    // The SMS log call must mention the cancel link built from site_url + token
+    expect(infoSpy).toHaveBeenCalled()
+    const smsLog = infoSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[reservas] SMS'),
+    )
+    expect(smsLog).toBeDefined()
+    const msg = smsLog![0] as string
+    const token = (result.body as any).cancel_token
+    expect(msg).toContain(`https://www.lazingara.es/cancelar?token=${token}`)
+
+    infoSpy.mockRestore()
+  })
+
+  it('SMS cancel link omits site_url when not configured (no NaN link)', async () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: {
+          modo_reserva: 'automatica',
+          notificacion_reserva: 'sms',
+          restaurant_nombre: 'La Zíngara',
+          // site_url NOT set
+        },
+        error: null,
+      }),
+      clienteSelect: vi.fn().mockResolvedValue({
+        data: { id: 'existing-client-id' },
+        error: null,
+      }),
+      reservaInsert: vi.fn().mockResolvedValue({
+        data: { id: 'no-site-url-reserva' },
+        error: null,
+      }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'No Site',
+      telefono: '600123456',
+      email: 'ns@test.com',
+      fecha_hora: futureISO,
+      numero_comensales: 2,
+    })
+
+    expect(result.status).toBe(200)
+    const smsLog = infoSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[reservas] SMS'),
+    )
+    expect(smsLog).toBeDefined()
+    const msg = smsLog![0] as string
+    // No "undefined" or "null" leaking into the message
+    expect(msg).not.toMatch(/(undefined|null)/)
+    // No dangling "/cancelar" link with empty origin
+    expect(msg).not.toContain('/cancelar?token=')
+
+    infoSpy.mockRestore()
+    warnSpy.mockRestore()
+  })
 })

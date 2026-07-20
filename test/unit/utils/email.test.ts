@@ -172,6 +172,25 @@ describe('buildConfirmationHtml', () => {
     )
     expect(html).not.toContain('cancelar?token=')
   })
+
+  it('uses configuracion.site_url (trailing slash stripped, no hardcoded fallback)', () => {
+    const html = buildConfirmationHtml(
+      { ...baseParams, cancel_token: 'tok-1' },
+      { ...defaultRestaurant, site_url: 'http://57.131.33.90:3000/' },
+    )
+    expect(html).toContain('http://57.131.33.90:3000/cancelar?token=tok-1')
+    expect(html).not.toContain('57.131.33.90:3000//cancelar')
+    expect(html).not.toContain('lazingara.es')
+  })
+
+  it('does NOT leak the hardcoded lazingara.es fallback when site_url is empty', () => {
+    const html = buildConfirmationHtml(
+      { ...baseParams, cancel_token: 'tok-2' },
+      { ...defaultRestaurant, site_url: '' },
+    )
+    expect(html).not.toContain('https://www.lazingara.es')
+    expect(html).not.toContain('lazingara.es/cancelar')
+  })
 })
 
 describe('buildCancellationHtml', () => {
