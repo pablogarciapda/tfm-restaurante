@@ -104,6 +104,41 @@ async function saveSelectedFusedPositions() {
   }
 }
 
+// ── Guardar canvas con fecha + turno ──
+const guardarFecha = ref(new Date().toISOString().slice(0, 10))
+const guardarTurno = ref<'comida' | 'cena'>('comida')
+
+async function handleGuardarCanvas() {
+  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  if (mesasZona.length === 0) {
+    showToast('No hay mesas en la zona activa', 'error')
+    return
+  }
+  const positions = canvasRef.value?.getMesaPositions() ?? {}
+  let ok = 0
+  let failed = 0
+  for (const mesa of mesasZona) {
+    const live = positions[mesa.id]
+    const payload: Record<string, unknown> = {
+      posicion_x: live?.x ?? mesa.posicion_x,
+      posicion_y: live?.y ?? mesa.posicion_y,
+      rotacion: live?.rotation ?? mesa.rotacion,
+    }
+    try {
+      await updateMesa(mesa.id, payload)
+      ok++
+    } catch {
+      failed++
+    }
+  }
+  if (failed === 0) {
+    const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
+    showToast(`Canvas guardado (${ok} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
+  } else {
+    showToast(`Guardado con fallos: ${ok} OK, ${failed} error`, 'error')
+  }
+}
+
 // ── Fusion state ──
 const selectedIds = ref<string[]>([])
 const fusionDialogShow = ref(false)
@@ -1021,6 +1056,33 @@ onUnmounted(() => {
         class="rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:cursor-not-allowed disabled:opacity-50"
         title="Guarda en la base de datos las nuevas posiciones/rotaciones de cada mesa del grupo fusionado."
         @click="saveSelectedFusedPositions"
+      >
+        Guardar
+      </button>
+    </div>
+
+    <!-- Guardar canvas con fecha + turno — save current layout for a date/shift -->
+    <div
+      class="mb-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-cream/95 p-2"
+    >
+      <span class="text-xs font-medium text-slate whitespace-nowrap">Guardar canvas:</span>
+      <input
+        v-model="guardarFecha"
+        type="date"
+        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+      />
+      <select
+        v-model="guardarTurno"
+        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+      >
+        <option value="comida">Comida</option>
+        <option value="cena">Cena</option>
+      </select>
+      <button
+        type="button"
+        class="rounded-md bg-terracotta px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+        title="Guarda las posiciones actuales de todas las mesas de la zona activa para la fecha y turno seleccionados."
+        @click="handleGuardarCanvas"
       >
         Guardar
       </button>
