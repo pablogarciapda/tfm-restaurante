@@ -1087,41 +1087,42 @@ onMounted(async () => {
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
       @toggle-multi-select="toggleMultiSelect"
-    />
-
-    <!-- Gestión de layouts: fecha, turno, guardar, restaurar -->
-    <div class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-cream/95 p-2">
-      <input
-        v-model="guardarFecha"
-        type="date"
-        :min="new Date().toISOString().slice(0, 10)"
-        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-      />
-      <select
-        v-model="guardarTurno"
-        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-      >
-        <option value="comida">Comida</option>
-        <option value="cena">Cena</option>
-      </select>
-      <button
-        type="button"
-        class="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:opacity-50"
-        :disabled="savingCanvas"
-        @click="handleGuardarCanvas"
-      >
-        {{ savingCanvas ? 'Guardando...' : '💾 Guardar layout' }}
-      </button>
-      <button
-        type="button"
-        class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
-        title="Aplica el diseño original a la fecha y turno seleccionados"
-        :disabled="restoringOriginal"
-        @click="handleRestoreOriginal"
-      >
-        {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar original' }}
-      </button>
-    </div>
+    >
+      <template #controls>
+        <div class="flex items-center gap-2">
+          <input
+            v-model="guardarFecha"
+            type="date"
+            :min="new Date().toISOString().slice(0, 10)"
+            class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          />
+          <select
+            v-model="guardarTurno"
+            class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+          >
+            <option value="comida">Comida</option>
+            <option value="cena">Cena</option>
+          </select>
+          <button
+            type="button"
+            class="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:opacity-50"
+            :disabled="savingCanvas"
+            @click="handleGuardarCanvas"
+          >
+            {{ savingCanvas ? 'Guardando...' : '💾 Guardar layout' }}
+          </button>
+          <button
+            type="button"
+            class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+            title="Aplica el diseño original a la fecha y turno seleccionados"
+            :disabled="restoringOriginal"
+            @click="handleRestoreOriginal"
+          >
+            {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar original' }}
+          </button>
+        </div>
+      </template>
+    </TableToolbar>
 
     <!-- Rotar 90° / Guardar — only when a fused group parent is selected. -->
     <div

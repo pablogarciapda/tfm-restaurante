@@ -229,6 +229,9 @@ async function handleImageUpload(event: Event) {
       </template>
     </div>
 
+    <!-- Center slot: page-specific controls (e.g., layout controls in reservas) -->
+    <slot name="controls" />
+
     <!-- Right: Aforo (both modes) -->
     <div class="flex items-center gap-2">
       <AforoIndicator :aforo-info="aforoInfo" />
