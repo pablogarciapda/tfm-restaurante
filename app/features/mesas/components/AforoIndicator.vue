@@ -97,7 +97,7 @@ function onManualChange(event: Event) {
         class="text-xs font-semibold tabular-nums"
         :class="porcentaje > 90 ? 'text-red-600' : 'text-slate-700'"
       >
-        {{ aforoInfo.disponible }} / {{ aforoInfo.capacidad_total }} plazas
+        {{ ocupacion }} / {{ aforoInfo.capacidad_total }} plazas
       </span>
     </div>
 
