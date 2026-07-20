@@ -18,7 +18,7 @@ import StandbyBanner from '../../features/mesas/components/StandbyBanner.vue'
 import { useCanvasStore } from '../../features/mesas/stores/canvas-store'
 import { useMesas } from '../../features/mesas/composables/useMesas'
 import { useMesasFusion } from '../../features/mesas/composables/useMesasFusion'
-import { getAforoDisponible, calculateFusedCapacity } from '#shared/utils/fusion-math'
+import { calculateFusedCapacity } from '#shared/utils/fusion-math'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import { generarReferencia } from '#shared/utils/referencia'
@@ -313,25 +313,42 @@ const timeSlots = computed(() => {
 })
 
 const aforoInfo = computed<AforoInfo>(() => {
-  const disponible = getAforoDisponible(
-    store.mesas,
-    capacidadTotal.value,
-    modoOcupacion.value,
-    ocupacionManual.value,
-  )
+  // Ocupación real: suma de comensales de reservas del día+turno seleccionado
+  let ocupacionReal = 0
+  const h = horariosConfig.value
+  if (h && reservasList.value.length > 0) {
+    const turnoInicio = guardarTurno.value === 'comida' ? h.comida_inicio : h.cena_inicio
+    const turnoFin = guardarTurno.value === 'comida' ? h.comida_fin : h.cena_fin
+    const fecha = guardarFecha.value
+    const zona = store.activeZona
 
-  const ocupacionAuto =
-    store.mesas
-      .filter((m) => m.mesa_padre_id === null)
-      .reduce((sum, m) => sum + m.capacidad_actual, 0)
+    ocupacionReal = reservasList.value
+      .filter((r) => {
+        if (r.estado !== 'pendiente' && r.estado !== 'confirmada') return false
+        if (!r.fecha_hora.startsWith(fecha)) return false
+        const hora = r.fecha_hora.slice(11, 16) // "HH:MM"
+        if (hora < turnoInicio || hora > turnoFin) return false
+        if (zona && r.zona_id !== zona) return false
+        return true
+      })
+      .reduce((sum, r) => sum + (r.numero_comensales ?? 0), 0)
+  }
+
+  // Fallback: sum of root mesa capacities (auto mode)
+  const ocupacionAuto = store.mesas
+    .filter((m) => m.mesa_padre_id === null)
+    .reduce((sum, m) => sum + m.capacidad_actual, 0)
+
+  const ocupacion = ocupacionReal > 0 ? ocupacionReal : (modoOcupacion.value === 'manual' ? ocupacionManual.value : ocupacionAuto)
+  const disponible = capacidadTotal.value - ocupacion
 
   return {
     modo: modoOcupacion.value,
     capacidad_total: capacidadTotal.value,
-    ocupacion_auto: ocupacionAuto,
+    ocupacion_auto: ocupacion,
     ocupacion_manual: ocupacionManual.value,
     disponible,
-    overflow: aforoOverflowFlag.value || ocupacionAuto > capacidadTotal.value,
+    overflow: aforoOverflowFlag.value || ocupacion > capacidadTotal.value,
   }
 })
 
