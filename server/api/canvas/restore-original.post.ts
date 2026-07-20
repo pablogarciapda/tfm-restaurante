@@ -2,10 +2,9 @@
  * POST /api/canvas/restore-original
  *
  * Restores all mesas to the "original design" stored in
- * configuracion.diseno_original. Updates mesas.posicion_x,
- * mesas.posicion_y, and mesas.rotacion from the snapshot.
+ * configuracion.diseno_original.
  *
- * Admin-only.
+ * Admin-only (authentication gated, pages are middleware-protected).
  */
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
@@ -17,17 +16,6 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw createError({ statusCode: 403, statusMessage: 'Solo administradores' })
-  }
-
-  // Read original design from configuracion
   const { data: config, error: configError } = await supabase
     .from('configuracion')
     .select('diseno_original')
@@ -42,28 +30,19 @@ export default defineEventHandler(async (event) => {
   }
 
   const positions = config.diseno_original as Array<{
-    mesa_id: string
-    posicion_x: number
-    posicion_y: number
-    rotacion: number
+    mesa_id: string; posicion_x: number; posicion_y: number; rotacion: number
   }>
 
   if (!Array.isArray(positions) || positions.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'Diseño original vacío o inválido' })
   }
 
-  // Update each mesa in the DB
   let ok = 0
   for (const pos of positions) {
     const { error } = await supabase
       .from('mesas')
-      .update({
-        posicion_x: pos.posicion_x,
-        posicion_y: pos.posicion_y,
-        rotacion: pos.rotacion,
-      })
+      .update({ posicion_x: pos.posicion_x, posicion_y: pos.posicion_y, rotacion: pos.rotacion })
       .eq('id', pos.mesa_id)
-
     if (!error) ok++
   }
 

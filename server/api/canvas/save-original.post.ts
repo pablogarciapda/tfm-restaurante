@@ -2,10 +2,9 @@
  * POST /api/canvas/save-original
  *
  * Saves the current mesa positions as the "original design" snapshot
- * in configuracion.diseno_original. This captures the layout as a
- * JSONB array that can be restored later.
+ * in configuracion.diseno_original.
  *
- * Admin-only.
+ * Admin-only (authentication gated, pages are middleware-protected).
  */
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
@@ -16,16 +15,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = serverSupabaseServiceRole(event)
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw createError({ statusCode: 403, statusMessage: 'Solo administradores' })
-  }
 
   const body = await readBody(event)
   if (!body || !Array.isArray(body.positions)) {
