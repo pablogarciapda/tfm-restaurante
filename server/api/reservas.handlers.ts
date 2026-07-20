@@ -93,7 +93,7 @@ export async function handleCreateReservation(
   // 4. Read config → modo_reserva, sms_verificacion, horarios_config, zonas_config, captcha_habilitado
   const { data: config } = await supabase
     .from('configuracion')
-    .select('modo_reserva, sms_verificacion, notificacion_reserva, horarios_config, zonas_config, captcha_habilitado, restaurant_nombre')
+    .select('modo_reserva, sms_verificacion, notificacion_reserva, horarios_config, zonas_config, captcha_habilitado, restaurant_nombre, site_url')
     .limit(1)
     .single()
   const modo = config?.modo_reserva ?? 'automatica'
@@ -101,6 +101,7 @@ export async function handleCreateReservation(
   const horariosConfig = config?.horarios_config as HorarioConfig | null
   const captchaHabilitado = (config?.captcha_habilitado as boolean) ?? false
   const restaurantNombre = (config?.restaurant_nombre as string) || ''
+  const siteUrl = (config?.site_url as string) || ''
 
   // 4a. SMS gate — only required when sms_verificacion is enabled and NOT admin-created
   if (smsReq && !b.sms_verified && !b.admin_created) {
@@ -324,7 +325,13 @@ export async function handleCreateReservation(
       })
       const emailInfo = b.email ? ` Tu email es: ${b.email}.` : ''
       const ref = generarReferencia(reserva.id, b.fecha_hora)
-      const msg = `✅ Reserva confirmada en ${restaurantNombre || 'Restaurante'}. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
+      // Cancel link uses configuracion.site_url (Dominio público URL).
+      // When site_url is not configured, the cancel link is omitted —
+      // the email channel (if enabled) still carries it.
+      const cancelLink = siteUrl
+        ? ` Cancela: ${siteUrl.replace(/\/$/, '')}/cancelar?token=${cancelToken}`
+        : ''
+      const msg = `✅ Reserva confirmada en ${restaurantNombre || 'Restaurante'}. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}${cancelLink}`
       console.info(`[reservas] SMS to ${normalizedPhone}: ${msg}`)
     }
   }
