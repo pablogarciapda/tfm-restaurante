@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     .from('canvas_layouts').select('*').eq('fecha', fecha).eq('turno', turno).eq('zona', zona).maybeSingle()
 
   if (error) throw createError({ statusCode: 500, statusMessage: `Error al cargar: ${error.message}` })
-  if (!data) throw createError({ statusCode: 404, statusMessage: `No hay layout para ${fecha} (${turno}) en ${zona || 'todas las zonas'}` })
+  if (!data) return { positions: [] }
 
   return { fecha: data.fecha, turno: data.turno, zona: data.zona, positions: data.positions, updated_at: data.updated_at }
 })
