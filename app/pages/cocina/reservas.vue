@@ -1241,7 +1241,7 @@ onMounted(async () => {
     </div>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
-    <nav class="flex flex-wrap gap-2" aria-label="Zonas del local">
+    <nav class="flex flex-wrap gap-2 py-2" aria-label="Zonas del local">
       <button
         v-for="zona in zonasConfig"
         :key="zona.nombre"
