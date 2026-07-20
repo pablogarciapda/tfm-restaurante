@@ -7,8 +7,10 @@
  *
  * Admin-only.
  */
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const user = await serverSupabaseUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'No autorizado' })
   }
@@ -25,9 +27,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Turno debe ser "comida" o "cena"' })
   }
 
-  const client = useSupabaseClient()
+  const supabase = serverSupabaseServiceRole(event)
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('canvas_layouts')
     .select('*')
     .eq('fecha', fecha)

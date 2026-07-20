@@ -4,15 +4,17 @@
  * Returns the original design snapshot if one exists.
  * Admin-only.
  */
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const user = await serverSupabaseUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'No autorizado' })
   }
 
-  const client = useSupabaseClient()
+  const supabase = serverSupabaseServiceRole(event)
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('configuracion')
     .select('diseno_original')
     .limit(1)

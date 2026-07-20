@@ -7,15 +7,17 @@
  *
  * Admin-only.
  */
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const user = await serverSupabaseUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'No autorizado' })
   }
 
-  const client = useSupabaseClient()
+  const supabase = serverSupabaseServiceRole(event)
 
-  const { data: profile } = await client
+  const { data: profile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -26,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Read original design from configuracion
-  const { data: config, error: configError } = await client
+  const { data: config, error: configError } = await supabase
     .from('configuracion')
     .select('diseno_original')
     .limit(1)
@@ -53,7 +55,7 @@ export default defineEventHandler(async (event) => {
   // Update each mesa in the DB
   let ok = 0
   for (const pos of positions) {
-    const { error } = await client
+    const { error } = await supabase
       .from('mesas')
       .update({
         posicion_x: pos.posicion_x,
