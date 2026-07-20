@@ -104,12 +104,11 @@ async function saveSelectedFusedPositions() {
   }
 }
 
-// ── Guardar / Restaurar / Cargar canvas ──
+// ── Guardar / Restaurar canvas ──
 const guardarFecha = ref(new Date().toISOString().slice(0, 10))
 const guardarTurno = ref<'comida' | 'cena'>('comida')
 const savingCanvas = ref(false)
 const restoringOriginal = ref(false)
-const loadingLayout = ref(false)
 
 /** Collect current mesa positions from Konva nodes for the active zone */
 function collectLayoutPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
@@ -177,37 +176,6 @@ async function handleRestoreOriginal() {
     showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
   } finally {
     restoringOriginal.value = false
-  }
-}
-
-/** Carga un layout guardado para la fecha + turno seleccionado */
-async function handleLoadLayout() {
-  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
-  if (mesasZona.length === 0) {
-    showToast('No hay mesas en la zona activa', 'error')
-    return
-  }
-  if (!confirm(`¿Cargar layout del ${guardarFecha.value} (${guardarTurno.value})? Se actualizarán las posiciones de las mesas.`)) return
-  loadingLayout.value = true
-  try {
-    const data: any = await $fetch('/api/canvas/load-layout', {
-      params: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona },
-    })
-    // Update mesas positions in DB and store
-    for (const pos of data.positions) {
-      await updateMesa(pos.mesa_id, {
-        posicion_x: pos.posicion_x,
-        posicion_y: pos.posicion_y,
-        rotacion: pos.rotacion,
-      })
-    }
-    await loadMesas(store.activeZona)
-    const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
-    showToast(`Layout cargado (${data.positions.length} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
-  } catch (e: any) {
-    showToast(e?.statusMessage || 'No hay layout guardado para esa fecha/turno', 'error')
-  } finally {
-    loadingLayout.value = false
   }
 }
 
@@ -1152,7 +1120,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Gestión de layouts: Guardar / Restaurar original / Cargar -->
+    <!-- Gestión de layouts: Guardar / Restaurar original -->
     <div
       class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-cream/95 p-2"
     >
@@ -1179,15 +1147,6 @@ onMounted(async () => {
       >
         {{ savingCanvas ? 'Guardando...' : '💾 Guardar' }}
       </button>
-      <button
-        type="button"
-        class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
-        title="Carga el layout guardado para la fecha y turno seleccionados"
-        :disabled="loadingLayout"
-        @click="handleLoadLayout"
-      >
-        {{ loadingLayout ? 'Cargando...' : '📂 Cargar' }}
-      </button>
       <div class="w-full border-t border-gray-200 my-1"></div>
       <button
         type="button"
@@ -1198,7 +1157,7 @@ onMounted(async () => {
       >
         {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
       </button>
-      <span class="text-xs text-gray-400">Al cambiar fecha o turno se carga automáticamente el layout si existe. Solo fechas desde hoy.</span>
+      <span class="text-xs text-gray-400">Al cambiar fecha o turno se carga auto. Solo fechas desde hoy. Cada zona es independiente.</span>
     </div>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
