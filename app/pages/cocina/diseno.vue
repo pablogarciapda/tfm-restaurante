@@ -308,7 +308,7 @@ watch(editAlto, (val) => {
     <div class="flex-shrink-0 space-y-3 bg-cream pb-2">
     <!-- Zone tabs + original design buttons -->
     <div class="flex items-center gap-2 pt-2">
-      <nav class="flex flex-1 flex-wrap gap-2" aria-label="Zonas del local">
+      <nav class="flex flex-1 flex-wrap gap-2 py-2" aria-label="Zonas del local">
         <button
           v-for="zona in zonasConfig"
           :key="zona.id"
