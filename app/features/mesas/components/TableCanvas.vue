@@ -737,7 +737,8 @@ function rotateSelectedGroup90CW() {
   if (store.selectedMesaId === null) return
   const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
   if (!mesa) return
-  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return
+  // After AD-04 fix: parent has mesa_padre_id = null (not self-id).
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== null) return
 
   const layer = mainLayerRef.value?.getNode()
   if (!layer) return
@@ -765,7 +766,8 @@ function getSelectedMesaIds(): string[] {
   if (store.selectedMesaId === null) return []
   const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
   if (!mesa) return []
-  if (!mesa.id_fusion || mesa.mesa_padre_id !== mesa.id) return []
+  // After AD-04 fix: parent has mesa_padre_id = null (not self-id).
+  if (!mesa.id_fusion || mesa.mesa_padre_id !== null) return []
   return store.mesas
     .filter((m) => m.id_fusion === mesa.id_fusion)
     .map((m) => m.id)

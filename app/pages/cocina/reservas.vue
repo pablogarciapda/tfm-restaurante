@@ -52,12 +52,20 @@ const {
 
 // ── Fused group rotation toolbar (operación mode) ──
 
-/** The selected mesa is the fused parent that drives the rigid rotation button. */
+/**
+ * The selected mesa is the fused parent that drives the rigid rotation button.
+ *
+ * After AD-04 fix, the parent has mesa_padre_id = null (root of the fusion
+ * group). The old check `mesa_padre_id !== sel.id` was for the previous bug
+ * where the parent had mesa_padre_id = self.id (now corrected).
+ */
 const selectedFusedParent = computed(() => {
   const sel = store.selectedMesa
   if (!sel) return null
   if (!sel.id_fusion) return null
-  if (sel.mesa_padre_id !== sel.id) return null
+  // Parent is the fusion root: mesa_padre_id IS null.
+  // Children have mesa_padre_id pointing to the parent's id.
+  if (sel.mesa_padre_id !== null) return null
   return sel
 })
 
