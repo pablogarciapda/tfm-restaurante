@@ -22,6 +22,7 @@ import { calculateFusedCapacity } from '#shared/utils/fusion-math'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import { generarReferencia } from '#shared/utils/referencia'
+import { generateSlots } from '#shared/utils/slots'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
@@ -929,15 +930,53 @@ async function completarReserva(reserva: ReservaRow) {
 const editarShow = ref(false)
 const editarReserva = ref<ReservaRow | null>(null)
 const editarNombre = ref('')
+const editarApellidos = ref('')
 const editarTelefono = ref('')
+const editarEmail = ref('')
 const editarComensales = ref<number | null>(null)
+const editarFecha = ref('')
+const editarSlot = ref('')
+const editarReenviar = ref(false)
 const editarSaving = ref(false)
+
+// Slot generation for edit modal (uses same horariosConfig as reservation modal)
+const editarSlots = computed(() => {
+  const h = horariosConfig.value
+  if (!h) return []
+  try { return generateSlots(h) } catch { return [] }
+})
+const editarTurnos = computed(() => {
+  const comida: typeof editarSlots.value = []
+  const cena: typeof editarSlots.value = []
+  for (const slot of editarSlots.value) {
+    const horaNum = parseInt(slot.hora.replace(':', ''), 10)
+    if (horaNum >= 1200 && horaNum < 1700) comida.push(slot)
+    else cena.push(slot)
+  }
+  return { comida, cena }
+})
+function isEditarSlotPast(slotHora: string): boolean {
+  if (!editarFecha.value) return false
+  const now = new Date()
+  const slotDate = new Date(editarFecha.value + 'T' + slotHora + ':00')
+  return slotDate <= now
+}
 
 function openEditarReserva(reserva: ReservaRow) {
   editarReserva.value = reserva
   editarNombre.value = (reserva.cliente as any)?.nombre || ''
+  editarApellidos.value = (reserva.cliente as any)?.apellidos || ''
   editarTelefono.value = (reserva.cliente as any)?.telefono || ''
+  editarEmail.value = (reserva.cliente as any)?.email || ''
   editarComensales.value = reserva.numero_comensales
+  // Parse fecha_hora into date (YYYY-MM-DD) and find closest slot
+  const d = new Date(reserva.fecha_hora)
+  editarFecha.value = d.toISOString().slice(0, 10)
+  const currentHH = d.toTimeString().slice(0, 5)
+  // Find closest slot from available slots
+  const match = editarSlots.value.find(s => s.hora === currentHH)
+  editarSlot.value = match ? match.hora : currentHH
+  editarReenviar.value = false
   editarShow.value = true
 }
 
@@ -947,17 +986,29 @@ function closeEditarReserva() {
 }
 
 async function handleEditarReserva() {
-  if (!editarReserva.value) return
+  if (!editarReserva.value || !editarFecha.value || !editarSlot.value) return
   editarSaving.value = true
   try {
-    await client.from('reservas').update({
-      numero_comensales: editarComensales.value,
-    }).eq('id', editarReserva.value.id)
+    const fecha_hora = `${editarFecha.value}T${editarSlot.value}:00`
+    const result: any = await $fetch('/api/cocina/reservas/editar', {
+      method: 'POST',
+      body: {
+        reserva_id: editarReserva.value.id,
+        fecha_hora,
+        numero_comensales: editarComensales.value,
+        cliente_nombre: editarNombre.value,
+        cliente_apellidos: editarApellidos.value,
+        cliente_telefono: editarTelefono.value,
+        cliente_email: editarEmail.value,
+        reenviar_notificacion: editarReenviar.value,
+      },
+    })
+    const ref = generarReferencia(result.reserva.id, result.reserva.fecha_hora)
     await loadReservas()
-    showToast('Reserva actualizada', 'success')
+    showToast(editarReenviar.value ? `Reserva ${ref} actualizada y notificación enviada` : `Reserva ${ref} actualizada`, 'success')
     closeEditarReserva()
-  } catch {
-    showToast('Error al actualizar', 'error')
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || 'Error al actualizar', 'error')
   } finally {
     editarSaving.value = false
   }
@@ -1278,12 +1329,13 @@ onMounted(async () => {
         <table class="w-full text-sm">
           <thead class="border-b border-gray-100 bg-gray-50">
             <tr>
-              <th class="px-4 py-2 text-left font-medium text-gray-500">Cliente</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
-              <th class="px-4 py-2 text-left font-medium text-gray-500">Comensales</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Pax</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Zona</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Mesa</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Nombre</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Ref</th>
               <th class="px-4 py-2 text-right font-medium text-gray-500">Acción</th>
             </tr>
           </thead>
@@ -1293,9 +1345,6 @@ onMounted(async () => {
               :key="reserva.id"
               class="border-b border-gray-50 hover:bg-gray-50/50"
             >
-              <td class="px-4 py-2">
-                {{ (reserva.cliente as any)?.nombre || '—' }}
-              </td>
               <td class="px-4 py-2 text-gray-600">
                 {{ new Date(reserva.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}
               </td>
@@ -1315,6 +1364,12 @@ onMounted(async () => {
                 >
                   {{ reserva.estado }}
                 </span>
+              </td>
+              <td class="px-4 py-2">
+                {{ (reserva.cliente as any)?.nombre || '—' }}
+              </td>
+              <td class="px-4 py-2 font-mono text-xs text-gray-500">
+                {{ generarReferencia(reserva.id, reserva.fecha_hora) }}
               </td>
                <td class="px-4 py-2 text-right">
                  <div class="flex justify-end gap-2">
@@ -1740,28 +1795,130 @@ onMounted(async () => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       @click.self="closeEditarReserva"
     >
-      <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <h3 class="mb-4 text-lg font-semibold text-slate">Editar Reserva</h3>
-        <p class="mb-4 text-sm text-gray-500">
-          {{ editarReserva ? new Date(editarReserva.fecha_hora).toLocaleString('es-ES') : '' }}
-        </p>
+
         <div class="space-y-3">
+          <!-- Fecha -->
           <div>
-            <label class="mb-1 block text-xs text-gray-500">Nombre</label>
-            <input v-model="editarNombre" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            <label class="mb-1 block text-xs text-gray-500">Fecha</label>
+            <input v-model="editarFecha" type="date" :min="new Date().toISOString().slice(0,10)" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
           </div>
-          <div>
-            <label class="mb-1 block text-xs text-gray-500">Teléfono</label>
-            <input v-model="editarTelefono" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+
+          <!-- Slots por turno -->
+          <div v-if="editarTurnos.comida.length > 0 || editarTurnos.cena.length > 0">
+            <label class="mb-1 block text-xs text-gray-500">Horario</label>
+            <div v-if="editarTurnos.comida.length > 0" class="mb-2">
+              <p class="mb-1 text-xs text-gray-400">Comida</p>
+              <div class="flex flex-wrap gap-1">
+                <button
+                  v-for="slot in editarTurnos.comida"
+                  :key="slot.hora"
+                  type="button"
+                  :disabled="isEditarSlotPast(slot.hora)"
+                  class="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+                  :class="editarSlot === slot.hora
+                    ? 'bg-terracotta text-white'
+                    : isEditarSlotPast(slot.hora)
+                      ? 'cursor-not-allowed bg-gray-100 text-gray-300'
+                      : 'bg-gray-100 text-gray-600 hover:bg-terracotta/10 hover:text-terracotta'"
+                  @click="editarSlot = slot.hora"
+                >
+                  {{ slot.hora }}
+                </button>
+              </div>
+            </div>
+            <div v-if="editarTurnos.cena.length > 0">
+              <p class="mb-1 text-xs text-gray-400">Cena</p>
+              <div class="flex flex-wrap gap-1">
+                <button
+                  v-for="slot in editarTurnos.cena"
+                  :key="slot.hora"
+                  type="button"
+                  :disabled="isEditarSlotPast(slot.hora)"
+                  class="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+                  :class="editarSlot === slot.hora
+                    ? 'bg-terracotta text-white'
+                    : isEditarSlotPast(slot.hora)
+                      ? 'cursor-not-allowed bg-gray-100 text-gray-300'
+                      : 'bg-gray-100 text-gray-600 hover:bg-terracotta/10 hover:text-terracotta'"
+                  @click="editarSlot = slot.hora"
+                >
+                  {{ slot.hora }}
+                </button>
+              </div>
+            </div>
           </div>
+          <div v-else>
+            <label class="mb-1 block text-xs text-gray-500">Hora</label>
+            <input v-model="editarSlot" type="time" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+
+          <!-- Comensales stepper -->
           <div>
-            <label class="mb-1 block text-xs text-gray-500">Comensales</label>
-            <input v-model.number="editarComensales" type="number" min="1" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            <label class="mb-1 block text-xs text-gray-500">Pax</label>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-lg font-bold text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+                :disabled="(editarComensales ?? 1) <= 1"
+                @click="editarComensales = Math.max(1, (editarComensales ?? 1) - 1)"
+              >−</button>
+              <span class="w-8 text-center text-sm font-semibold">{{ editarComensales ?? '—' }}</span>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-lg font-bold text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+                :disabled="(editarComensales ?? 0) >= 20"
+                @click="editarComensales = Math.min(20, (editarComensales ?? 0) + 1)"
+              >+</button>
+            </div>
+          </div>
+
+          <!-- Datos cliente -->
+          <div class="border-t border-gray-100 pt-3">
+            <p class="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">Datos del cliente</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Nombre</label>
+                <input v-model="editarNombre" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Apellidos</label>
+                <input v-model="editarApellidos" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div class="mt-2 grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Teléfono</label>
+                <input v-model="editarTelefono" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">Email</label>
+                <input v-model="editarEmail" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Reenviar notificación -->
+          <div class="border-t border-gray-100 pt-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input v-model="editarReenviar" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-terracotta focus:ring-terracotta" />
+              <span class="text-sm text-gray-700">Reenviar confirmación (email/SMS según configuración)</span>
+            </label>
+            <p v-if="editarReenviar" class="mt-1 text-xs text-amber-600">
+              Se generará un nuevo enlace de cancelación. El enlace anterior quedará anulado.
+            </p>
           </div>
         </div>
+
         <div class="mt-6 flex justify-end gap-3">
           <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm" @click="closeEditarReserva">Cancelar</button>
-          <button type="button" class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50" :disabled="editarSaving" @click="handleEditarReserva">
+          <button
+            type="button"
+            class="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90 disabled:opacity-50"
+            :disabled="editarSaving || !editarFecha || !editarSlot"
+            @click="handleEditarReserva"
+          >
             {{ editarSaving ? 'Guardando...' : 'Guardar' }}
           </button>
         </div>
