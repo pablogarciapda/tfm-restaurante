@@ -16,7 +16,7 @@ import AforoIndicator from './AforoIndicator.vue'
 const props = defineProps<{
   mode: 'diseno' | 'operacion'
   selectedMesa: Mesa | null
-  aforoInfo: AforoInfo
+  aforoInfo?: AforoInfo
   // Fusion (operación mode)
   canFuse?: boolean
   canUnfuse?: boolean
@@ -232,8 +232,8 @@ async function handleImageUpload(event: Event) {
     <!-- Center slot: page-specific controls (e.g., layout controls in reservas) -->
     <slot name="controls" />
 
-    <!-- Right: Aforo (both modes) -->
-    <div class="flex items-center gap-2">
+    <!-- Right: Aforo (operación mode only) -->
+    <div v-if="aforoInfo" class="flex items-center gap-2">
       <AforoIndicator :aforo-info="aforoInfo" />
     </div>
   </div>
