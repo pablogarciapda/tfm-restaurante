@@ -84,7 +84,7 @@ function closeMobileMenu() {
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto px-6 pb-6">
         <slot />
       </main>
     </div>
