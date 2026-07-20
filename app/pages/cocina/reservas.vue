@@ -1335,6 +1335,7 @@ onMounted(async () => {
               <th class="px-4 py-2 text-left font-medium text-gray-500">Mesa</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Nombre</th>
+              <th class="px-4 py-2 text-left font-medium text-gray-500">Ref</th>
               <th class="px-4 py-2 text-right font-medium text-gray-500">Acción</th>
             </tr>
           </thead>
@@ -1366,6 +1367,9 @@ onMounted(async () => {
               </td>
               <td class="px-4 py-2">
                 {{ (reserva.cliente as any)?.nombre || '—' }}
+              </td>
+              <td class="px-4 py-2 font-mono text-xs text-gray-500">
+                {{ generarReferencia(reserva.id, reserva.fecha_hora) }}
               </td>
                <td class="px-4 py-2 text-right">
                  <div class="flex justify-end gap-2">
