@@ -6,12 +6,11 @@
 
   Mode separation: diseno (layout editing) vs operación (reservations + fusion).
   'diseno' mode: shape selector, add/delete/save, drawing mode, background upload.
-  'operacion' mode: fuse/unfuse buttons, turno filter, aforo indicator.
+  'operacion' mode: fuse/unfuse buttons, multi-select, aforo indicator.
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import type { Mesa, AforoInfo, FormaMesa } from '#shared/contracts/mesas.contract'
-import type { TurnoFilter } from '../stores/canvas-store'
 import AforoIndicator from './AforoIndicator.vue'
 
 const props = defineProps<{
@@ -22,8 +21,6 @@ const props = defineProps<{
   canFuse?: boolean
   canUnfuse?: boolean
   canFusionar?: boolean
-  // Turn filter (operación mode)
-  activeTurno?: TurnoFilter
   // Drawing / walls (diseño mode)
   isDrawing?: boolean
   showGrid?: boolean
@@ -42,7 +39,6 @@ const emit = defineEmits<{
   save: []
   fuse: []
   unfuse: []
-  'update:activeTurno': [value: TurnoFilter]
   toggleDrawing: []
   toggleGrid: []
   clearWalls: []
@@ -69,16 +65,7 @@ async function handleImageUpload(event: Event) {
   }
 }
 
-const turnoOptions: { value: TurnoFilter; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'comida', label: 'Comida' },
-  { value: 'cena', label: 'Cena' },
-]
-
-const activeTurnoValue = computed({
-  get: () => props.activeTurno ?? 'todos',
-  set: (val: TurnoFilter) => emit('update:activeTurno', val),
-})
+// Remove TurnoFilter import
 </script>
 
 <template>
@@ -240,27 +227,6 @@ const activeTurnoValue = computed({
           {{ multiSelect ? `Selec. (${multiSelectCount ?? 0})` : 'Selec.' }}
         </button>
       </template>
-    </div>
-
-    <!-- Center: Turn filter (operación mode only) -->
-    <div
-      v-if="mode === 'operacion'"
-      class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5"
-    >
-      <button
-        v-for="opt in turnoOptions"
-        :key="opt.value"
-        type="button"
-        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-        :class="
-          activeTurnoValue === opt.value
-            ? 'bg-terracotta text-white shadow-sm'
-            : 'text-slate hover:bg-gray-100'
-        "
-        @click="activeTurnoValue = opt.value"
-      >
-        {{ opt.label }}
-      </button>
     </div>
 
     <!-- Right: Aforo (both modes) -->
