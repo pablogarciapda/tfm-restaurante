@@ -179,9 +179,11 @@ async function handleRestoreOriginal() {
   }
 }
 
-// ── Auto-load layout when date or turno changes ──
+// ── Auto-load layout and refresh aforo when date or turno changes ──
 watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
   if (!fecha || !turno) return
+  // Reload reservations for the new date to keep aforo accurate
+  await loadReservas()
   try {
     const data: any = await $fetch('/api/canvas/load-layout', {
       params: { fecha, turno, zona: store.activeZona },
@@ -811,11 +813,20 @@ async function handleConfirmar(conMesa: boolean) {
 
 async function loadReservas() {
   try {
+    // Load reservations ±15 days from selected date for aforo + table
+    const center = new Date(guardarFecha.value || new Date().toISOString().slice(0, 10))
+    const from = new Date(center)
+    from.setDate(from.getDate() - 15)
+    const to = new Date(center)
+    to.setDate(to.getDate() + 15)
+
     const { data, error } = await client
       .from('reservas')
       .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cliente:cliente_id(nombre)')
+      .gte('fecha_hora', from.toISOString().slice(0, 10))
+      .lte('fecha_hora', to.toISOString().slice(0, 10) + 'T23:59:59')
       .order('fecha_hora', { ascending: true })
-      .limit(200)
+      .limit(500)
 
     if (error) throw error
     reservasList.value = (data || []) as unknown as ReservaRow[]
