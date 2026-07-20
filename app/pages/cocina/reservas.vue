@@ -1152,7 +1152,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col -mt-6">
+  <div class="flex flex-col">
     <!-- Standby Banner (Slice 4) -->
     <StandbyBanner
       :reservations="standbyReservations"
