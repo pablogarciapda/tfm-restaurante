@@ -10,7 +10,7 @@
   Realtime sync from useMesas composable.
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import TableCanvas from '../../features/mesas/components/TableCanvas.vue'
 import TableToolbar from '../../features/mesas/components/TableToolbar.vue'
 import FusionConfirmDialog from '../../features/mesas/components/FusionConfirmDialog.vue'
@@ -210,6 +210,29 @@ async function handleLoadLayout() {
     loadingLayout.value = false
   }
 }
+
+// ── Auto-load layout when date or turno changes ──
+watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
+  if (!fecha || !turno) return
+  try {
+    const data: any = await $fetch('/api/canvas/load-layout', {
+      params: { fecha, turno },
+    })
+    if (!data?.positions?.length) return
+    for (const pos of data.positions) {
+      await updateMesa(pos.mesa_id, {
+        posicion_x: pos.posicion_x,
+        posicion_y: pos.posicion_y,
+        rotacion: pos.rotacion,
+      })
+    }
+    await loadMesas(store.activeZona)
+    const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
+    showToast(`Layout cargado: ${fecha} (${turnoLabel}) — ${data.positions.length} mesas`, 'success')
+  } catch {
+    // 404 = no layout for this date/turno — silently skip
+  }
+})
 
 // ── Fusion state ──
 const selectedIds = ref<string[]>([])
@@ -1137,6 +1160,7 @@ onMounted(async () => {
       <input
         v-model="guardarFecha"
         type="date"
+        :min="new Date().toISOString().slice(0, 10)"
         class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
       />
       <select
@@ -1174,7 +1198,7 @@ onMounted(async () => {
       >
         {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
       </button>
-      <span class="text-xs text-gray-400">Cada layout se guarda por fecha + turno. Restaurar aplica el diseño original a la fecha/turno seleccionados.</span>
+      <span class="text-xs text-gray-400">Al cambiar fecha o turno se carga automáticamente el layout si existe. Solo fechas desde hoy.</span>
     </div>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->
