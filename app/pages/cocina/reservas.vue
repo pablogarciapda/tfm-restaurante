@@ -315,8 +315,10 @@ const timeSlots = computed(() => {
 const aforoInfo = computed<AforoInfo>(() => {
   // Ocupación real: suma de comensales de reservas del día+turno seleccionado
   let ocupacionReal = 0
+  let hasReservaData = false
   const h = horariosConfig.value
   if (h && reservasList.value.length > 0) {
+    hasReservaData = true
     const turnoInicio = guardarTurno.value === 'comida' ? h.comida_inicio : h.cena_inicio
     const turnoFin = guardarTurno.value === 'comida' ? h.comida_fin : h.cena_fin
     const fecha = guardarFecha.value
@@ -326,7 +328,7 @@ const aforoInfo = computed<AforoInfo>(() => {
       .filter((r) => {
         if (r.estado !== 'pendiente' && r.estado !== 'confirmada') return false
         if (!r.fecha_hora.startsWith(fecha)) return false
-        const hora = r.fecha_hora.slice(11, 16) // "HH:MM"
+        const hora = r.fecha_hora.slice(11, 16)
         if (hora < turnoInicio || hora > turnoFin) return false
         if (zona && r.zona_id !== zona) return false
         return true
@@ -334,12 +336,14 @@ const aforoInfo = computed<AforoInfo>(() => {
       .reduce((sum, r) => sum + (r.numero_comensales ?? 0), 0)
   }
 
-  // Fallback: sum of root mesa capacities (auto mode)
+  // Fallback: sum of root mesa capacities (auto mode) — only when no reservation data
   const ocupacionAuto = store.mesas
     .filter((m) => m.mesa_padre_id === null)
     .reduce((sum, m) => sum + m.capacidad_actual, 0)
 
-  const ocupacion = ocupacionReal > 0 ? ocupacionReal : (modoOcupacion.value === 'manual' ? ocupacionManual.value : ocupacionAuto)
+  const ocupacion = hasReservaData
+    ? ocupacionReal
+    : (modoOcupacion.value === 'manual' ? ocupacionManual.value : ocupacionAuto)
   const disponible = capacidadTotal.value - ocupacion
 
   return {
