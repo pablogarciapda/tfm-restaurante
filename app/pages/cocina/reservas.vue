@@ -1121,7 +1121,6 @@ onMounted(async () => {
       :can-fusionar="canFusionar"
       :multi-select="multiSelectMode"
       :multi-select-count="selectedIds.length"
-      :loading-aforo="loadingAforo"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
       @toggle-multi-select="toggleMultiSelect"
@@ -1813,5 +1812,30 @@ onMounted(async () => {
     >
       {{ aforoOverflowToast }}
     </div>
+    <!-- Loading overlay: full-page spinner while computing aforo + loading layout -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="loadingAforo"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm"
+        >
+          <div class="flex flex-col items-center gap-3 rounded-xl bg-white px-8 py-6 shadow-lg">
+            <div class="h-8 w-8 animate-spin rounded-full border-3 border-gray-200 border-t-terracotta" />
+            <span class="text-sm font-medium text-slate">Cargando layout y ocupación...</span>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
