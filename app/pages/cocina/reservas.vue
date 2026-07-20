@@ -23,6 +23,7 @@ import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
 import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import { generarReferencia } from '#shared/utils/referencia'
 import { generateSlots } from '#shared/utils/slots'
+import { toLocalDateString, buildFechaHora } from '#shared/utils/date'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
@@ -106,7 +107,7 @@ async function saveSelectedFusedPositions() {
 }
 
 // ── Guardar / Restaurar canvas ──
-const guardarFecha = ref(new Date().toISOString().slice(0, 10))
+const guardarFecha = ref(toLocalDateString())
 const guardarTurno = ref<'comida' | 'cena'>('comida')
 const savingCanvas = ref(false)
 const restoringOriginal = ref(false)
@@ -335,7 +336,7 @@ const aforoInfo = computed<AforoInfo>(() => {
         // Convert to local time for date/time comparison
         const d = new Date(r.fecha_hora)
         if (isNaN(d.getTime())) return false
-        const localDate = d.toISOString().slice(0, 10)
+        const localDate = toLocalDateString(d)
         if (localDate !== fecha) return false
         const localMin = d.getHours() * 60 + d.getMinutes()
         const [tIniH, tIniM] = turnoInicio.split(':').map(Number)
@@ -434,7 +435,7 @@ const canFusionar = computed(() => {
 const reservaModalShow = ref(false)
 const reservaModalMesa = ref<Mesa | null>(null)
 const reservaModalStep = ref<'datetime' | 'form' | 'success'>('datetime')
-const reservaFecha = ref(new Date().toISOString().split('T')[0] ?? '')
+const reservaFecha = ref(toLocalDateString())
 const reservaHora = ref('')
 const reservaForm = ref({
   nombre: '',
@@ -449,7 +450,7 @@ const reservaSuccess = ref(false)
 function openReservaModal(mesa: Mesa) {
   reservaModalMesa.value = mesa
   reservaModalStep.value = 'datetime'
-  reservaFecha.value = new Date().toISOString().split('T')[0]!
+  reservaFecha.value = toLocalDateString()
   reservaHora.value = ''
   reservaError.value = ''
   reservaForm.value = {
@@ -476,7 +477,7 @@ async function checkDisponibilidad() {
   if (!reservaModalMesa.value || !reservaFecha.value || !reservaHora.value) return
   reservaError.value = ''
 
-  const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00`
+  const fecha_hora = buildFechaHora(reservaFecha.value, reservaHora.value)
   const client = useSupabaseClient()
   const { data, error } = await client
     .from('reservas')
@@ -509,11 +510,7 @@ async function handleReservaSubmit() {
 
   try {
     // Include timezone offset so the server interprets the time correctly
-    const tzOffset = -new Date().getTimezoneOffset()
-    const tzSign = tzOffset >= 0 ? '+' : '-'
-    const tzPad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, '0')
-    const tz = `${tzSign}${tzPad(tzOffset / 60)}:${tzPad(tzOffset % 60)}`
-    const fecha_hora = `${reservaFecha.value}T${reservaHora.value}:00${tz}`
+    const fecha_hora = buildFechaHora(reservaFecha.value, reservaHora.value)
 
     const result = await $fetch<{ success: boolean; reserva_id?: string; error?: string }>(
       '/api/reservas',
@@ -827,7 +824,7 @@ async function handleConfirmar(conMesa: boolean) {
 async function loadReservas() {
   try {
     // Load reservations ±15 days from selected date for aforo + table
-    const center = new Date(guardarFecha.value || new Date().toISOString().slice(0, 10))
+    const center = new Date(guardarFecha.value || toLocalDateString())
     const from = new Date(center)
     from.setDate(from.getDate() - 15)
     const to = new Date(center)
@@ -849,17 +846,17 @@ async function loadReservas() {
 }
 
 // ── Date filter ──
-const filterDesde = ref(new Date().toISOString().slice(0, 10))
+const filterDesde = ref(toLocalDateString())
 const filterHasta = ref('')
 
 function setToday() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toLocalDateString()
   filterDesde.value = today
   filterHasta.value = today
 }
 
 function clearDateFilter() {
-  filterDesde.value = new Date().toISOString().slice(0, 10)
+  filterDesde.value = toLocalDateString()
   filterHasta.value = ''
 }
 
@@ -869,9 +866,11 @@ const filteredReservas = computed(() => {
     list = list.filter((r) => r.fecha_hora >= filterDesde.value)
   }
   if (filterHasta.value) {
-    const endDate = new Date(filterHasta.value)
-    endDate.setDate(endDate.getDate() + 1)
-    list = list.filter((r) => r.fecha_hora < endDate.toISOString().slice(0, 10))
+    // Add 1 day to include the full "hasta" day, then compare date strings
+    const [y, m, d] = filterHasta.value.split('-').map(Number)
+    const endDate = new Date(y!, m! - 1, d! + 1)
+    const endStr = toLocalDateString(endDate)
+    list = list.filter((r) => r.fecha_hora.slice(0, 10) < endStr)
   }
   return list
 })
@@ -969,9 +968,9 @@ function openEditarReserva(reserva: ReservaRow) {
   editarTelefono.value = (reserva.cliente as any)?.telefono || ''
   editarEmail.value = (reserva.cliente as any)?.email || ''
   editarComensales.value = reserva.numero_comensales
-  // Parse fecha_hora into date (YYYY-MM-DD) and find closest slot
+  // Parse fecha_hora into local date (YYYY-MM-DD) and find closest slot
   const d = new Date(reserva.fecha_hora)
-  editarFecha.value = d.toISOString().slice(0, 10)
+  editarFecha.value = toLocalDateString(d)
   const currentHH = d.toTimeString().slice(0, 5)
   // Find closest slot from available slots
   const match = editarSlots.value.find(s => s.hora === currentHH)
@@ -989,7 +988,7 @@ async function handleEditarReserva() {
   if (!editarReserva.value || !editarFecha.value || !editarSlot.value) return
   editarSaving.value = true
   try {
-    const fecha_hora = `${editarFecha.value}T${editarSlot.value}:00`
+    const fecha_hora = buildFechaHora(editarFecha.value, editarSlot.value)
     const result: any = await $fetch('/api/cocina/reservas/editar', {
       method: 'POST',
       body: {
@@ -1072,14 +1071,14 @@ const reservasForCanvas = computed(() => {
 /** Map mesa_id → reservation reference (e.g. "240718-A4C9") for today's reserved tables */
 const reservasMap = computed(() => {
   const map: Record<string, string> = {}
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = toLocalDateString()
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
     if (r.estado !== 'pendiente' && r.estado !== 'confirmada') continue
     // Local-time date comparison (same as mesaTurnoStatus)
     const d = new Date(r.fecha_hora)
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const localDate = toLocalDateString(d)
     if (localDate !== todayStr) continue
     map[r.mesa_id] = generarReferencia(r.id, r.fecha_hora)
   }
@@ -1092,7 +1091,7 @@ const TOOLTIP_EXCLUDED_ESTADOS = new Set(['cancelada', 'standby', 'completada'])
 /** Map mesa_id → detailed reservation info for TODAY only (multiple per mesa) for tooltip */
 const reservasDetailMap = computed(() => {
   const map: Record<string, { nombre_cliente: string; fecha_hora: string; numero_comensales: number; referencia: string }[]> = {}
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = toLocalDateString()
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
@@ -1101,7 +1100,7 @@ const reservasDetailMap = computed(() => {
     if (!nombre) continue
     // Local-time date comparison (same logic as mesaTurnoStatus in TableCanvas)
     const d = new Date(r.fecha_hora)
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const localDate = toLocalDateString(d)
     if (localDate !== todayStr) continue
     if (!map[r.mesa_id]) map[r.mesa_id] = []
     map[r.mesa_id].push({
@@ -1181,7 +1180,7 @@ onMounted(async () => {
           <input
             v-model="guardarFecha"
             type="date"
-            :min="new Date().toISOString().slice(0, 10)"
+            :min="toLocalDateString()"
             class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
           />
           <select

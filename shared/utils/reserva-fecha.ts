@@ -6,12 +6,15 @@
  */
 
 /**
- * Returns the YYYY-MM-DD date part of an ISO datetime string (or empty string).
- * Handles '2026-07-16T13:30:00' and '2026-07-16' formats.
+ * Returns the YYYY-MM-DD date part of an ISO datetime string in LOCAL timezone.
+ * Handles '2026-07-16T13:30:00Z' (UTC) and '2026-07-16T13:30:00+02:00' formats.
+ *
+ * ⚠️ Uses local date methods to avoid UTC off-by-one around midnight.
  */
 export function fechaReserva(fechaHora: string | null | undefined): string {
   if (!fechaHora) return ''
-  return fechaHora.slice(0, 10)
+  const d = new Date(fechaHora)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /**

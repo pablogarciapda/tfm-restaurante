@@ -8,6 +8,7 @@
  */
 
 import type { Mesa, MesaEstado, AforoMode } from '../contracts/mesas.contract'
+import { toLocalDateString, isoToLocalDate } from './date'
 
 // ---------------------------------------------------------------------------
 // calculateFusedCapacity
@@ -384,10 +385,10 @@ export function getMesaEstado(
   mesa: Mesa,
   reservas: { mesa_id: string | null; estado: string; fecha_hora: string }[],
 ): MesaEstado {
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = toLocalDateString()
 
   const todayReservas = reservas.filter(
-    (r) => r.mesa_id === mesa.id && r.fecha_hora.startsWith(todayStr),
+    (r) => r.mesa_id === mesa.id && isoToLocalDate(r.fecha_hora) === todayStr,
   )
 
   const hasReservada = todayReservas.some(

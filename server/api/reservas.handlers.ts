@@ -53,7 +53,8 @@ function validateBody(body: ReservationBody): string[] {
       errors.push('fecha_hora_invalida')
     } else {
       const bookingDate = body.fecha_hora.slice(0, 10)
-      const todayLocal = new Date().toISOString().slice(0, 10)
+      const now = new Date()
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       if (bookingDate < todayLocal) errors.push('fecha_hora_futura')
     }
   }

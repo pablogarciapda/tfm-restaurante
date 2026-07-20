@@ -171,7 +171,7 @@ function getDateForDay(dayOfWeek: number): string {
   const diff = dayOfWeek - today.getDay()
   const target = new Date(today)
   target.setDate(today.getDate() + diff)
-  return target.toISOString().slice(0, 10)
+  return toLocalDateString(target)
 }
 
 // ── Loaders ──

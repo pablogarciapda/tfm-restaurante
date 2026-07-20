@@ -213,10 +213,12 @@ export function buildConfirmationHtml(
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'Europe/Madrid',
   })
   const horaStr = fecha.toLocaleTimeString('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Madrid',
   })
 
   return `
@@ -319,10 +321,12 @@ export function buildCancellationHtml(
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'Europe/Madrid',
   })
   const horaStr = fecha.toLocaleTimeString('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Madrid',
   })
 
   return `

@@ -42,7 +42,7 @@ const isEdit = computed(() => !!props.initialEvento)
 const form = reactive<EventoFormData>({
   titulo: (props.initialEvento?.titulo as string) ?? '',
   descripcion: (props.initialEvento?.descripcion as string) ?? '',
-  fecha: toDatetimeLocal(props.initialEvento?.fecha as string),
+  fecha: toDatetimeLocalStr(props.initialEvento?.fecha as string),
   categoria_id: (props.initialEvento?.categoria_id as string) ?? (props.categorias[0]?.id ?? '').toString(),
   imagen_url: (props.initialEvento?.imagen_url as string) ?? '',
   capacidad: (props.initialEvento?.capacidad as number) ?? null,
@@ -52,11 +52,11 @@ const form = reactive<EventoFormData>({
   crop_focus_y: (props.initialEvento?.crop_focus_y as number) ?? 50,
 })
 
-function toDatetimeLocal(isoString?: string): string {
+function toDatetimeLocalStr(isoString?: string): string {
   if (!isoString) return ''
   try {
     const d = new Date(isoString)
-    return d.toISOString().slice(0, 16)
+    return toDatetimeLocal(d)
   } catch {
     return ''
   }

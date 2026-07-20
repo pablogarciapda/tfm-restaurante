@@ -21,6 +21,7 @@ import {
 } from 'vue-konva'
 import { useCanvasStore, type TurnoFilter } from '../stores/canvas-store'
 import { useMesas } from '../composables/useMesas'
+import { toLocalDateString } from '#shared/utils/date'
 import ZoneSection from './ZoneSection.vue'
 import TableNode from './TableNode.vue'
 import FusionGroupNode from './FusionGroupNode.vue'
@@ -214,7 +215,7 @@ const mesaTurnoStatus = computed(() => {
   const config = props.horariosConfig
   if (!config) return status
 
-  const todayStr = props.selectedDate ?? new Date().toISOString().slice(0, 10)
+  const todayStr = props.selectedDate ?? toLocalDateString()
   const comidaStart = toMinutes(config.comida_inicio)
   const comidaEnd = toMinutes(config.comida_fin)
   const cenaStart = toMinutes(config.cena_inicio)
@@ -281,7 +282,7 @@ const FALLBACK_HORARIOS: HorarioConfig = {
 const mesaEstadoContext = computed<MesaEstadoContext>(() => {
   const h = props.horariosConfig ?? FALLBACK_HORARIOS
   return {
-    selectedDate: props.selectedDate ?? new Date().toISOString().slice(0, 10),
+    selectedDate: props.selectedDate ?? toLocalDateString(),
     currentTurn: store.activeTurno,
     turnos: buildTurnoWindows(h),
   }
