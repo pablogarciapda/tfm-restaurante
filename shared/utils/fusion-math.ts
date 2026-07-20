@@ -108,38 +108,181 @@ export function fuseTables(
 // calculateFusionPositions
 // ---------------------------------------------------------------------------
 
+/** A 2D rectangle for overlap checks. */
+interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /**
- * Calculate positions for child tables adjacent to the parent table.
+ * Check if two axis-aligned rectangles truly overlap (not just touch).
+ * "Touching" borders (one's edge exactly at the other's edge) are NOT a collision.
+ * Handles zero-area rects as non-colliding (point containment is not a collision).
+ */
+function rectsOverlap(a: Rect, b: Rect): boolean {
+  if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return false
+  return !(a.x + a.width <= b.x || b.x + b.width <= a.x ||
+           a.y + a.height <= b.y || b.y + b.height <= a.y)
+}
+
+/**
+ * Compute the rectangular (axis-aligned) bounds of a mesa in stage coordinates,
+ * accounting for rotation. For non-zero rotations, computes the rotated bounding
+ * box from all four corners.
+ */
+function mesaBounds(
+  m: Pick<Mesa, 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'forma' | 'rotacion'>,
+): Rect {
+  const rot = m.rotacion ?? 0
+
+  if (m.forma === 'redonda') {
+    // Circle: rotation-invariant
+    const r = m.ancho / 2
+    return { x: m.posicion_x - r, y: m.posicion_y - r, width: m.ancho, height: m.ancho }
+  }
+  if (m.forma === 'ovalada') {
+    // Oval: rotation-invariant (bounding circle/ellipse doesn't change with rotation)
+    const rx = m.ancho / 2
+    const ry = m.alto / 2
+    return { x: m.posicion_x - rx, y: m.posicion_y - ry, width: m.ancho, height: m.alto }
+  }
+
+  // Rectangular or square
+  if (rot === 0 || rot === 180) {
+    const h = m.forma === 'cuadrada' ? m.ancho : m.alto
+    return { x: m.posicion_x, y: m.posicion_y, width: m.ancho, height: h }
+  }
+
+  // Rotated mesh: compute AABB from all four corners
+  const theta = (rot * Math.PI) / 180
+  const cos = Math.cos(theta)
+  const sin = Math.sin(theta)
+  const h = m.forma === 'cuadrada' ? m.ancho : m.alto
+
+  // Four corners transformed by rotation (relative to posicion_x, posicion_y)
+  const cx = [0, m.ancho * cos, m.ancho * cos - h * sin, -h * sin]
+  const cy = [0, m.ancho * sin, m.ancho * sin + h * cos, h * cos]
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (let i = 0; i < 4; i++) {
+    const px = m.posicion_x + cx[i]!
+    const py = m.posicion_y + cy[i]!
+    minX = Math.min(minX, px)
+    minY = Math.min(minY, py)
+    maxX = Math.max(maxX, px)
+    maxY = Math.max(maxY, py)
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+/**
+ * Compute effective rightward and bottomward offsets for a mesa at its origin,
+ * accounting for rotation. Returns { right: number, bottom: number } — the
+ * maximum canvas offset of any corner from (posicion_x, posicion_y).
+ */
+function mesaExtents(
+  m: Pick<Mesa, 'ancho' | 'alto' | 'forma' | 'rotacion'>,
+): { right: number; bottom: number } {
+  const rot = m.rotacion ?? 0
+  const h = m.forma === 'cuadrada' ? m.ancho : m.alto
+
+  if (rot === 0) return { right: m.ancho, bottom: h }
+  if (rot === 180) return { right: m.ancho, bottom: h }
+
+  const theta = (rot * Math.PI) / 180
+  const cos = Math.cos(theta)
+  const sin = Math.sin(theta)
+
+  const cx = [0, m.ancho * cos, m.ancho * cos - h * sin, -h * sin]
+  const cy = [0, m.ancho * sin, m.ancho * sin + h * cos, h * cos]
+
+  let right = -Infinity, bottom = -Infinity
+  for (let i = 0; i < 4; i++) {
+    right = Math.max(right, cx[i]!)
+    bottom = Math.max(bottom, cy[i]!)
+  }
+  return { right, bottom }
+}
+
+/** Margin of safety between tables to prevent visual overlap (px). */
+const COLLISION_PAD = 4
+
+/**
+ * Calculate positions for child tables adjacent to the parent table,
+ * accounting for each member's rotation.
  *
  * Children are placed to the RIGHT of the parent (touching, same y).
  * If they don't fit within stageWidth, they wrap to the next row below.
+ * If the target position COLLIDES with an existing (non-fusion-group) mesa,
+ * the child is shifted to the next available row below.
  * The parent STAYS in place.
+ *
+ * Positions are returned as absolute canvas coordinates. FusionGroupNode
+ * converts these to relative positions for rendering (group has rotation: 0).
  *
  * @param parent — The parent Mesa (stays in position)
  * @param children — Child mesas (repositioned)
  * @param stageWidth — Canvas stage width for boundary checks
  * @param stageHeight — Canvas stage height for boundary checks
+ * @param existingMesas — All OTHER mesas on the canvas (excl. fusion group members)
+ *   — each candidate position is checked for overlap with these.
  * @returns Array of { id, posicion_x, posicion_y } for each child
  */
 export function calculateFusionPositions(
-  parent: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto'>,
-  children: Pick<Mesa, 'id' | 'ancho' | 'alto'>[],
+  parent: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'forma' | 'rotacion'>,
+  children: Pick<Mesa, 'id' | 'ancho' | 'alto' | 'forma' | 'rotacion'>[],
   stageWidth: number,
   _stageHeight: number,
+  existingMesas?: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'forma' | 'rotacion'>[],
 ): Array<{ id: string; posicion_x: number; posicion_y: number }> {
   const GAP = 0 // Touching (border strokes provide visual separation)
   const positions: Array<{ id: string; posicion_x: number; posicion_y: number }> = []
 
-  let currentX = parent.posicion_x + parent.ancho + GAP
+  // Pre-compute occupied rects from existing mesas (NOT the parent — children
+  // are SUPPOSED to be placed right next to the parent, touching is not a collision).
+  const occupiedRects: Rect[] = [
+    ...(existingMesas ?? []).map((m) => mesaBounds(m)),
+  ]
+
+  // Use effective extent of parent (accounts for rotation)
+  const parentExtent = mesaExtents(parent)
+
+  let currentX = parent.posicion_x + parentExtent.right + GAP
   let currentY = parent.posicion_y
-  let rowMaxHeight = parent.alto
+  let rowMaxHeight = parentExtent.bottom
 
   for (const child of children) {
+    const childExtent = mesaExtents(child)
+
     // If doesn't fit in current row, wrap to next row below
-    if (currentX + child.ancho > stageWidth) {
+    if (currentX + childExtent.right > stageWidth) {
       currentX = parent.posicion_x
       currentY += rowMaxHeight + GAP
       rowMaxHeight = 0
+    }
+
+    // Check for collisions and find a non-overlapping position
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const candidateRect: Rect = {
+        x: currentX - COLLISION_PAD,
+        y: currentY - COLLISION_PAD,
+        width: childExtent.right + COLLISION_PAD * 2,
+        height: childExtent.bottom + COLLISION_PAD * 2,
+      }
+
+      const collides = occupiedRects.some((other) => rectsOverlap(candidateRect, other))
+      if (!collides) break
+
+      // Collision: try next row below
+      currentX = parent.posicion_x
+      currentY += (rowMaxHeight || childExtent.bottom) + GAP
+      rowMaxHeight = 0 // reset for the new row
+
+      // Safety: if we've gone way off stage, break to avoid infinite loop
+      if (currentY > _stageHeight + 1000) break
     }
 
     positions.push({
@@ -148,8 +291,9 @@ export function calculateFusionPositions(
       posicion_y: currentY,
     })
 
-    currentX += child.ancho + GAP
-    rowMaxHeight = Math.max(rowMaxHeight, child.alto)
+    // Advance for next child
+    currentX += childExtent.right + GAP
+    rowMaxHeight = Math.max(rowMaxHeight, childExtent.bottom)
   }
 
   return positions

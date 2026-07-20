@@ -38,7 +38,7 @@ const client = useSupabaseClient()
 const store = useCanvasStore()
 // Default to first zone immediately (prevents flash of all mesas)
 store.activeZona = 'Principal'
-const { loadMesas, subscribeRealtime, unsubscribeRealtime } = useMesas()
+const { loadMesas } = useMesas()
 const { updateMesa } = useMesas()
 const {
   fuseMesas,
@@ -104,38 +104,94 @@ async function saveSelectedFusedPositions() {
   }
 }
 
-// ── Guardar canvas con fecha + turno ──
+// ── Guardar / Restaurar / Cargar canvas ──
 const guardarFecha = ref(new Date().toISOString().slice(0, 10))
 const guardarTurno = ref<'comida' | 'cena'>('comida')
+const savingCanvas = ref(false)
+const restoringOriginal = ref(false)
+const loadingLayout = ref(false)
 
+/** Collect current mesa positions from Konva nodes for the active zone */
+function collectLayoutPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
+  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  return mesasZona.map((mesa) => {
+    const pos = positionsMap[mesa.id]
+    return {
+      mesa_id: mesa.id,
+      posicion_x: pos?.x ?? mesa.posicion_x,
+      posicion_y: pos?.y ?? mesa.posicion_y,
+      rotacion: pos?.rotation ?? mesa.rotacion,
+    }
+  })
+}
+
+/** Guarda el layout actual para la fecha + turno seleccionado en canvas_layouts */
 async function handleGuardarCanvas() {
   const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
   if (mesasZona.length === 0) {
     showToast('No hay mesas en la zona activa', 'error')
     return
   }
-  const positions = canvasRef.value?.getMesaPositions() ?? {}
-  let ok = 0
-  let failed = 0
-  for (const mesa of mesasZona) {
-    const live = positions[mesa.id]
-    const payload: Record<string, unknown> = {
-      posicion_x: live?.x ?? mesa.posicion_x,
-      posicion_y: live?.y ?? mesa.posicion_y,
-      rotacion: live?.rotation ?? mesa.rotacion,
-    }
-    try {
-      await updateMesa(mesa.id, payload)
-      ok++
-    } catch {
-      failed++
-    }
-  }
-  if (failed === 0) {
+  savingCanvas.value = true
+  try {
+    const positionsMap = canvasRef.value?.getMesaPositions() ?? {}
+    const positions = collectLayoutPositions(positionsMap)
+    await $fetch('/api/canvas/save-layout', {
+      method: 'POST',
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions },
+    })
     const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
-    showToast(`Canvas guardado (${ok} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
-  } else {
-    showToast(`Guardado con fallos: ${ok} OK, ${failed} error`, 'error')
+    showToast(`Layout guardado (${positions.length} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al guardar layout', 'error')
+  } finally {
+    savingCanvas.value = false
+  }
+}
+
+/** Restaura todas las mesas al diseño original */
+async function handleRestoreOriginal() {
+  if (!confirm('¿Restaurar el diseño original? Se perderán los cambios actuales de posición.')) return
+  restoringOriginal.value = true
+  try {
+    const result = await $fetch('/api/canvas/restore-original', { method: 'POST' })
+    await loadMesas(store.activeZona)
+    showToast(`Diseño original restaurado (${result.restored} mesas)`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
+  } finally {
+    restoringOriginal.value = false
+  }
+}
+
+/** Carga un layout guardado para la fecha + turno seleccionado */
+async function handleLoadLayout() {
+  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  if (mesasZona.length === 0) {
+    showToast('No hay mesas en la zona activa', 'error')
+    return
+  }
+  if (!confirm(`¿Cargar layout del ${guardarFecha.value} (${guardarTurno.value})? Se actualizarán las posiciones de las mesas.`)) return
+  loadingLayout.value = true
+  try {
+    const data: any = await $fetch('/api/canvas/load-layout', {
+      params: { fecha: guardarFecha.value, turno: guardarTurno.value },
+    })
+    // Update mesas positions in DB and store
+    for (const pos of data.positions) {
+      await updateMesa(pos.mesa_id, {
+        posicion_x: pos.posicion_x,
+        posicion_y: pos.posicion_y,
+        rotacion: pos.rotacion,
+      })
+    }
+    await loadMesas(store.activeZona)
+    const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
+    showToast(`Layout cargado (${data.positions.length} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
+  } catch (e: any) {
+    showToast(e?.statusMessage || 'No hay layout guardado para esa fecha/turno', 'error')
+  } finally {
+    loadingLayout.value = false
   }
 }
 
@@ -990,7 +1046,6 @@ onMounted(async () => {
   await loadConfiguracion()
   await loadDisenoConfig()
   await loadMesas()
-  subscribeRealtime()
   await refreshStandbyReservations()
   await loadReservas()
   await loadZonasConfig()
@@ -1000,9 +1055,6 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
-  unsubscribeRealtime()
-})
 </script>
 
 <template>
@@ -1061,11 +1113,11 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- Guardar canvas con fecha + turno — save current layout for a date/shift -->
+    <!-- Gestión de layouts: Guardar / Restaurar original / Cargar -->
     <div
-      class="mb-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-cream/95 p-2"
+      class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-cream/95 p-2"
     >
-      <span class="text-xs font-medium text-slate whitespace-nowrap">Guardar canvas:</span>
+      <span class="text-xs font-medium text-slate whitespace-nowrap w-full sm:w-auto">Layout canvas:</span>
       <input
         v-model="guardarFecha"
         type="date"
@@ -1080,12 +1132,33 @@ onUnmounted(() => {
       </select>
       <button
         type="button"
-        class="rounded-md bg-terracotta px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-        title="Guarda las posiciones actuales de todas las mesas de la zona activa para la fecha y turno seleccionados."
+        class="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:opacity-50"
+        title="Guarda las posiciones actuales para la fecha y turno seleccionados (en canvas_layouts, no modifica el diseño original)"
+        :disabled="savingCanvas"
         @click="handleGuardarCanvas"
       >
-        Guardar
+        {{ savingCanvas ? 'Guardando...' : '💾 Guardar' }}
       </button>
+      <button
+        type="button"
+        class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+        title="Carga el layout guardado para la fecha y turno seleccionados"
+        :disabled="loadingLayout"
+        @click="handleLoadLayout"
+      >
+        {{ loadingLayout ? 'Cargando...' : '📂 Cargar' }}
+      </button>
+      <div class="w-full border-t border-gray-200 my-1"></div>
+      <button
+        type="button"
+        class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+        title="Restaura todas las mesas a las posiciones del diseño original"
+        :disabled="restoringOriginal"
+        @click="handleRestoreOriginal"
+      >
+        {{ restoringOriginal ? 'Restaurando...' : '🔄 Restaurar diseño original' }}
+      </button>
+      <span class="text-xs text-gray-400">Guardar guarda en layouts; Restaurar vuelve al diseño base.</span>
     </div>
 
     <!-- Zone tabs — no "Todas", one per enabled zone -->

@@ -88,6 +88,18 @@ export const useCanvasStore = defineStore('canvas', () => {
     Object.assign(mesas.value[index]!, data)
   }
 
+  /**
+   * Update one mesa with a new object reference, forcing Vue to detect
+   * the change at the element level. Unlike updateMesa (which mutates in
+   * place via Object.assign), this REPLACES the element in the array so
+   * computed getters like filteredMesas re-evaluate and Konva re-renders.
+   */
+  function replaceMesa(id: string, data: Partial<Mesa>) {
+    const index = mesas.value.findIndex((m) => m.id === id)
+    if (index === -1) return
+    mesas.value[index] = { ...mesas.value[index]!, ...data } as Mesa
+  }
+
   /** Remove a mesa by id */
   function deleteMesa(id: string) {
     mesas.value = mesas.value.filter((m) => m.id !== id)
@@ -164,6 +176,27 @@ export const useCanvasStore = defineStore('canvas', () => {
     dragSnapshot.value = null
   }
 
+  /**
+   * Atomically update multiple mesas in ONE array replacement.
+   *
+   * Unlike calling replaceMesa in a loop (which triggers reactivity N times and
+   * causes intermediate computed states with INCOMPLETE fusion groups), this
+   * creates a single new array with ALL updates applied. Vue's computed
+   * properties re-evaluate once with the final state.
+   *
+   * @param updates — Array of { id, data } to apply
+   */
+  function batchUpdateMesas(updates: Array<{ id: string; data: Partial<Mesa> }>) {
+    const newMesas = [...mesas.value]
+    for (const { id, data } of updates) {
+      const index = newMesas.findIndex((m) => m.id === id)
+      if (index !== -1) {
+        newMesas[index] = { ...newMesas[index]!, ...data } as Mesa
+      }
+    }
+    mesas.value = newMesas
+  }
+
   return {
     // State
     mesas,
@@ -198,5 +231,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     clearWallLines,
     beginFusionDrag,
     endFusionDrag,
+    replaceMesa,
+    batchUpdateMesas,
   }
 })

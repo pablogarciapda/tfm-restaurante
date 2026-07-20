@@ -1,9 +1,11 @@
 /**
- * useMesas.ts — CRUD + Realtime subscription for the mesas table (MCA-003, MCA-007)
+ * useMesas.ts — CRUD for the mesas table (MCA-003, MCA-007)
  *
- * Provides loadMesas (fetch all), createMesa, updateMesa, deleteMesa,
- * and Realtime channel lifecycle (subscribeRealtime, unsubscribeRealtime).
+ * Provides loadMesas (fetch all), createMesa, updateMesa, deleteMesa.
  * Uses useSupabaseClient() (Nuxt auto-import) and the Pinia canvas store.
+ *
+ * NOTE: No Realtime subscription — this is a single-user admin panel and
+ * every mutation already updates the Pinia store synchronously.
  *
  * NOTE: useSupabaseClient is a Nuxt auto-import from @nuxtjs/supabase.
  * DO NOT import it — tests mock it on globalThis before module load.
@@ -23,9 +25,6 @@ export interface MesaCreateData {
   zona: Mesa['zona']
   forma: Mesa['forma']
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let channelRef: any = null
 
 export function useMesas() {
   const client = useSupabaseClient()
@@ -98,45 +97,10 @@ export function useMesas() {
     store.deleteMesa(id)
   }
 
-  // ---------------------------------------------------------------------------
-  // Realtime subscription
-  // ---------------------------------------------------------------------------
-
-  function subscribeRealtime(): void {
-    channelRef = client.channel('mesas-realtime')
-    channelRef
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'mesas' },
-        (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
-          if (payload.eventType === 'INSERT' && payload.new) {
-            store.addMesa(payload.new as unknown as Mesa)
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            store.updateMesa(
-              (payload.new as Record<string, unknown>).id as string,
-              payload.new as unknown as Partial<Mesa>,
-            )
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            store.deleteMesa((payload.old as Record<string, unknown>).id as string)
-          }
-        },
-      )
-      .subscribe()
-  }
-
-  function unsubscribeRealtime(): void {
-    if (channelRef) {
-      client.removeChannel(channelRef)
-      channelRef = null
-    }
-  }
-
   return {
     loadMesas,
     createMesa,
     updateMesa,
     deleteMesa,
-    subscribeRealtime,
-    unsubscribeRealtime,
   }
 }
