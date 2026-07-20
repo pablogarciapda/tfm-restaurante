@@ -109,6 +109,7 @@ const guardarFecha = ref(new Date().toISOString().slice(0, 10))
 const guardarTurno = ref<'comida' | 'cena'>('comida')
 const savingCanvas = ref(false)
 const restoringOriginal = ref(false)
+const loadingAforo = ref(false)
 
 /** Collect current mesa positions from Konva nodes for the active zone */
 function collectLayoutPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
@@ -182,25 +183,28 @@ async function handleRestoreOriginal() {
 // ── Auto-load layout and refresh aforo when date or turno changes ──
 watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
   if (!fecha || !turno) return
-  // Reload reservations for the new date to keep aforo accurate
+  loadingAforo.value = true
   await loadReservas()
   try {
     const data: any = await $fetch('/api/canvas/load-layout', {
       params: { fecha, turno, zona: store.activeZona },
     })
-    if (!data?.positions?.length) return
-    for (const pos of data.positions) {
-      await updateMesa(pos.mesa_id, {
-        posicion_x: pos.posicion_x,
-        posicion_y: pos.posicion_y,
-        rotacion: pos.rotacion,
-      })
+    if (data?.positions?.length) {
+      for (const pos of data.positions) {
+        await updateMesa(pos.mesa_id, {
+          posicion_x: pos.posicion_x,
+          posicion_y: pos.posicion_y,
+          rotacion: pos.rotacion,
+        })
+      }
+      await loadMesas(store.activeZona)
+      const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
+      showToast(`Layout cargado: ${fecha} (${turnoLabel}) — ${data.positions.length} mesas`, 'success')
     }
-    await loadMesas(store.activeZona)
-    const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
-    showToast(`Layout cargado: ${fecha} (${turnoLabel}) — ${data.positions.length} mesas`, 'success')
   } catch {
-    // 404 = no layout for this date/turno — silently skip
+    // no layout for this date/turno — silently skip
+  } finally {
+    loadingAforo.value = false
   }
 })
 
@@ -1117,6 +1121,7 @@ onMounted(async () => {
       :can-fusionar="canFusionar"
       :multi-select="multiSelectMode"
       :multi-select-count="selectedIds.length"
+      :loading-aforo="loadingAforo"
       @fuse="handleFuse"
       @unfuse="handleUnfuse"
       @toggle-multi-select="toggleMultiSelect"

@@ -31,6 +31,7 @@ const props = defineProps<{
   fontSize?: number
   multiSelect?: boolean
   multiSelectCount?: number
+  loadingAforo?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -234,7 +235,7 @@ async function handleImageUpload(event: Event) {
 
     <!-- Right: Aforo (both modes) -->
     <div class="flex items-center gap-2">
-      <AforoIndicator :aforo-info="aforoInfo" />
+      <AforoIndicator :aforo-info="aforoInfo" :loading="loadingAforo" />
     </div>
   </div>
 </template>

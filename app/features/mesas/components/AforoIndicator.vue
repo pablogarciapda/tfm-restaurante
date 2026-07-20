@@ -14,6 +14,7 @@ import type { AforoInfo, AforoMode } from '#shared/contracts/mesas.contract'
 
 const props = defineProps<{
   aforoInfo: AforoInfo
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,16 +89,21 @@ function onManualChange(event: Event) {
     <div class="flex items-center gap-2">
       <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-200">
         <div
-          :class="barColor"
+          :class="loading ? 'bg-gray-300 animate-pulse' : barColor"
           class="h-full rounded-full transition-all duration-300"
-          :style="{ width: porcentaje + '%' }"
+          :style="{ width: loading ? '100%' : porcentaje + '%' }"
         />
       </div>
       <span
         class="text-xs font-semibold tabular-nums"
         :class="porcentaje > 90 ? 'text-red-600' : 'text-slate-700'"
       >
-        {{ ocupacion }} / {{ aforoInfo.capacidad_total }} plazas
+        <template v-if="loading">
+          <span class="inline-block w-12 h-3 bg-gray-200 rounded animate-pulse align-middle" />
+        </template>
+        <template v-else>
+          {{ ocupacion }} / {{ aforoInfo.capacidad_total }} plazas
+        </template>
       </span>
     </div>
 
