@@ -61,7 +61,6 @@ describe('handleGetConfig', () => {
   it('returns config without smtp_password', async () => {
     const mockSupabase = createMockSupabase({
       id: 'cfg-1',
-      cliente_elige_mesa: true,
       capacidad_total_local: 50,
       smtp_password: 'secret123',
       smtp_host: 'smtp.test.com',
@@ -72,7 +71,6 @@ describe('handleGetConfig', () => {
 
     expect(result.status).toBe(200)
     expect(result.body).not.toHaveProperty('smtp_password')
-    expect(result.body).toHaveProperty('cliente_elige_mesa', true)
     expect(result.body).toHaveProperty('capacidad_total_local', 50)
     expect(result.body).toHaveProperty('smtp_host', 'smtp.test.com')
     expect(result.body).toHaveProperty('modo_reserva', 'automatica')
@@ -139,13 +137,12 @@ describe('handleUpdateConfig', () => {
   it('returns redacted config after update', async () => {
     const mockSupabase = createMockSupabase({
       id: 'cfg-1',
-      cliente_elige_mesa: false,
       smtp_password: 'secret123',
       modo_reserva: 'verificada',
     })
 
     const result = await handleUpdateConfig(mockSupabase as any, {
-      cliente_elige_mesa: true,
+      modo_reserva: 'automatica',
     })
 
     expect(result.status).toBe(200)

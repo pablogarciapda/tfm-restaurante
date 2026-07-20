@@ -152,7 +152,6 @@ export interface UpdateClientePayload {
 /** Safe config data — NEVER includes smtp_password */
 export interface ConfigData {
   id?: string
-  cliente_elige_mesa: boolean
   capacidad_total_local: number | null
   precio_menu_diario?: number | null
   precio_menu_sabado?: number | null
@@ -216,7 +215,6 @@ export interface ReservaHistory {
 
 /** Payload for POST /api/cocina/config (smpt_password write-only) */
 export interface ConfigUpdatePayload {
-  cliente_elige_mesa?: boolean
   capacidad_total_local?: number | null
   precio_menu_diario?: number | null
   precio_menu_sabado?: number | null

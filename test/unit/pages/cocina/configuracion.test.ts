@@ -101,7 +101,6 @@ describe('/cocina/configuracion — settings page', () => {
   it('loads config on mount and populates form', async () => {
     g.useSupabaseClient = () => makeSupabaseClient({
       id: 'cfg-1',
-      cliente_elige_mesa: true,
       capacidad_total_local: 100,
     })
 

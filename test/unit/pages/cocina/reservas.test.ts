@@ -277,7 +277,6 @@ describe('/cocina/reservas — table manager page', () => {
     g.useSupabaseClient = () => makeSupabaseClient({
       configData: {
         id: 'cfg-1',
-        cliente_elige_mesa: false,
         capacidad_total_local: 999, // deprecated — must be ignored
         modo_ocupacion: 'manual',
         ocupacion_manual: 45,

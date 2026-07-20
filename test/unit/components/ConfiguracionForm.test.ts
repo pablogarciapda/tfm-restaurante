@@ -22,7 +22,7 @@ describe('ConfiguracionForm (CFG-001)', () => {
     const mod = await import('../../../app/components/ConfiguracionForm.vue')
     return mount(mod.default, {
       props: {
-        currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80 },
+        currentConfig: { capacidad_total_local: 80 },
         ...props,
       },
     })
@@ -31,34 +31,17 @@ describe('ConfiguracionForm (CFG-001)', () => {
   it('renders section headings (new 8-section layout)', async () => {
     const wrapper = await mountForm()
     expect(wrapper.text()).toContain('General')
-    expect(wrapper.text()).toContain('Elección de mesa')
     expect(wrapper.text()).toContain('Reservas')
   })
 
-  it('displays cliente_elige_mesa toggle unchecked when false', async () => {
-    const wrapper = await mountForm()
-    const checkbox = wrapper.find('input[data-testid="cfg-elige-mesa"]')
-    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
-  })
-
   it('displays capacidad_total_local input with current value', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: true, capacidad_total_local: 120 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 120 } })
     const input = wrapper.find('input[data-testid="cfg-capacidad"]')
     expect((input.element as HTMLInputElement).value).toBe('120')
   })
 
-  it('emits submit with form data on save', async () => {
-    const wrapper = await mountForm()
-    // Toggle the checkbox
-    await wrapper.find('input[data-testid="cfg-elige-mesa"]').setValue(true)
-    await wrapper.find('form').trigger('submit.prevent')
-
-    expect(wrapper.emitted('submit')).toBeTruthy()
-    expect(wrapper.emitted('submit')![0][0].cliente_elige_mesa).toBe(true)
-  })
-
   it('validates capacidad min 1', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 0 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 0 } })
     // Set invalid value
     const input = wrapper.find('input[data-testid="cfg-capacidad"]')
     await input.setValue(0)
@@ -70,7 +53,7 @@ describe('ConfiguracionForm (CFG-001)', () => {
   // ── CFG-004: modo_ocupacion radio buttons ──
 
   it('renders modo_ocupacion radio buttons with Automático and Manual labels', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
     expect(wrapper.text()).toContain('Automático')
     expect(wrapper.text()).toContain('Manual')
     const radioAuto = wrapper.find('input[value="auto"]')
@@ -80,13 +63,13 @@ describe('ConfiguracionForm (CFG-001)', () => {
   })
 
   it('checks the auto radio when modo_ocupacion is "auto"', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
     const radioAuto = wrapper.find('input[value="auto"]')
     expect((radioAuto.element as HTMLInputElement).checked).toBe(true)
   })
 
   it('checks the manual radio when modo_ocupacion is "manual"', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 0 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 0 } })
     const radioManual = wrapper.find('input[value="manual"]')
     expect((radioManual.element as HTMLInputElement).checked).toBe(true)
   })
@@ -94,27 +77,26 @@ describe('ConfiguracionForm (CFG-001)', () => {
   // ── CFG-005: ocupacion_manual number input ──
 
   it('shows ocupacion_manual number input when modo is "manual"', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 15 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 15 } })
     const manualInput = wrapper.find('input[data-testid="cfg-ocupacion-manual"]')
     expect(manualInput.exists()).toBe(true)
     expect((manualInput.element as HTMLInputElement).value).toBe('15')
   })
 
   it('hides ocupacion_manual input when modo is "auto"', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'auto', ocupacion_manual: 0 } })
     const manualInput = wrapper.find('input[data-testid="cfg-ocupacion-manual"]')
     expect(manualInput.exists()).toBe(false)
   })
 
   it('renders "Número de ocupantes" label on ocupacion_manual input (CFG-005 spec)', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 15 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 80, modo_ocupacion: 'manual', ocupacion_manual: 15 } })
     expect(wrapper.text()).toContain('Número de ocupantes')
   })
 
   it('sets max attribute on ocupacion_manual to the zonas-derived capacity (CFG-005)', async () => {
     const wrapper = await mountForm({
       currentConfig: {
-        cliente_elige_mesa: false,
         capacidad_total_local: 80,
         modo_ocupacion: 'manual',
         ocupacion_manual: 0,
@@ -131,7 +113,7 @@ describe('ConfiguracionForm (CFG-001)', () => {
   })
 
   it('emits submit with modo_ocupacion and ocupacion_manual fields', async () => {
-    const wrapper = await mountForm({ currentConfig: { cliente_elige_mesa: true, capacidad_total_local: 100, modo_ocupacion: 'manual', ocupacion_manual: 25 } })
+    const wrapper = await mountForm({ currentConfig: { capacidad_total_local: 100, modo_ocupacion: 'manual', ocupacion_manual: 25 } })
     await wrapper.find('form').trigger('submit.prevent')
 
     expect(wrapper.emitted('submit')).toBeTruthy()
@@ -145,7 +127,6 @@ describe('ConfiguracionForm (CFG-001)', () => {
   it('rejects save when ocupacion_manual exceeds zonas-derived capacity (CFG-005)', async () => {
     const wrapper = await mountForm({
       currentConfig: {
-        cliente_elige_mesa: false,
         capacidad_total_local: 80,
         modo_ocupacion: 'manual',
         ocupacion_manual: 0,
@@ -178,7 +159,6 @@ describe('ConfiguracionForm (CFG-001)', () => {
   it('shows the zonas-derived total in the Aforo del local section (CFG-004, deprecated capacidad_total_local)', async () => {
     const wrapper = await mountForm({
       currentConfig: {
-        cliente_elige_mesa: false,
         capacidad_total_local: 999, // deprecated column — must NOT be shown
         zonas_config: [
           { id: 'a', nombre: 'A', capacidad: 50, enabled: true },
@@ -195,7 +175,6 @@ describe('ConfiguracionForm (CFG-001)', () => {
   it('ignores disabled zones when computing the Aforo del local total', async () => {
     const wrapper = await mountForm({
       currentConfig: {
-        cliente_elige_mesa: false,
         capacidad_total_local: 999,
         zonas_config: [
           { id: 'a', nombre: 'A', capacidad: 50, enabled: true },
@@ -294,7 +273,6 @@ describe('ConfiguracionForm (CFG-001)', () => {
       // Mount with minimal config that has only 1 zone
       const wrapper = await mountForm({
         currentConfig: {
-          cliente_elige_mesa: false,
           capacidad_total_local: 80,
           zonas_config: [{ id: 'test', nombre: 'Test', capacidad: 10, enabled: true }],
         },
@@ -332,7 +310,6 @@ describe('ConfiguracionForm (CFG-001)', () => {
     it('emits submit with cliente_elige_zona', async () => {
       const wrapper = await mountForm({
         currentConfig: {
-          cliente_elige_mesa: false,
           capacidad_total_local: 80,
           cliente_elige_zona: 'zona',
         },
@@ -368,7 +345,7 @@ describe('ConfiguracionForm (CFG-001)', () => {
         { id: '2', fecha: '2026-01-01', recurrente: false, motivo: null, fecha_fin: null },
       ]
       const wrapper = await mountForm({
-        currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80 },
+        currentConfig: { capacidad_total_local: 80 },
         existingDiasBloqueados: dias,
       })
       expect(wrapper.text()).toContain('2026-12-25')
@@ -406,7 +383,7 @@ describe('ConfiguracionForm (CFG-001)', () => {
     it('emits deleteDiaBloqueado when delete button clicked', async () => {
       const dias = [{ id: 'abc-123', fecha: '2026-12-25', recurrente: false, motivo: null, fecha_fin: null }]
       const wrapper = await mountForm({
-        currentConfig: { cliente_elige_mesa: false, capacidad_total_local: 80 },
+        currentConfig: { capacidad_total_local: 80 },
         existingDiasBloqueados: dias,
       })
 

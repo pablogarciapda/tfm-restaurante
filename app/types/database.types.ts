@@ -7,8 +7,43 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
+      canvas_layouts: {
+        Row: {
+          created_at: string | null
+          fecha: string
+          id: string
+          positions: Json
+          turno: string
+          updated_at: string | null
+          zona: string
+        }
+        Insert: {
+          created_at?: string | null
+          fecha: string
+          id?: string
+          positions?: Json
+          turno: string
+          updated_at?: string | null
+          zona?: string
+        }
+        Update: {
+          created_at?: string | null
+          fecha?: string
+          id?: string
+          positions?: Json
+          turno?: string
+          updated_at?: string | null
+          zona?: string
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           created_at: string
@@ -91,13 +126,13 @@ export type Database = {
         Row: {
           auto_comprimir_imagen: boolean
           calidad_imagen: number
-          canvas_ancho_base: number
           canvas_alto_base: number
+          canvas_ancho_base: number
           capacidad_total_local: number | null
           captcha_habilitado: boolean
-          cliente_elige_mesa: boolean | null
           cliente_elige_zona: string
           created_at: string
+          diseno_original: Json | null
           horarios_config: Json
           id: string
           max_ancho_imagen: number
@@ -107,16 +142,21 @@ export type Database = {
           mostrar_recomendados: boolean | null
           notificacion_reserva: string
           ocupacion_manual: number
+          poblacion: string | null
           precio_menu_diario: number | null
-          precio_menu_sabado: number | null
           precio_menu_domingo: number | null
+          precio_menu_sabado: number | null
           public_config: Json
           restaurant_direccion: string
+          restaurant_email: string | null
+          restaurant_facebook_url: string | null
           restaurant_icon_url: string | null
+          restaurant_instagram_url: string | null
           restaurant_logo_url: string | null
           restaurant_maps_url: string
           restaurant_nombre: string
           restaurant_telefono: string
+          site_url: string | null
           sms_verificacion: boolean
           smtp_from_email: string | null
           smtp_from_name: string | null
@@ -133,13 +173,13 @@ export type Database = {
         Insert: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
-          canvas_ancho_base?: number
           canvas_alto_base?: number
+          canvas_ancho_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
-          cliente_elige_mesa?: boolean | null
           cliente_elige_zona?: string
           created_at?: string
+          diseno_original?: Json | null
           horarios_config?: Json
           id?: string
           max_ancho_imagen?: number
@@ -149,16 +189,21 @@ export type Database = {
           mostrar_recomendados?: boolean | null
           notificacion_reserva?: string
           ocupacion_manual?: number
+          poblacion?: string | null
           precio_menu_diario?: number | null
-          precio_menu_sabado?: number | null
           precio_menu_domingo?: number | null
+          precio_menu_sabado?: number | null
           public_config?: Json
           restaurant_direccion?: string
+          restaurant_email?: string | null
+          restaurant_facebook_url?: string | null
           restaurant_icon_url?: string | null
+          restaurant_instagram_url?: string | null
           restaurant_logo_url?: string | null
           restaurant_maps_url?: string
           restaurant_nombre?: string
           restaurant_telefono?: string
+          site_url?: string | null
           sms_verificacion?: boolean
           smtp_from_email?: string | null
           smtp_from_name?: string | null
@@ -175,13 +220,13 @@ export type Database = {
         Update: {
           auto_comprimir_imagen?: boolean
           calidad_imagen?: number
-          canvas_ancho_base?: number
           canvas_alto_base?: number
+          canvas_ancho_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
-          cliente_elige_mesa?: boolean | null
           cliente_elige_zona?: string
           created_at?: string
+          diseno_original?: Json | null
           horarios_config?: Json
           id?: string
           max_ancho_imagen?: number
@@ -191,16 +236,21 @@ export type Database = {
           mostrar_recomendados?: boolean | null
           notificacion_reserva?: string
           ocupacion_manual?: number
+          poblacion?: string | null
           precio_menu_diario?: number | null
-          precio_menu_sabado?: number | null
           precio_menu_domingo?: number | null
+          precio_menu_sabado?: number | null
           public_config?: Json
           restaurant_direccion?: string
+          restaurant_email?: string | null
+          restaurant_facebook_url?: string | null
           restaurant_icon_url?: string | null
+          restaurant_instagram_url?: string | null
           restaurant_logo_url?: string | null
           restaurant_maps_url?: string
           restaurant_nombre?: string
           restaurant_telefono?: string
+          site_url?: string | null
           sms_verificacion?: boolean
           smtp_from_email?: string | null
           smtp_from_name?: string | null
@@ -327,7 +377,7 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias"
-            referencedColumns: ["id"],
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -369,7 +419,7 @@ export type Database = {
       }
       menu_diario_items: {
         Row: {
-          agotado: boolean
+          agotado: boolean | null
           config_id: string
           descripcion: string | null
           id: string
@@ -378,7 +428,7 @@ export type Database = {
           seccion: string
         }
         Insert: {
-          agotado?: boolean
+          agotado?: boolean | null
           config_id: string
           descripcion?: string | null
           id?: string
@@ -387,7 +437,7 @@ export type Database = {
           seccion: string
         }
         Update: {
-          agotado?: boolean
+          agotado?: boolean | null
           config_id?: string
           descripcion?: string | null
           id?: string
@@ -412,7 +462,7 @@ export type Database = {
           capacidad_actual: number
           capacidad_base: number
           created_at: string
-          forma: string
+          forma: string | null
           id: string
           id_fusion: string | null
           mesa_padre_id: string | null
@@ -430,7 +480,7 @@ export type Database = {
           capacidad_actual?: number
           capacidad_base: number
           created_at?: string
-          forma?: string
+          forma?: string | null
           id?: string
           id_fusion?: string | null
           mesa_padre_id?: string | null
@@ -448,7 +498,7 @@ export type Database = {
           capacidad_actual?: number
           capacidad_base?: number
           created_at?: string
-          forma?: string
+          forma?: string | null
           id?: string
           id_fusion?: string | null
           mesa_padre_id?: string | null
@@ -528,7 +578,7 @@ export type Database = {
             columns: ["familia_id"]
             isOneToOne: false
             referencedRelation: "familias"
-            referencedColumns: ["id"],
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -561,6 +611,8 @@ export type Database = {
       }
       reservas: {
         Row: {
+          cancel_token: string | null
+          cancelado_en: string | null
           cliente_id: string | null
           created_at: string
           estado: string | null
@@ -571,6 +623,8 @@ export type Database = {
           zona_id: string | null
         }
         Insert: {
+          cancel_token?: string | null
+          cancelado_en?: string | null
           cliente_id?: string | null
           created_at?: string
           estado?: string | null
@@ -581,6 +635,8 @@ export type Database = {
           zona_id?: string | null
         }
         Update: {
+          cancel_token?: string | null
+          cancelado_en?: string | null
           cliente_id?: string | null
           created_at?: string
           estado?: string | null
@@ -623,3 +679,124 @@ export type Database = {
     }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (Database["Tables"] & Database["Views"])
+    ? (Database["Tables"] & Database["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DefaultSchema[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  DefaultSchemaCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends DefaultSchemaCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DefaultSchema[DefaultSchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = DefaultSchemaCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : DefaultSchemaCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][DefaultSchemaCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
