@@ -18,7 +18,7 @@ describe('RLS Test Helpers (TH-005)', () => {
         auth: {
           admin: {
             createUser: vi.fn().mockResolvedValue({
-              data: { user: { id: 'test-user-id', email: 'editor@lazingara.es' } },
+              data: { user: { id: 'test-user-id', email: 'editor@test-restaurant.com' } },
               error: null,
             }),
           },
@@ -34,7 +34,7 @@ describe('RLS Test Helpers (TH-005)', () => {
       const result = await createTestUser(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockAdmin as any,
-        'editor@lazingara.es',
+        'editor@test-restaurant.com',
         'password123',
         'editor',
         { carta: true, menu_diario: true, eventos: true, reservas: false, configuracion: false, usuarios: false },

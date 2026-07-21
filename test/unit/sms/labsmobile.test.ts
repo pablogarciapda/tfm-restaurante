@@ -29,7 +29,7 @@ describe('LabsMobileProvider (SM-003)', () => {
     provider = new LabsMobileProvider({
       username: 'test@example.com',
       token: 'test-token',
-      sender: 'LaZingara',
+      sender: 'TestSender',
       testMode: '1',
     })
   })
@@ -52,10 +52,10 @@ describe('LabsMobileProvider (SM-003)', () => {
 
     // Check body
     const body = options.body
-    expect(body.message).toContain('La Zingara')
+    expect(body.message).toContain('TestSender')
     expect(body.recipient).toEqual([{ msisdn: '+34600000000' }])
     expect(body.test).toBe('1')
-    expect(body.tpoa).toBe('LaZingara')
+    expect(body.tpoa).toBe('TestSender')
 
     // Check result
     expect(result.success).toBe(true)

@@ -2,7 +2,7 @@
  * TDD: RED → GREEN → TRIANGULATE — Cocina Admin Layout (PU-010)
  *
  * Admin layout for /cocina/** pages:
- * - Top bar: "La Zíngara" + user email + logout button
+ * - Top bar: "Test Restaurant" + user email + logout button
  * - AdminSidebar component
  * - main slot for page content
  */
@@ -10,10 +10,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, computed } from 'vue'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 const mockSignOut = vi.fn()
 const mockNavigateTo = vi.fn((path: string) => path)
-const userRef = ref<{ id: string; email: string } | null>({ id: '1', email: 'admin@lazingara.es' })
+const userRef = ref<{ id: string; email: string } | null>({ id: '1', email: 'admin@test-restaurant.com' })
 
 const g = globalThis as Record<string, unknown>
 g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
@@ -42,7 +43,7 @@ g.ref = ref
 
 g.useRestaurantConfig = () => {
   const restaurant = ref({
-    nombre: 'La Zíngara',
+    nombre: TEST_RESTAURANT.nombre,
     direccion: '',
     telefono: '',
     maps_url: '',
@@ -71,10 +72,10 @@ g.useRestaurantConfig = () => {
 describe('cocina layout (PU-010)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    userRef.value = { id: '1', email: 'admin@lazingara.es' }
+    userRef.value = { id: '1', email: 'admin@test-restaurant.com' }
   })
 
-  it('renders the restaurant name "La Zíngara" in top bar', async () => {
+  it('renders the restaurant name from config in top bar', async () => {
     const page = await import('../../../app/layouts/cocina.vue')
     const wrapper = mount(page.default, {
       global: {
@@ -85,7 +86,7 @@ describe('cocina layout (PU-010)', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('La Zíngara')
+    expect(wrapper.text()).toContain(TEST_RESTAURANT.nombre)
   })
 
   it('renders the user email in the top bar', async () => {
@@ -99,7 +100,7 @@ describe('cocina layout (PU-010)', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('admin@lazingara.es')
+    expect(wrapper.text()).toContain('admin@test-restaurant.com')
   })
 
   it('renders "Cerrar sesión" logout button', async () => {

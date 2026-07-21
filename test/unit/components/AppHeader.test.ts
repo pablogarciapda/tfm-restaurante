@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import AppHeader from '../../../app/components/AppHeader.vue'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 /**
  * RED → GREEN → TRIANGULATE — AppHeader (PU-003)
@@ -16,7 +17,7 @@ import AppHeader from '../../../app/components/AppHeader.vue'
 // Mock useRestaurantConfig for unit test (no Nuxt SSR context)
 const mockUseRestaurantConfig = () => ({
   logoUrl: ref('/images/logo.png'),
-  nombre: ref('Restaurante La Zíngara'),
+  nombre: ref(TEST_RESTAURANT.nombre),
   restaurant: ref({}),
   direccionLineas: ref([]),
   telefono: ref(''),

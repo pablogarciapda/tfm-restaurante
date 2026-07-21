@@ -9,17 +9,10 @@ import { describe, it, expect } from 'vitest'
 // Import the pure function from the email utility
 // We import this before it exists (RED phase)
 import { buildConfirmationHtml, buildCancellationHtml } from '../../../server/utils/email'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 const defaultRestaurant = {
-  nombre: 'La Zíngara',
-  direccion: 'Plaza Mayor, 1, 24250 Santa María del Páramo, León',
-  telefono: '987 123 456',
-  maps_url: 'https://maps.google.com/?q=La+Zíngara+Santa+María+del+Páramo',
-  site_url: '',
-  email: 'reservas@lazingara.es',
-  instagram_url: 'https://www.instagram.com/restaurantelazingaraoficial',
-  facebook_url: 'https://www.facebook.com/RestauranteLaZingara',
-  poblacion: 'Santa María del Páramo, León',
+  ...TEST_RESTAURANT,
 }
 
 describe('buildConfirmationHtml', () => {
@@ -91,15 +84,15 @@ describe('buildConfirmationHtml', () => {
     expect(html).not.toContain('test-reserva-uuid')
   })
 
-  it('includes La Zíngara branding', () => {
+  it('includes restaurant branding from config', () => {
     const html = buildConfirmationHtml(baseParams, defaultRestaurant)
-    expect(html).toContain('La Zíngara')
+    expect(html).toContain(TEST_RESTAURANT.nombre)
   })
 
   it('includes the restaurant address from config', () => {
     const html = buildConfirmationHtml(baseParams, defaultRestaurant)
-    expect(html).toContain('Plaza Mayor')
-    expect(html).toContain('Santa María del Páramo')
+    expect(html).toContain('Calle Test')
+    expect(html).toContain(TEST_RESTAURANT.poblacion)
   })
 
   it('includes the Google Maps link', () => {
@@ -110,7 +103,7 @@ describe('buildConfirmationHtml', () => {
 
   it('includes the restaurant phone number', () => {
     const html = buildConfirmationHtml(baseParams, defaultRestaurant)
-    expect(html).toContain('987 123 456')
+    expect(html).toContain(TEST_RESTAURANT.telefono)
   })
 
   it('returns an HTML string (not empty)', () => {
@@ -180,16 +173,16 @@ describe('buildConfirmationHtml', () => {
     )
     expect(html).toContain('http://57.131.33.90:3000/cancelar?token=tok-1')
     expect(html).not.toContain('57.131.33.90:3000//cancelar')
-    expect(html).not.toContain('lazingara.es')
+    expect(html).not.toContain('test-restaurant.com')
   })
 
-  it('does NOT leak the hardcoded lazingara.es fallback when site_url is empty', () => {
+  it('does NOT leak the configured site_url when site_url is empty', () => {
     const html = buildConfirmationHtml(
       { ...baseParams, cancel_token: 'tok-2' },
       { ...defaultRestaurant, site_url: '' },
     )
-    expect(html).not.toContain('https://www.lazingara.es')
-    expect(html).not.toContain('lazingara.es/cancelar')
+    expect(html).not.toContain(TEST_RESTAURANT.site_url)
+    expect(html).not.toContain('test-restaurant.com/cancelar')
   })
 })
 
@@ -225,9 +218,9 @@ describe('buildCancellationHtml', () => {
 
   it('includes the restaurant info', () => {
     const html = buildCancellationHtml(baseParams, defaultRestaurant)
-    expect(html).toContain('La Zíngara')
-    expect(html).toContain('Plaza Mayor')
-    expect(html).toContain('987 123 456')
+    expect(html).toContain(TEST_RESTAURANT.nombre)
+    expect(html).toContain('Calle Test')
+    expect(html).toContain(TEST_RESTAURANT.telefono)
   })
 
   it('includes referencia when provided', () => {
@@ -261,6 +254,6 @@ describe('buildCancellationHtml', () => {
   it('includes contact instructions for mistaken cancellation', () => {
     const html = buildCancellationHtml(baseParams, defaultRestaurant)
     expect(html).toContain('no solicitaste esta cancelación')
-    expect(html).toContain('987 123 456')
+    expect(html).toContain(TEST_RESTAURANT.telefono)
   })
 })

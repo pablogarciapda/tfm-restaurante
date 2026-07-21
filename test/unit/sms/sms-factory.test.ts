@@ -29,7 +29,7 @@ describe('sms-factory (SM-004)', () => {
     const provider = getSmsProvider('labsmobile', {
       username: 'test@example.com',
       token: 'test-token',
-      sender: 'LaZingara',
+      sender: 'TestSender',
       testMode: '1',
     })
     expect(provider.constructor.name).toBe('LabsMobileProvider')
@@ -45,7 +45,7 @@ describe('sms-factory (SM-004)', () => {
     const p2 = getSmsProvider('labsmobile', {
       username: 'test@example.com',
       token: 'test-token',
-      sender: 'LaZingara',
+      sender: 'TestSender',
       testMode: '1',
     })
     // Should return cached instance (still mock)

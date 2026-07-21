@@ -5,6 +5,7 @@ import IndexPage from '../../../app/pages/index.vue'
 import PageHero from '../../../app/components/PageHero.vue'
 import BaseCard from '../../../app/components/BaseCard.vue'
 import BaseButton from '../../../app/components/BaseButton.vue'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 // Stub Nuxt auto-imports
 const NuxtLinkStub = {
@@ -14,7 +15,7 @@ const NuxtLinkStub = {
 }
 
 const mockRestaurant = ref({
-  nombre: 'Restaurante La Zíngara',
+  nombre: TEST_RESTAURANT.nombre,
   direccion: '',
   telefono: '',
   maps_url: '',
@@ -23,7 +24,7 @@ const mockRestaurant = ref({
   email: '',
   instagram_url: '',
   facebook_url: '',
-  poblacion: 'Santa María del Páramo, León',
+  poblacion: TEST_RESTAURANT.poblacion,
 })
 
 vi.stubGlobal('useRestaurantConfig', () => ({
@@ -76,13 +77,12 @@ describe('Index page (Home) — rewrite (PU-007, 2.3.1)', () => {
 
   it('renders PageHero with restaurant title', () => {
     const wrapper = mount(IndexPage, mountOptions)
-    expect(wrapper.text()).toContain('Restaurante La Zíngara')
+    expect(wrapper.text()).toContain(TEST_RESTAURANT.nombre)
   })
 
   it('renders subtitle with location', () => {
     const wrapper = mount(IndexPage, mountOptions)
-    expect(wrapper.text()).toContain('Santa María del Páramo')
-    expect(wrapper.text()).toContain('León')
+    expect(wrapper.text()).toContain(TEST_RESTAURANT.poblacion)
   })
 
   it('renders card content for all 5 public pages', () => {

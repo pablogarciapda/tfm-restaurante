@@ -5,6 +5,7 @@ import Home from '../../app/pages/index.vue'
 import PageHero from '../../app/components/PageHero.vue'
 import BaseCard from '../../app/components/BaseCard.vue'
 import BaseButton from '../../app/components/BaseButton.vue'
+import { TEST_RESTAURANT } from '../__fixtures__/restaurant-config'
 
 const NuxtLinkStub = {
   name: 'NuxtLink',
@@ -13,7 +14,7 @@ const NuxtLinkStub = {
 }
 
 const mockRestaurant = ref({
-  nombre: 'Restaurante La Zíngara',
+  nombre: TEST_RESTAURANT.nombre,
   direccion: '',
   telefono: '',
   maps_url: '',
@@ -22,7 +23,7 @@ const mockRestaurant = ref({
   email: '',
   instagram_url: '',
   facebook_url: '',
-  poblacion: 'Santa María del Páramo, León',
+  poblacion: TEST_RESTAURANT.poblacion,
 })
 
 vi.stubGlobal('useRestaurantConfig', () => ({
@@ -69,6 +70,6 @@ describe('Unit Smoke — Home Page', () => {
     })
 
     expect(wrapper).toBeTruthy()
-    expect(wrapper.text()).toContain('Restaurante La Zíngara')
+    expect(wrapper.text()).toContain(TEST_RESTAURANT.nombre)
   })
 })

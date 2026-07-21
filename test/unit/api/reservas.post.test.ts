@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { handleCreateReservation } from '../../../server/api/reservas.handlers'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 const futureISO = new Date(Date.now() + 86400000 * 2).toISOString()
 
@@ -527,8 +528,8 @@ describe('handleCreateReservation', () => {
         data: {
           modo_reserva: 'automatica',
           notificacion_reserva: 'sms',
-          restaurant_nombre: 'La Zíngara',
-          site_url: 'https://www.lazingara.es',
+          restaurant_nombre: TEST_RESTAURANT.nombre,
+          site_url: TEST_RESTAURANT.site_url,
         },
         error: null,
       }),
@@ -561,7 +562,7 @@ describe('handleCreateReservation', () => {
     expect(smsLog).toBeDefined()
     const msg = smsLog![0] as string
     const token = (result.body as any).cancel_token
-    expect(msg).toContain(`https://www.lazingara.es/cancelar?token=${token}`)
+    expect(msg).toContain(`${TEST_RESTAURANT.site_url}/cancelar?token=${token}`)
 
     infoSpy.mockRestore()
   })
@@ -574,7 +575,7 @@ describe('handleCreateReservation', () => {
         data: {
           modo_reserva: 'automatica',
           notificacion_reserva: 'sms',
-          restaurant_nombre: 'La Zíngara',
+          restaurant_nombre: TEST_RESTAURANT.nombre,
           // site_url NOT set
         },
         error: null,

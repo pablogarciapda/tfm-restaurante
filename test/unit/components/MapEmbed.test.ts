@@ -24,6 +24,6 @@ describe('MapEmbed (CO-002)', () => {
     const wrapper = mount(MapEmbed, {
       props: { src: 'https://maps.google.com', title: 'Mapa' },
     })
-    expect(wrapper.text()).toMatch(/mapa|Santa María|ubicación/i)
+    expect(wrapper.text()).toMatch(/mapa|ubicación/i)
   })
 })
