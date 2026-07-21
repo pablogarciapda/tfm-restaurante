@@ -161,7 +161,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
   try {
     const { data } = await supabase
       .from('configuracion')
-      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
+      .select('restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, poblacion')
       .limit(1)
       .single()
 
@@ -175,7 +175,7 @@ export async function getRestaurantInfo(supabase: any): Promise<RestaurantInfo> 
         email: (data.restaurant_email as string) || '',
         instagram_url: (data.restaurant_instagram_url as string) || '',
         facebook_url: (data.restaurant_facebook_url as string) || '',
-        poblacion: (data.restaurant_poblacion as string) || '',
+        poblacion: (data.poblacion as string) || '',
       }
     }
   } catch {
@@ -270,18 +270,24 @@ export function buildConfirmationHtml(
         </table>
 
         <!-- Cancel link (after reservation details, before restaurant info) -->
-        ${params.cancel_token ? `
+        ${params.cancel_token ? (() => {
+          const baseUrl = (restaurant.site_url || '').replace(/\/$/, '')
+          const cancelUrl = baseUrl
+            ? `${baseUrl}/cancelar?token=${params.cancel_token}`
+            : `/cancelar?token=${params.cancel_token}`
+          return `
         <table role="presentation" style="width: 100%; margin-bottom: 24px;">
           <tr>
             <td style="text-align: center;">
               <p style="margin: 0 0 6px; color: #999; font-size: 12px;">¿Necesitas cancelar tu reserva?</p>
-              <a href="${(restaurant.site_url || '').replace(/\/$/, '')}/cancelar?token=${params.cancel_token}"
+              <a href="${cancelUrl}"
                  style="display: inline-block; padding: 8px 24px; border: 1px solid #c25b3c; border-radius: 4px; color: #c25b3c; font-size: 13px; text-decoration: none;">
                 Cancelar reserva
               </a>
             </td>
           </tr>
-        </table>` : ''}
+        </table>`
+        })() : ''}
 
         <!-- Restaurant info -->
         <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 0 0 20px;">
