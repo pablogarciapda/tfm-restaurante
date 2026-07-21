@@ -46,7 +46,7 @@ export class LabsMobileProvider implements SmsProvider {
     const code = this.generateCode()
 
     const payload = {
-      message: `La Zingara: Tu codigo de verificacion es ${code}`,
+      message: `${this.config.sender}: Tu codigo de verificacion es ${code}`,
       tpoa: this.config.sender,
       recipient: [{ msisdn: phone }],
       test: this.config.testMode,

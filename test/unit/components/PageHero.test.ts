@@ -49,12 +49,12 @@ describe('PageHero — Subtitle', () => {
     const wrapper = mount(PageHero, {
       props: {
         title: 'Eventos',
-        subtitle: 'Próximos espectáculos en La Zíngara',
+        subtitle: 'Próximos eventos',
       },
     })
 
     expect(wrapper.text()).toContain(
-      'Próximos espectáculos en La Zíngara'
+      'Próximos eventos'
     )
   })
 })

@@ -137,12 +137,12 @@ describe('Login Page — /cocina', () => {
         },
       })
 
-      await wrapper.find('input[type="email"]').setValue('admin@lazingara.es')
+      await wrapper.find('input[type="email"]').setValue('admin@test-restaurant.com')
       await wrapper.find('input[type="password"]').setValue('password123')
       await wrapper.find('form').trigger('submit')
 
       expect(mockSignIn).toHaveBeenCalledWith({
-        email: 'admin@lazingara.es',
+        email: 'admin@test-restaurant.com',
         password: 'password123',
       })
     })
@@ -162,7 +162,7 @@ describe('Login Page — /cocina', () => {
         },
       })
 
-      await wrapper.find('input[type="email"]').setValue('admin@lazingara.es')
+      await wrapper.find('input[type="email"]').setValue('admin@test-restaurant.com')
       await wrapper.find('input[type="password"]').setValue('password123')
       await wrapper.find('form').trigger('submit')
       await flushPromises()

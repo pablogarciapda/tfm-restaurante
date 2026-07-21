@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import AppFooter from '../../../app/components/AppFooter.vue'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 /**
  * RED → GREEN → TRIANGULATE — AppFooter (PU-004)
@@ -12,19 +13,10 @@ import AppFooter from '../../../app/components/AppFooter.vue'
  * - Reads from useRestaurantConfig (multi-tenant, mocked in test)
  */
 const mockRestaurant = {
-  nombre: 'Restaurante La Zíngara',
-  direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
-  telefono: '987 350 350',
-  maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
-  logo_url: null,
-  site_url: '',
-  email: 'reservas@lazingara.es',
-  instagram_url: 'https://www.instagram.com/restaurantelazingaraoficial',
-  facebook_url: 'https://www.facebook.com/RestauranteLaZingara',
-  poblacion: 'Santa María del Páramo, León',
+  ...TEST_RESTAURANT,
 }
 
-const mockDireccionLineas = ref(['Avda. del Páramo, 11', '24240 Santa María del Páramo', 'León'])
+const mockDireccionLineas = ref(TEST_RESTAURANT.direccion.split(',').map((s: string) => s.trim()))
 const mockRestaurantRef = ref(mockRestaurant)
 const mockLogoUrl = ref('/images/logo.png')
 const mockNombre = ref(mockRestaurant.nombre)
@@ -56,14 +48,15 @@ describe('AppFooter — Content', () => {
   it('renders the restaurant name', () => {
     const wrapper = mount(AppFooter)
 
-    expect(wrapper.text()).toContain('Restaurante La Zíngara')
+    expect(wrapper.text()).toContain(TEST_RESTAURANT.nombre)
   })
 
-  it('renders the address in Santa María del Páramo, León', () => {
+  it('renders the address from restaurant config', () => {
     const wrapper = mount(AppFooter)
+    const direccionParts = TEST_RESTAURANT.direccion.split(',').map((s: string) => s.trim())
 
-    expect(wrapper.text()).toContain('Santa María del Páramo')
-    expect(wrapper.text()).toContain('León')
+    expect(wrapper.text()).toContain(direccionParts[0])
+    expect(wrapper.text()).toContain(direccionParts[2])
   })
 
   it('renders phone contact information', () => {
@@ -96,8 +89,7 @@ describe('AppFooter — Spanish content', () => {
     const wrapper = mount(AppFooter)
 
     const text = wrapper.text()
-    expect(text).toContain('Restaurante')
-    expect(text).toContain('Santa María del Páramo')
-    expect(text).toContain('León')
+    expect(text).toContain(TEST_RESTAURANT.nombre)
+    expect(text).toContain(TEST_RESTAURANT.poblacion.split(',')[0].trim())
   })
 })

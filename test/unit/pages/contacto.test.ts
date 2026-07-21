@@ -5,18 +5,10 @@ import ContactoPage from '../../../app/pages/contacto.vue'
 import ContactForm from '../../../app/components/ContactForm.vue'
 import MapEmbed from '../../../app/components/MapEmbed.vue'
 import PageHero from '../../../app/components/PageHero.vue'
+import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
 
 const mockRestaurant = ref({
-  nombre: 'Restaurante La Zíngara',
-  direccion: 'Avda. del Páramo, 11, 24240 Santa María del Páramo, León',
-  telefono: '987 350 350',
-  maps_url: 'https://maps.app.goo.gl/56uxryZVZkS3pKTMA',
-  logo_url: null,
-  site_url: 'https://www.lazingara.es',
-  email: 'reservas@lazingara.es',
-  instagram_url: 'https://www.instagram.com/restaurantelazingaraoficial',
-  facebook_url: 'https://www.facebook.com/RestauranteLaZingara',
-  poblacion: 'Santa María del Páramo, León',
+  ...TEST_RESTAURANT,
 })
 
 vi.stubGlobal('useRestaurantConfig', () => ({

@@ -122,7 +122,7 @@ describe('createMockSupabaseClient (TH-004)', () => {
       const client = createMockSupabaseClient({
         authSignIn: vi.fn().mockResolvedValue({
           data: {
-            user: { id: 'user-1', email: 'test@lazingara.es' },
+            user: { id: 'user-1', email: 'test@test-restaurant.com' },
             session: { access_token: 'token-abc' },
           },
           error: null,
@@ -130,11 +130,11 @@ describe('createMockSupabaseClient (TH-004)', () => {
       })
 
       const result = await client.auth.signInWithPassword({
-        email: 'test@lazingara.es',
+        email: 'test@test-restaurant.com',
         password: 'pass',
       })
 
-      expect(result.data.user.email).toBe('test@lazingara.es')
+      expect(result.data.user.email).toBe('test@test-restaurant.com')
       expect(result.error).toBeNull()
     })
 
@@ -147,7 +147,7 @@ describe('createMockSupabaseClient (TH-004)', () => {
       })
 
       const result = await client.auth.signInWithPassword({
-        email: 'wrong@lazingara.es',
+        email: 'wrong@test-restaurant.com',
         password: 'wrong',
       })
 
@@ -168,14 +168,14 @@ describe('createMockSupabaseClient (TH-004)', () => {
     it('getUser returns configured user', async () => {
       const client = createMockSupabaseClient({
         authGetUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-1', email: 'test@lazingara.es' } },
+          data: { user: { id: 'user-1', email: 'test@test-restaurant.com' } },
           error: null,
         }),
       })
 
       const result = await client.auth.getUser()
 
-      expect(result.data.user.email).toBe('test@lazingara.es')
+      expect(result.data.user.email).toBe('test@test-restaurant.com')
     })
 
     it('getUser returns null for unauthenticated', async () => {
