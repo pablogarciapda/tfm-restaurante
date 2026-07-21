@@ -2,7 +2,7 @@
  * GET /api/public-config — Public config for reservation page + restaurant info
  *
  * Returns horarios, enabled zones, texto_proteccion_datos, modo_reserva,
- * cliente_elige_zona, and restaurant info (multi-tenant header/footer).
+ * and restaurant info (multi-tenant header/footer).
  * No auth required (PUBLIC endpoint).
  * Uses service role to bypass RLS on configuracion for reads.
  */
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, poblacion')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, poblacion')
     .limit(1)
     .single()
 
@@ -39,7 +39,6 @@ export default defineEventHandler(async (event) => {
       modo_reserva: 'automatica',
       sms_verificacion: false,
       notificacion_reserva: 'email',
-      cliente_elige_zona: 'none',
       captcha_habilitado: false,
       restaurant: DEFAULT_RESTAURANT,
     } satisfies PublicConfig
@@ -69,7 +68,6 @@ export default defineEventHandler(async (event) => {
     modo_reserva: (data.modo_reserva as 'automatica' | 'verificada') || 'automatica',
     sms_verificacion: (data.sms_verificacion as boolean) ?? false,
     notificacion_reserva: (data.notificacion_reserva as 'email' | 'sms' | 'ambos') || 'email',
-    cliente_elige_zona: (data.cliente_elige_zona as 'none' | 'zona' | 'zona_mesa') || 'none',
     captcha_habilitado: (data.captcha_habilitado as boolean) ?? false,
     restaurant,
   }
