@@ -2,7 +2,7 @@
 
 ## Purpose
 
-System settings page at `/cocina/configuracion`. Organized in 11 labeled sections: General, Elección de mesa, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados. Covers: `cliente_elige_mesa` (boolean), `capacidad_total_local` (integer), dual occupancy mode (`modo_ocupacion` auto/manual), manual occupancy override (`ocupacion_manual`), menu pricing, SMTP configuration, GDPR consent text, reservation mode, service hours, zone management, and blocked days. Admin-only access; config loaded/saved via `/api/config` (no direct Supabase client).
+System settings page at `/cocina/configuracion`. Organized in 10 labeled sections: General, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados. Covers: `capacidad_total_local` (integer), dual occupancy mode (`modo_ocupacion` auto/manual), manual occupancy override (`ocupacion_manual`), menu pricing, SMTP configuration, GDPR consent text, reservation mode, service hours, zone management, and blocked days. Admin-only access; config loaded/saved via `/api/config` (no direct Supabase client).
 
 ## Requirements
 
@@ -21,11 +21,10 @@ System settings page at `/cocina/configuracion`. Organized in 11 labeled section
 | CFG-011 | Horarios section with time inputs for comida/cena + intervalo select | MUST |
 | CFG-012 | Zonas section with editable nombre/capacidad/toggle table + add/delete | MUST |
 | CFG-013 | Días bloqueados inline CRUD with date picker + recurrente checkbox | MUST |
-| CFG-014 | cliente_elige_zona radio (none/zona/zona_mesa with "Próximamente" disabled) | MUST |
 
 ### Requirement: CFG-001 — Settings Form
 
-The system MUST render a section-based form at `/cocina/configuracion` organized into 11 sections (see CFG-006). Save button: **"Guardar configuración"**. Sections: General, Elección de mesa, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados.
+The system MUST render a section-based form at `/cocina/configuracion` organized into 10 sections (see CFG-006). Save button: **"Guardar configuración"**. Sections: General, Precios, Recomendados, Imágenes, Correo saliente, Protección de datos, Reservas, Horarios, Zonas, Días bloqueados.
 
 (Previously: single flat form with toggle, capacity, price, image fields.)
 
@@ -38,7 +37,7 @@ The system MUST render a section-based form at `/cocina/configuracion` organized
 - THEN toggle shows unchecked; number input shows 80
 - AND "Automático" radio is selected
 - AND "Ocupación manual" input is hidden
-- AND all 11 sections render with correct headers
+- AND all 10 sections render with correct headers
 
 #### Scenario: Toggle cliente_elige_mesa
 
@@ -125,12 +124,12 @@ When mode is "Automático", aforo on `/cocina/reservas` is calculated as `SUM(ca
 
 ### Requirement: CFG-006 — Section Layout
 
-The configuration page MUST display fields grouped into labeled sections with `<h3>` headers and visual separators: **General** (capacidad_total_local, modo_ocupacion, ocupacion_manual), **Elección de mesa** (cliente_elige_mesa, cliente_elige_zona), **Precios** (precio_menu_diario, precio_menu_sabado), **Recomendados** (mostrar_recomendados, titulo_recomendados), **Imágenes** (max_ancho_imagen, calidad_imagen, max_peso_imagen, auto_comprimir_imagen), **Correo saliente** (SMTP fields), **Protección de datos** (texto_proteccion_datos), **Reservas** (modo_reserva), **Horarios** (comida/cena time inputs, intervalo select), **Zonas** (editable table), **Días bloqueados** (inline CRUD table).
+The configuration page MUST display fields grouped into labeled sections with `<h3>` headers and visual separators: **General** (capacidad_total_local, modo_ocupacion, ocupacion_manual), **Precios** (precio_menu_diario, precio_menu_sabado), **Recomendados** (mostrar_recomendados, titulo_recomendados), **Imágenes** (max_ancho_imagen, calidad_imagen, max_peso_imagen, auto_comprimir_imagen), **Correo saliente** (SMTP fields), **Protección de datos** (texto_proteccion_datos), **Reservas** (modo_reserva), **Horarios** (comida/cena time inputs, intervalo select), **Zonas** (editable table), **Días bloqueados** (inline CRUD table).
 
 #### Scenario: Sections render with headers
 - GIVEN admin visits /cocina/configuracion
 - WHEN page loads
-- THEN 11 section headers displayed
+- THEN 10 section headers displayed
 - AND fields grouped under respective sections
 - AND sections visually separated (borders/backgrounds)
 
@@ -273,27 +272,9 @@ ConfiguracionForm MUST render a "Días bloqueados" section with inline CRUD tabl
 - THEN DELETE /api/dias-bloqueados/[id] called
 - AND row removed from table
 
-### Requirement: CFG-014 — Elección de Zona Selector
-
-ConfiguracionForm MUST add a "Elección de zona" field to the "Elección de mesa" section: radio group bound to `cliente_elige_zona` with options: **"No permitir"** (none), **"Permitir elegir zona"** (zona), **"Permitir elegir mesa"** (zona_mesa, disabled with "Próximamente"). Changes the zone selector visibility in `/reservas`.
-
-#### Scenario: Radio group renders with current value
-
-- GIVEN cliente_elige_zona='none'
-- WHEN admin visits /cocina/configuracion
-- THEN "No permitir" radio selected
-- AND zona_mesa radio shows disabled with "Próximamente" tooltip
-
-#### Scenario: Admin enables zone selection
-
-- GIVEN cliente_elige_zona='none'
-- WHEN admin selects "Permitir elegir zona" and saves
-- THEN cliente_elige_zona='zona' persisted
-- AND /reservas shows zone dropdown
-
 ## Edge Cases
 
-- **Missing config row**: if no configuracion row exists, form shows defaults (cliente_elige_mesa=false, capacidad_total_local=0) and first save creates the row
+- **Missing config row**: if no configuracion row exists, form shows defaults (capacidad_total_local=0) and first save creates the row
 - **Concurrent edit**: last-write-wins (single-row table, low contention)
 - **Dual occupancy auto→manual transition**: when switching from Manual to Auto, `ocupacion_manual` is cleared (NULL) and aforo recalculates from mesas
 - **Manual value > capacidad_total_local**: validation error blocks save; admin must reduce value or increase capacidad_total_local first

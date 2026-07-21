@@ -23,7 +23,7 @@ Database migration creating 10 tables with full RLS policies, the profiles auto-
 | SCH-013 | Alter reservas: ADD cliente_id (uuid FK→clientes.id ON DELETE SET NULL, nullable), DROP nombre_cliente, DROP telefono, DROP email | MUST |
 | SCH-014 | RLS on clientes: anon NO access; authenticated with can_write('clientes') MAY select/insert/update; service role bypasses | MUST |
 | SCH-015 | New `dias_bloqueados` table: id (uuid PK), fecha (date NOT NULL), recurrente (bool DEFAULT false), motivo (text nullable), created_at (timestamptz). RLS: admin-only write, service role bypass. | MUST |
-| SCH-016 | New configuracion columns: horarios_config (jsonb, default lunch/dinner schedule), zonas_config (jsonb, default 5 zones), cliente_elige_zona (text DEFAULT 'none', CHECK IN ('none','zona','zona_mesa')). capacidad_total_local default 80→264. | MUST |
+| SCH-016 | New configuracion columns: horarios_config (jsonb, default lunch/dinner schedule), zonas_config (jsonb, default 5 zones). capacidad_total_local default 80→264. | MUST |
 | SCH-017 | New reservas column: zona (text, nullable). Stored by zone name at reservation time. No FK (zone names are editable). | MUST |
 
 ### Requirement: SCH-001 — 10-Table Migration
@@ -98,7 +98,7 @@ The system MUST enable RLS on all 10 tables. Anon role SHALL read `platos`, `eve
 
 ### Requirement: SCH-003 — Seed Data
 
-The system MUST seed initial data from existing mock fixtures: insert `shared/fixtures/carta-mock.ts` platos into `platos`, `shared/fixtures/menu-diario-mock.ts` into `menu_diario_config` + `menu_diario_items`, `shared/fixtures/eventos-mock.ts` into `eventos`. Configuracion seeds with `cliente_elige_mesa=false`, `capacidad_total_local=264`, `modo_ocupacion='auto'`, `ocupacion_manual=NULL`, `horarios_config` default schedule, `zonas_config` 5 default zones, `cliente_elige_zona='none'`.
+The system MUST seed initial data from existing mock fixtures: insert `shared/fixtures/carta-mock.ts` platos into `platos`, `shared/fixtures/menu-diario-mock.ts` into `menu_diario_config` + `menu_diario_items`, `shared/fixtures/eventos-mock.ts` into `eventos`. Configuracion seeds with `capacidad_total_local=264`, `modo_ocupacion='auto'`, `ocupacion_manual=NULL`, `horarios_config` default schedule, `zonas_config` 5 default zones.
 
 #### Scenario: Public pages show seeded data after migration
 
@@ -323,13 +323,12 @@ The system MUST create `dias_bloqueados` via migration: id (uuid PK DEFAULT gen_
 
 ### Requirement: SCH-016 — New configuracion Columns
 
-Migration MUST ADD 3 columns to `configuracion`:
+Migration MUST ADD 2 columns to `configuracion`:
 
 | Column | Type | Default |
 |--------|------|---------|
 | horarios_config | jsonb | `{"comida_inicio":"13:30","comida_fin":"15:30","cena_inicio":"21:00","cena_fin":"23:30","intervalo_minutos":15}` |
 | zonas_config | jsonb | `[{"id":"principal","nombre":"Principal","capacidad":70,"enabled":true},{"id":"reservado","nombre":"Reservado","capacidad":14,"enabled":true},{"id":"zingaro","nombre":"Zíngaro","capacidad":60,"enabled":true},{"id":"terraza","nombre":"Terraza","capacidad":100,"enabled":true},{"id":"bar","nombre":"Bar","capacidad":20,"enabled":true}]` |
-| cliente_elige_zona | text | `'none'`, CHECK IN ('none','zona','zona_mesa') |
 
 Existing config row MUST be updated with defaults. `capacidad_total_local` default MUST be updated from 80 to 264 (sum of default zone capacities).
 
@@ -337,9 +336,8 @@ Existing config row MUST be updated with defaults. `capacidad_total_local` defau
 
 - GIVEN configuracion table with 22 columns
 - WHEN migration applied
-- THEN table has 25 columns
+- THEN table has 24 columns
 - AND existing row has horarios_config and zonas_config set to defaults
-- AND cliente_elige_zona='none'
 - AND capacidad_total_local default is 264
 
 ### Requirement: SCH-017 — reservas.zona Column
