@@ -37,7 +37,7 @@ const nombre = ref('')
 const apellidos = ref('')
 const telefono = ref('')
 const email = ref('')
-const numero_comensales = ref<number | null>(null)
+const numero_comensales = ref<number | null>(4)
 const errors = ref<Record<string, string>>({})
 
 // ── Date + Slot selection ──
