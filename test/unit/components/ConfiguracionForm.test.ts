@@ -16,6 +16,11 @@ g.useImageUpload = () => ({
   compressToWebP: vi.fn(),
 })
 g.toProxyUrl = (url: string | null | undefined) => url || undefined
+g.useState = <T>(key: string, init?: () => T) => ref(init ? init() : undefined)
+g.$fetch = vi.fn().mockResolvedValue({
+  canvas_ancho_base: 1400,
+  canvas_alto_base: 900,
+})
 
 describe('ConfiguracionForm (CFG-001)', () => {
   async function mountForm(props: Record<string, unknown> = {}) {

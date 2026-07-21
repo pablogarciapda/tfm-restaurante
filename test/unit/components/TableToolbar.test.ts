@@ -390,21 +390,9 @@ describe('TableToolbar', () => {
     expect(wrapper.text()).not.toContain('Guardar')
   })
 
-  it('renders turn filter only in operacion mode', async () => {
+  it('renders multi-select toggle in operacion mode', async () => {
     const comp = await loadComponent()
-    // Test in diseno mode — should NOT show turn filter
-    const wrapper1 = mount(comp, {
-      props: {
-        mode: 'diseno',
-        selectedMesa: null,
-        aforoInfo: makeAforoInfo(),
-      },
-    })
-    expect(wrapper1.text()).not.toContain('Comida')
-    expect(wrapper1.text()).not.toContain('Cena')
-
-    // Test in operacion mode — should show turn filter
-    const wrapper2 = mount(comp, {
+    const wrapper = mount(comp, {
       props: {
         mode: 'operacion',
         selectedMesa: null,
@@ -414,7 +402,6 @@ describe('TableToolbar', () => {
         activeTurno: 'todos',
       },
     })
-    expect(wrapper2.text()).toContain('Comida')
-    expect(wrapper2.text()).toContain('Cena')
+    expect(wrapper.text()).toContain('Selec.')
   })
 })
