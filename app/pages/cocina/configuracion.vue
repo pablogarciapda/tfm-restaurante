@@ -38,7 +38,6 @@ const defaultConfig: ConfigData = {
     { id: 'terraza', nombre: 'Comedor terraza', capacidad: 100, enabled: true },
     { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true },
   ],
-  cliente_elige_zona: 'none',
   captcha_habilitado: false,
   sms_verificacion: false,
   notificacion_reserva: 'email',
@@ -67,7 +66,6 @@ const formConfig = computed(() => {
     texto_proteccion_datos: c.texto_proteccion_datos ?? '',
     horarios_config: c.horarios_config ?? { comida_inicio: '13:30', comida_fin: '15:30', cena_inicio: '21:00', cena_fin: '23:30', intervalo_minutos: 15 },
     zonas_config: c.zonas_config ?? [],
-    cliente_elige_zona: c.cliente_elige_zona ?? 'none',
   } as Record<string, unknown>
 })
 

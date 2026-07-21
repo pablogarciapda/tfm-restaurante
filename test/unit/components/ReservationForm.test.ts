@@ -5,10 +5,9 @@
  * - 5 basic fields: nombre, apellidos, telefono, email, numero_comensales
  * - Date picker (replaces datetime-local)
  * - Slot grid rendering when horariosConfig provided and date selected
- * - Zone selector conditional on clienteEligeZona
  * - Blocked date handling
  * - Spanish phone format validation
- * - Emit submit with valid data including zona_id
+ * - Emit submit with valid data
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -247,39 +246,6 @@ describe('ReservationForm (RF-001 + SLA slots)', () => {
       await wrapper.find('form').trigger('submit.prevent')
 
       expect(wrapper.text()).toContain('Selecciona un horario')
-    })
-  })
-
-  describe('Zone selector', () => {
-    const zonas = [
-      { id: 'principal', nombre: 'Comedor principal', capacidad: 70, enabled: true },
-      { id: 'terraza', nombre: 'Terraza', capacidad: 100, enabled: true },
-    ]
-
-    it('hides zone selector when clienteEligeZona is "none"', () => {
-      const wrapper = mount(ReservationForm, {
-        props: { zonas, clienteEligeZona: 'none' },
-      })
-      expect(wrapper.find('[data-testid="reserva-zona"]').exists()).toBe(false)
-    })
-
-    it('hides zone selector when clienteEligeZona not provided', () => {
-      const wrapper = mount(ReservationForm, { props: { zonas } })
-      expect(wrapper.find('[data-testid="reserva-zona"]').exists()).toBe(false)
-    })
-
-    it('shows zone selector when clienteEligeZona is "zona"', () => {
-      const wrapper = mount(ReservationForm, {
-        props: { zonas, clienteEligeZona: 'zona' },
-      })
-      expect(wrapper.find('[data-testid="reserva-zona"]').exists()).toBe(true)
-    })
-
-    it('shows zone selector when clienteEligeZona is "zona_mesa"', () => {
-      const wrapper = mount(ReservationForm, {
-        props: { zonas, clienteEligeZona: 'zona_mesa' },
-      })
-      expect(wrapper.find('[data-testid="reserva-zona"]').exists()).toBe(true)
     })
   })
 

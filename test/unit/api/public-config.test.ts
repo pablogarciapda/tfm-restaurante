@@ -45,7 +45,7 @@ function createMockSupabase(configData: Record<string, unknown> | null) {
 async function getPublicConfig(supabase: any) {
   const { data, error } = await supabase
     .from('configuracion')
-    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, cliente_elige_zona, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
+    .select('horarios_config, zonas_config, texto_proteccion_datos, modo_reserva, sms_verificacion, notificacion_reserva, captcha_habilitado, restaurant_nombre, restaurant_direccion, restaurant_telefono, restaurant_maps_url, restaurant_logo_url, site_url, restaurant_email, restaurant_instagram_url, restaurant_facebook_url, restaurant_poblacion')
     .limit(1)
     .single()
 
@@ -57,7 +57,6 @@ async function getPublicConfig(supabase: any) {
       modo_reserva: 'automatica',
       sms_verificacion: false,
       notificacion_reserva: 'email',
-      cliente_elige_zona: 'none',
       captcha_habilitado: false,
       restaurant: DEFAULT_RESTAURANT,
     }
@@ -87,7 +86,6 @@ async function getPublicConfig(supabase: any) {
     modo_reserva: data.modo_reserva || 'automatica',
     sms_verificacion: (data.sms_verificacion as boolean) ?? false,
     notificacion_reserva: data.notificacion_reserva || 'email',
-    cliente_elige_zona: data.cliente_elige_zona || 'none',
     captcha_habilitado: (data.captcha_habilitado as boolean) ?? false,
     restaurant,
   }
@@ -110,7 +108,6 @@ describe('GET /api/public-config', () => {
       ],
       texto_proteccion_datos: 'Texto legal...',
       modo_reserva: 'automatica',
-      cliente_elige_zona: 'zona',
     })
 
     const result = await getPublicConfig(mockSupabase as any)
@@ -122,7 +119,6 @@ describe('GET /api/public-config', () => {
     expect(result.zonas[1].nombre).toBe('Bar')
     expect(result.texto_proteccion_datos).toBe('Texto legal...')
     expect(result.modo_reserva).toBe('automatica')
-    expect(result.cliente_elige_zona).toBe('zona')
     expect(result.restaurant).toBeDefined()
     expect(result.restaurant.nombre).toBe('')
   })
@@ -136,7 +132,6 @@ describe('GET /api/public-config', () => {
       ],
       texto_proteccion_datos: null,
       modo_reserva: 'verificada',
-      cliente_elige_zona: 'none',
     })
 
     const result = await getPublicConfig(mockSupabase as any)
@@ -153,20 +148,7 @@ describe('GET /api/public-config', () => {
     expect(result.horarios).toBeNull()
     expect(result.zonas).toEqual([])
     expect(result.modo_reserva).toBe('automatica')
-    expect(result.cliente_elige_zona).toBe('none')
     expect(result.restaurant.nombre).toBe('')
-  })
-
-  it('handles missing cliente_elige_zona field', async () => {
-    const mockSupabase = createMockSupabase({
-      horarios_config: null,
-      zonas_config: [],
-      modo_reserva: 'verificada',
-    })
-
-    const result = await getPublicConfig(mockSupabase as any)
-
-    expect(result.cliente_elige_zona).toBe('none')
   })
 
   it('does NOT expose sensitive fields like smtp_password', async () => {
@@ -185,7 +167,6 @@ describe('GET /api/public-config', () => {
     keys.sort()
     expect(keys).toEqual([
       'captcha_habilitado',
-      'cliente_elige_zona',
       'horarios',
       'modo_reserva',
       'notificacion_reserva',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
+import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { generateSlots } from '#shared/utils/slots'
 
 /**
@@ -8,11 +8,9 @@ import { generateSlots } from '#shared/utils/slots'
  *
  * Props:
  * - horariosConfig: operating hours config for slot generation
- * - zonas: enabled zones for zone selector (when clienteEligeZona !== 'none')
- * - clienteEligeZona: controls zone/mesa selection UI
  * - diasBloqueados: array of "YYYY-MM-DD" blocked dates
  *
- * Emits `submit` with validated data including optional zona_id.
+ * Emits `submit` with validated data.
  */
 export interface ReservationPayload {
   nombre: string
@@ -21,14 +19,11 @@ export interface ReservationPayload {
   email: string
   fecha_hora: string
   numero_comensales: number
-  zona_id?: string
   captcha_token?: string
 }
 
 const props = defineProps<{
   horariosConfig?: HorarioConfig | null
-  zonas?: ZonaConfig[]
-  clienteEligeZona?: 'none' | 'zona' | 'zona_mesa'
   diasBloqueados?: string[]
   captchaHabilitado?: boolean
 }>()
@@ -48,7 +43,6 @@ const errors = ref<Record<string, string>>({})
 // ── Date + Slot selection ──
 const selectedDate = ref('')
 const selectedSlot = ref('') // "HH:MM"
-const zonaSeleccionada = ref('') // zone id
 const slotDateError = ref('')
 
 // Minimum date for picker: tomorrow
@@ -129,7 +123,6 @@ function validatePhone(raw: string): string | null {
 
 // ── Validation ──
 const slotError = ref('')
-const zonaError = ref('')
 
 function validate(): boolean {
   const newErrors: Record<string, string> = {}
@@ -170,13 +163,6 @@ function validate(): boolean {
     slotError.value = 'Selecciona fecha y horario'
   }
 
-  // Zone validation (conditional)
-  if (props.clienteEligeZona && props.clienteEligeZona !== 'none' && !zonaSeleccionada.value) {
-    zonaError.value = 'Selecciona una zona'
-  } else {
-    zonaError.value = ''
-  }
-
   if (numero_comensales.value === null || numero_comensales.value === undefined) {
     newErrors.numero_comensales = 'Indica el número de comensales'
   } else if (numero_comensales.value < 1 || numero_comensales.value > 20) {
@@ -184,7 +170,7 @@ function validate(): boolean {
   }
 
   errors.value = newErrors
-  return Object.keys(newErrors).length === 0 && !slotError.value && !zonaError.value
+  return Object.keys(newErrors).length === 0 && !slotError.value
 }
 
 const captchaError = ref('')
@@ -216,7 +202,6 @@ function handleSubmit() {
     email: email.value.trim(),
     fecha_hora,
     numero_comensales: numero_comensales.value!,
-    zona_id: zonaSeleccionada.value || undefined,
     captcha_token: captchaToken.value || undefined,
   })
 
@@ -358,28 +343,6 @@ function handleSubmit() {
         type="datetime-local"
         class="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20"
       />
-    </div>
-
-    <!-- Zone selector (conditional) -->
-    <div v-if="clienteEligeZona && clienteEligeZona !== 'none' && zonas && zonas.length > 0">
-      <label for="zona" class="block text-sm font-medium text-slate">Zona *</label>
-      <select
-        id="zona"
-        v-model="zonaSeleccionada"
-        data-testid="reserva-zona"
-        class="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20"
-        :class="{ 'border-red-500': zonaError }"
-      >
-        <option value="" disabled>Selecciona una zona</option>
-        <option
-          v-for="zona in zonas"
-          :key="zona.id"
-          :value="zona.id"
-        >
-          {{ zona.nombre }} ({{ zona.capacidad }} personas)
-        </option>
-      </select>
-      <p v-if="zonaError" class="mt-1 text-sm text-red-600">{{ zonaError }}</p>
     </div>
 
     <!-- Número de comensales -->
