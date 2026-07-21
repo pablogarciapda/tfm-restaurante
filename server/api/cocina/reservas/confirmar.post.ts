@@ -2,11 +2,13 @@
  * POST /api/cocina/reservas/confirmar — Confirm a pending reservation
  *
  * Accepts optional mesa_id to assign a table on confirmation.
+ * Checks for time-window conflicts before assigning a mesa.
  * Sends notification(s) based on configuracion.notificacion_reserva.
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { sendConfirmationEmail } from '../../../utils/email'
 import { generarReferencia } from '#shared/utils/referencia'
+import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -25,6 +27,35 @@ export default defineEventHandler(async (event) => {
   // Build update: confirm state + optionally assign mesa
   const updateData: Record<string, unknown> = { estado: 'confirmada' }
   if (mesa_id) {
+    // Check for time-window conflicts before assigning
+    const { data: horariosConfig } = await supabase
+      .from('configuracion')
+      .select('horarios_config')
+      .limit(1)
+      .single()
+
+    const { data: reservaActual } = await supabase
+      .from('reservas')
+      .select('fecha_hora')
+      .eq('id', reserva_id)
+      .single()
+
+    if (reservaActual?.fecha_hora && horariosConfig?.horarios_config) {
+      const turnos = buildTurnoWindows(horariosConfig.horarios_config)
+      const { data: existingReservas } = await supabase
+        .from('reservas')
+        .select('fecha_hora, estado')
+        .eq('mesa_id', mesa_id)
+        .neq('id', reserva_id)
+
+      if (existingReservas && hasMesaConflict(existingReservas, reservaActual.fecha_hora, turnos)) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: 'La mesa ya tiene una reserva en ese horario. Seleccione otra mesa o cambie la hora.',
+        })
+      }
+    }
+
     updateData.mesa_id = mesa_id
   }
 
