@@ -54,7 +54,7 @@ describe('AforoIndicator', () => {
     const comp = await loadComponent()
     const wrapper = mount(comp, {
       props: {
-        aforoInfo: makeAforoInfo({ disponible: 45, capacidad_total: 100 }),
+        aforoInfo: makeAforoInfo({ ocupacion_auto: 45, capacidad_total: 100, disponible: 55 }),
       },
     })
 
