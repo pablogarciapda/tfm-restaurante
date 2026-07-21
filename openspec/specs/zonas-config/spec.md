@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Configurable restaurant zones with editable names, individual capacity, and enable/disable toggle. Stored as JSONB array in `configuracion.zonas_config`. Replaces the fixed CHECK constraint on `mesas.zona` with editable zone names. Controls whether clients can select a zone during reservation.
+Configurable restaurant zones with editable names, individual capacity, and enable/disable toggle. Stored as JSONB array in `configuracion.zonas_config`. Replaces the fixed CHECK constraint on `mesas.zona` with editable zone names. Zone assignment to reservations is admin-only.
 
 ## Requirements
 
@@ -11,7 +11,6 @@ Configurable restaurant zones with editable names, individual capacity, and enab
 | ZON-001 | `configuracion.zonas_config` JSONB array: each entry `{ id: string, nombre: string, capacidad: number, enabled: boolean }`. Default: 5 zones (Principal:70, Reservado:14, Zíngaro:60, Terraza:100, Bar:20). Names editable. | MUST |
 | ZON-002 | Zone enabled/disabled toggle: when disabled, zone MUST be excluded from capacity calculation and zone selector in reservation form. | MUST |
 | ZON-003 | `mesas.zona` CHECK constraint MUST be updated from 5 fixed values to match `zonas_config` entries. Migration: ALTER CHECK, UPDATE existing rows (Privado→Reservado). | MUST |
-| ZON-004 | `configuracion.cliente_elige_zona` enum: `none` (default), `zona` (client picks zone), `zona_mesa` (future: client picks table). Controls zone selector visibility in reservation form. | MUST |
 
 ### Requirement: ZON-001 — zonas_config JSONB
 
@@ -40,7 +39,7 @@ The system MUST store zone definitions in `configuracion.zonas_config` as JSONB 
 
 ### Requirement: ZON-002 — Zone Toggle
 
-Each zone entry MUST have an `enabled` boolean. When `enabled=false`: zone excluded from `SUM(enabled_zones.capacidad)`, zone omitted from reservation form selector, zone hidden in floor plan. Existing mesas in disabled zone remain in DB but are visually dimmed in canvas.
+Each zone entry MUST have an `enabled` boolean. When `enabled=false`: zone excluded from `SUM(enabled_zones.capacidad)`, zone hidden in floor plan. Existing mesas in disabled zone remain in DB but are visually dimmed in canvas.
 
 #### Scenario: Disable a zone
 
@@ -74,18 +73,8 @@ The system MUST replace the `mesas.zona` CHECK constraint from `IN ('Principal',
 - THEN ALTER TABLE mesas DROP + ADD CHECK to accept "Salón"
 - AND existing mesas rows updated from "Principal" → "Salón"
 
-### Requirement: ZON-004 — cliente_elige_zona
+## Edge Cases
 
-New `configuracion.cliente_elige_zona` column: `text`, CHECK IN `('none','zona','zona_mesa')`, DEFAULT `'none'`. Controls reservation form behavior: `none` = no zone selector, `zona` = zone dropdown visible, `zona_mesa` = future individual table picker (disabled button with "Próximamente" in this change).
-
-#### Scenario: Default mode is none
-
-- GIVEN migration applied
-- WHEN querying cliente_elige_zona
-- THEN value is 'none'; no zone selector in /reservas
-
-#### Scenario: Admin enables zone selection
-
-- GIVEN cliente_elige_zona='none'
-- WHEN admin selects "Zona" radio and saves
-- THEN /reservas shows zone dropdown with enabled zones
+- **Disabled zone with mesas**: mesas remain in DB but are visually dimmed in canvas
+- **All zones disabled**: system rejects save — at least one zone must be enabled
+- **Zone rename cascades**: renaming a zone updates mesas.zona CHECK and existing rows

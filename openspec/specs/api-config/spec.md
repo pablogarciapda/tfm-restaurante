@@ -7,8 +7,8 @@ Server-side configuration endpoints that protect sensitive fields (smtp_password
 
 | ID | Requirement | RFC 2119 |
 |----|------------|----------|
-| ACF-001 | GET /api/config returns all configuracion fields EXCEPT smtp_password. Includes horarios_config, zonas_config, cliente_elige_zona. Admin-only (auth cookie). | MUST |
-| ACF-002 | POST /api/config upserts the single configuracion row. Accepts horarios_config, zonas_config, cliente_elige_zona. Validates JSONB via Zod. smtp_password accepted write-only (empty/placeholder values ignored). Admin-only. | MUST |
+| ACF-001 | GET /api/config returns all configuracion fields EXCEPT smtp_password. Includes horarios_config, zonas_config. Admin-only (auth cookie). | MUST |
+| ACF-002 | POST /api/config upserts the single configuracion row. Accepts horarios_config, zonas_config. Validates JSONB via Zod. smtp_password accepted write-only (empty/placeholder values ignored). Admin-only. | MUST |
 | ACF-003 | POST /api/config accepts auth-only via `requireUserSession` or equivalent. Returns 401 unauthenticated. | MUST |
 | ACF-004 | GET/POST/DELETE /api/dias-bloqueados CRUD. Admin-only, service role DB access. POST validates fecha not in past. | MUST |
 | ACF-005 | PATCH /api/reservas/[id]/mesa. Accepts { zona?, mesa_id? }, validates zona against zonas_config and mesa FK + zone membership. Admin-only with can_write('reservas'). | MUST |
@@ -16,14 +16,14 @@ Server-side configuration endpoints that protect sensitive fields (smtp_password
 
 ### Requirement: ACF-001 — GET /api/config
 
-GET /api/config MUST: verify authenticated user, SELECT `*` from `configuracion` (single row) using `serverSupabaseServiceRole` to bypass RLS, EXCLUDE `smtp_password` from response. If no row exists, return empty object `{}`. Response includes ALL configuracion fields including new: `horarios_config`, `zonas_config`, `cliente_elige_zona`.
+GET /api/config MUST: verify authenticated user, SELECT `*` from `configuracion` (single row) using `serverSupabaseServiceRole` to bypass RLS, EXCLUDE `smtp_password` from response. If no row exists, return empty object `{}`. Response includes ALL configuracion fields including: `horarios_config`, `zonas_config`.
 
-(Previously: returned 22 fields without horarios_config, zonas_config, cliente_elige_zona)
+(Previously: returned 22 fields without horarios_config, zonas_config)
 
 #### Scenario: Authenticated admin reads config
 - GIVEN admin session cookie
 - WHEN GET /api/config
-- THEN 200 with all config fields including horarios_config, zonas_config, cliente_elige_zona
+- THEN 200 with all config fields including horarios_config, zonas_config
 - AND smtp_password NOT present in response
 
 #### Scenario: New fields have default values
@@ -32,7 +32,6 @@ GET /api/config MUST: verify authenticated user, SELECT `*` from `configuracion`
 - WHEN GET /api/config
 - THEN horarios_config = { comida_inicio:"13:30", ... }
 - AND zonas_config = [ 5 zones ]
-- AND cliente_elige_zona = "none"
 
 #### Scenario: Unauthenticated request rejected
 - GIVEN no auth cookie
@@ -46,9 +45,9 @@ GET /api/config MUST: verify authenticated user, SELECT `*` from `configuracion`
 
 ### Requirement: ACF-002 — POST /api/config
 
-POST /api/config MUST: verify auth, accept partial config body including new fields `horarios_config` (JSONB), `zonas_config` (JSONB), `cliente_elige_zona` (text). Validate JSONB fields via Zod schemas (ACF-006). UPSERT `configuracion` row. If body includes `smtp_password=== ""` or `"••••••••"`, exclude it from upsert (preserve existing). Returns updated config (minus password). Response: `200 { ...fields }`.
+POST /api/config MUST: verify auth, accept partial config body including new fields `horarios_config` (JSONB), `zonas_config` (JSONB). Validate JSONB fields via Zod schemas (ACF-006). UPSERT `configuracion` row. If body includes `smtp_password=== ""` or `"••••••••"`, exclude it from upsert (preserve existing). Returns updated config (minus password). Response: `200 { ...fields }`.
 
-(Previously: did not accept horarios_config, zonas_config, cliente_elige_zona fields)
+(Previously: did not accept horarios_config, zonas_config fields)
 
 #### Scenario: Update non-sensitive fields
 - GIVEN config row exists with capacidad_total_local=80
@@ -62,12 +61,6 @@ POST /api/config MUST: verify auth, accept partial config body including new fie
 - WHEN POST /api/config { horarios_config: { ...updated }, zonas_config: [ ...updated ] }
 - THEN both JSONB fields updated
 - AND 200 with updated config
-
-#### Scenario: Update cliente_elige_zona
-
-- GIVEN cliente_elige_zona='none'
-- WHEN POST /api/config { cliente_elige_zona: "zona" }
-- THEN config updated; 200 response
 
 #### Scenario: Password placeholder ignored
 - GIVEN stored smtp_password='secret'

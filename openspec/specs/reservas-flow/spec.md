@@ -2,17 +2,16 @@
 
 ## Purpose
 
-Reservation form at `/reservas` with multi-step flow: form → GDPR consent (if configured) → SMS verification → submission to real endpoint. User fills in personal data (including apellidos), accepts data protection policy, verifies phone via SMS code, and submits. The real POST /api/reservas endpoint creates cliente + reserva rows in Supabase. Reservation mode (automatica/verificada) determines whether the reservation is confirmed immediately or marked pending for operator review. Time slot selection uses a dynamic grid generated from restaurant service hours, with zone selection available when enabled by admin. Admin users can reasign zone/mesa of existing reservations.
+Reservation form at `/reservas` with multi-step flow: form → GDPR consent (if configured) → SMS verification → submission to real endpoint. User fills in personal data (including apellidos), accepts data protection policy, verifies phone via SMS code, and submits. The real POST /api/reservas endpoint creates cliente + reserva rows in Supabase. Reservation mode (automatica/verificada) determines whether the reservation is confirmed immediately or marked pending for operator review. Time slot selection uses a dynamic grid generated from restaurant service hours. Admin users can reasign zone/mesa of existing reservations.
 
 ## Requirements
 
 | ID | Requirement | RFC 2119 | Test Layer |
 |----|------------|----------|------------|
-| RF-001 | Form fields: nombre, apellidos (optional), teléfono (Spanish mobile validation), email, **time slot grid** (replacing datetime-local), slot selection required, zona (select, optional, conditional on cliente_elige_zona), numero_comensales (1-20). All required except apellidos. Client-side validation before proceeding. | MUST | Unit |
+| RF-001 | Form fields: nombre, apellidos (optional), teléfono (Spanish mobile validation), email, **time slot grid** (replacing datetime-local), slot selection required, numero_comensales (1-20). All required except apellidos. Client-side validation before proceeding. | MUST | Unit |
 | RF-002 | SMS verification step: after form fields valid and GDPR consent accepted → send code to phone → user enters code → verify → form completes. Verification is a REQUIRED pre-submit gate. | MUST | Integration |
 | RF-003 | Code flow: POST /api/sms/send → user enters 4-digit code → POST /api/sms/verify → on success, submit enabled; on failure, retry (max 3) with error message; resend after 60s cooldown | MUST | Integration |
-| RF-004 | "Cliente elige mesa" button: disabled with "Próximamente" when cliente_elige_zona=zona_mesa; enabled when cliente_elige_zona=zona_mesa (future). When cliente_elige_zona=none or zona, button hidden or disabled. | MUST | Unit |
-| RF-005 | POST /api/reservas real endpoint: creates cliente (dedup by phone) + reserva row; body includes optional zona field; returns `{ success: true, reserva_id, estado }` | MUST | Integration |
+| RF-005 | POST /api/reservas real endpoint: creates cliente (dedup by phone) + reserva row; returns `{ success: true, reserva_id, estado }` | MUST | Integration |
 | RF-006 | GDPR consent modal: scrollable popup after form submit, before SMS. Text from `configuracion.texto_proteccion_datos`. Accept enabled only at scroll-end. Reject returns to form preserving all data. | MUST | Unit |
 | RF-007 | Real POST /api/reservas: creates cliente (dedup by phone) → creates reserva (cliente_id FK) → server-side slot validation → blocked day check → modo_reserva branching (automatica→confirmada, verificada→pendiente) → email on confirm | MUST | Integration |
 | RF-008 | modo_reserva integration: read `configuracion.modo_reserva` server-side. Automatica sets estado='confirmada' + sends email. Verificada sets estado='pendiente' for operator confirmation. | MUST | Integration |
@@ -20,14 +19,13 @@ Reservation form at `/reservas` with multi-step flow: form → GDPR consent (if 
 | SLA-002 | Slot click sets fecha_hora as ISO datetime (Europe/Madrid). Visual highlight, one selected at a time. | MUST | Unit |
 | SLA-003 | Blocked days disable entire grid with motivo message. Date can be selected but proceed blocked. | MUST | Unit |
 | SLA-004 | Server-side slot validation (±5min tolerance) + blocked day check. 400 for bad slot, 409 for blocked date. | MUST | Integration |
-| SLA-005 | Zone dropdown conditional on cliente_elige_zona=zona. Only enabled zones from zonas_config. | MUST | Unit |
-| SLA-006 | zona field included in POST /api/reservas payload. Stored in reservas.zona column. | MUST | Integration |
+| SLA-006 | zona field included in PATCH /api/reservas/[id]/mesa payload (admin-assigned only). Stored in reservas.zona column. | MUST | Integration |
 | ADM-001 | Admin can reasign zone/mesa of existing reservation (inline edit from admin panel). | MUST | Unit |
 | ADM-002 | PATCH /api/reservas/[id]/mesa endpoint with zone+mesa validation. Admin-only. | MUST | Integration |
 
 ### Requirement: RF-001 — Form Fields and Validation
 
-The system MUST render a form with: `nombre` (text, required, min 2 chars), `apellidos` (text, optional), `teléfono` (tel, required, Spanish mobile format: 6XX XXX XXX or +346XXXXXXXX), `email` (email, required, format validation), **time slot grid** (replacing datetime-local), slot selection required from grid, `zona` (select, optional, conditional on `cliente_elige_zona`), `numero_comensales` (number, required, 1-20). All fields MUST validate client-side before proceeding to GDPR step. Phone MUST NOT require E.164 format.
+The system MUST render a form with: `nombre` (text, required, min 2 chars), `apellidos` (text, optional), `teléfono` (tel, required, Spanish mobile format: 6XX XXX XXX or +346XXXXXXXX), `email` (email, required, format validation), **time slot grid** (replacing datetime-local), slot selection required from grid, `numero_comensales` (number, required, 1-20). All fields MUST validate client-side before proceeding to GDPR step. Phone MUST NOT require E.164 format.
 
 (Previously: form had `<input type="datetime-local">` for fecha_hora, no zone field)
 
@@ -82,19 +80,9 @@ The system MUST call `POST /api/sms/send` with `{ phone }` to request a code. Th
 | Resend cooldown | Code requested | Click "Reenviar" immediately | Button disabled; countdown "Reenviar en 60s" shown |
 | Resend after cooldown | 60s elapsed | Click "Reenviar" | New code sent; retry counter resets |
 
-### Requirement: RF-004 — "Cliente Elige Mesa" Gated
-
-The system MUST render a button or section labeled "Elegir mesa" (or similar) on `/reservas`. When `cliente_elige_zona === 'zona_mesa'`, the button SHALL be `enabled` (future: table picker). When `cliente_elige_zona` is `none` or `zona`, the button SHALL be `disabled` with tooltip "Próximamente" (via `title` attribute or `aria-describedby`).
-
-| Scenario | GIVEN | WHEN | THEN |
-|----------|-------|------|------|
-| Button enabled for zona_mesa | cliente_elige_zona='zona_mesa' | Inspect "Elegir mesa" button | `enabled`; clicking opens table picker |
-| Button disabled for none/zona | cliente_elige_zona='none' | Inspect button | `disabled`; tooltip "Próximamente" shown on hover |
-| Cannot interact when disabled | Button disabled | Click button | No action triggered |
-
 ### Requirement: RF-005 — Submit Endpoint
 
-The system MUST POST reservation data to `POST /api/reservas` after successful SMS verification + GDPR acceptance. The real endpoint MUST create `clientes` and `reservas` rows in Supabase and return `200 { success: true, reserva_id, estado }`. Request body: `{ nombre, apellidos, telefono, email, fecha_hora, numero_comensales, zona?, sms_verified: true }`.
+The system MUST POST reservation data to `POST /api/reservas` after successful SMS verification + GDPR acceptance. The real endpoint MUST create `clientes` and `reservas` rows in Supabase and return `200 { success: true, reserva_id, estado }`. Request body: `{ nombre, apellidos, telefono, email, fecha_hora, numero_comensales, sms_verified: true }`.
 
 (Previously: no `zona` field in payload)
 
@@ -255,32 +243,9 @@ POST /api/reservas MUST validate: (a) `fecha_hora` time matches a valid slot fro
 - WHEN POST with fecha_hora="2026-07-08T14:07:00+02:00"
 - THEN 400 "Horario fuera de los turnos disponibles"
 
-### Requirement: SLA-005 — Zone Selector in Reservation Form
-
-When `configuracion.cliente_elige_zona` is `zona`, ReservationForm MUST render a "Zona" dropdown between the slot grid and comensales input. Dropdown lists only enabled zones from `zonas_config`, sorted by zone order in JSONB array. Label: **"Seleccione una zona (opcional)"**. Selection is optional. When mode is `none`, dropdown is not rendered.
-
-#### Scenario: Zone dropdown visible in zona mode
-
-- GIVEN cliente_elige_zona='zona', 5 zones all enabled
-- WHEN user visits /reservas
-- THEN dropdown shows 5 zones: Principal, Reservado, Zíngaro, Terraza, Bar
-- AND label says "(opcional)"
-
-#### Scenario: Disabled zones excluded
-
-- GIVEN cliente_elige_zona='zona', Terraza disabled
-- WHEN user opens zone dropdown
-- THEN only 4 zones listed (Terraza excluded)
-
-#### Scenario: No dropdown in none mode
-
-- GIVEN cliente_elige_zona='none'
-- WHEN user visits /reservas
-- THEN no zone dropdown rendered
-
 ### Requirement: SLA-006 — Zone in Reservation Payload
 
-When user selects a zone, ReservationForm MUST include `zona: "{nombre}"` in POST /api/reservas body. If no zone selected, omit the field (or send null). Server stores in `reservas.zona` column.
+Zone is admin-assigned only (not customer-selectable). When admin reasigns zone via PATCH /api/reservas/[id]/mesa, the `zona` field is stored in `reservas.zona` column. Customer reservation form does not include a zone selector.
 
 #### Scenario: Reservation submitted with zone
 
