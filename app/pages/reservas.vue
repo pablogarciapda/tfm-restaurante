@@ -2,13 +2,10 @@
 /**
  * /reservas — Multi-step reservation page (RF-001–RF-005, SLA-001–SLA-006)
  *
- * Step 1: ReservationForm (slot grid + zone selector)
+ * Step 1: ReservationForm (slot grid)
  * Step 2: GDPRCconsent (if texto_proteccion_datos configured)
  * Step 3: SmsVerificationStep (4-digit code, 3 retries, 60s cooldown)
  * Step 4: Confirmation (reserva confirmada/pendiente + reference ID)
- *
- * "Elegir mesa" button: shown when cliente_elige_zona === 'zona_mesa',
- * disabled with "Próximamente" tooltip otherwise — Phase 3 Konva work.
  *
  * GDPR tracking: returning customers who already accepted GDPR skip the
  * consent step. Acceptance is stored per-phone in clientes.gdpr_aceptado.
@@ -39,7 +36,6 @@ const gdprText = ref<string | null>(null)
 const publicConfig = ref<PublicConfig | null>(null)
 const horariosConfig = ref<HorarioConfig | null>(null)
 const zonas = ref<ZonaConfig[]>([])
-const clienteEligeZona = ref<'none' | 'zona' | 'zona_mesa'>('none')
 const captchaHabilitado = ref(false)
 const modoReserva = ref<'automatica' | 'verificada'>('automatica')
 const smsVerificacion = ref(false)
@@ -47,13 +43,12 @@ const blockedDates = ref<string[]>([])
 const gdprAceptadoEnSesion = ref(false)
 
 onMounted(async () => {
-  // Fetch public config (horarios, zonas, cliente_elige_zona, GDPR)
+  // Fetch public config (horarios, zonas, GDPR)
   try {
     const data = await $fetch<any>('/api/public-config')
     publicConfig.value = data
     horariosConfig.value = data?.horarios || null
     zonas.value = data?.zonas || []
-    clienteEligeZona.value = data?.cliente_elige_zona || 'none'
     captchaHabilitado.value = data?.captcha_habilitado ?? false
     modoReserva.value = data?.modo_reserva || 'automatica'
     smsVerificacion.value = data?.sms_verificacion ?? false
@@ -62,7 +57,6 @@ onMounted(async () => {
     // If config API fails, use defaults
     horariosConfig.value = null
     zonas.value = []
-    clienteEligeZona.value = 'none'
     gdprText.value = null
   }
 
@@ -231,22 +225,6 @@ async function handleResend() {
     <PageHero title="Reservas" :subtitle="`Reserva tu mesa en ${nombre || 'el restaurante'}`" />
 
     <section class="mx-auto max-w-lg px-4 py-12">
-      <!-- Elegir mesa -->
-      <div class="mb-8 text-center">
-        <button
-          data-testid="elegir-mesa-button"
-          type="button"
-          :disabled="clienteEligeZona !== 'zona_mesa'"
-          :title="clienteEligeZona === 'zona_mesa' ? 'Elegir mesa del plano' : 'Próximamente'"
-          class="rounded-lg border-2 px-5 py-2.5"
-          :class="clienteEligeZona === 'zona_mesa'
-            ? 'border-terracotta text-terracotta hover:bg-terracotta/10 cursor-pointer'
-            : 'border-gray-300 text-gray-400 cursor-not-allowed'"
-        >
-          Elegir mesa
-        </button>
-      </div>
-
       <!-- API error -->
       <div v-if="error" class="mb-6 rounded-lg bg-red-50 p-4 text-center text-red-800">
         {{ error }}
@@ -260,7 +238,6 @@ async function handleResend() {
         <ReservationForm
           :horarios-config="horariosConfig"
           :zonas="zonas"
-          :cliente-elige-zona="clienteEligeZona"
           :dias-bloqueados="blockedDates"
           :captcha-habilitado="captchaHabilitado"
           @submit="handleFormSubmit"

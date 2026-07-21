@@ -9,7 +9,6 @@
  * - Step 2 (GDPR): GdprConsentModal shown when texto_proteccion_datos configured
  * - Step 3 (SMS): SmsVerificationStep after form/GDPR (only in verificada mode)
  * - Step 4 (confirmation): After SMS verified (mock POST /api/reservas)
- * - "Elegir mesa" button: enabled when cliente_elige_zona === 'zona_mesa'
  * - Can go back from SMS step to form
  * - GDPR is checked before showing the modal (already accepted = skip)
  */
@@ -48,7 +47,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
 
   it('renders PageHero with title "Reservas"', async () => {
     // Mock public-config and dias-bloqueados
-    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], texto_proteccion_datos: null })
     mockFetch.mockResolvedValueOnce([])
 
     const wrapper = mountPage()
@@ -57,7 +56,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   })
 
   it('shows ReservationForm on step 1', async () => {
-    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], texto_proteccion_datos: null })
     mockFetch.mockResolvedValueOnce([])
 
     const wrapper = mountPage()
@@ -68,7 +67,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   it('submits directly in automatica mode without GDPR (no SMS step)', async () => {
     // public-config + dias-bloqueados + reservas POST
     mockFetch
-      .mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
+      .mockResolvedValueOnce({ horarios: null, zonas: [], texto_proteccion_datos: null })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ success: true, reserva_id: 'auto-123', estado: 'confirmada' })
 
@@ -100,7 +99,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     // public-config (with GDPR text) + dias-bloqueados + gdpr-status check + reservas POST
     mockFetch
       .mockResolvedValueOnce({
-        horarios: null, zonas: [], cliente_elige_zona: 'none',
+        horarios: null, zonas: [],
         texto_proteccion_datos: 'Texto GDPR de prueba',
         modo_reserva: 'automatica',
       })
@@ -145,7 +144,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     // public-config (with GDPR text) + dias-bloqueados + gdpr-status=true + reservas POST
     mockFetch
       .mockResolvedValueOnce({
-        horarios: null, zonas: [], cliente_elige_zona: 'none',
+        horarios: null, zonas: [],
         texto_proteccion_datos: 'Texto GDPR',
         modo_reserva: 'automatica',
       })
@@ -185,7 +184,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     // public-config (sms_verificacion enabled) + dias-bloqueados + sms send
     mockFetch
       .mockResolvedValueOnce({
-        horarios: null, zonas: [], cliente_elige_zona: 'none',
+        horarios: null, zonas: [],
         texto_proteccion_datos: null,
         sms_verificacion: true,
       })
@@ -219,7 +218,7 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
   it('can go back from SMS step to form', async () => {
     mockFetch
       .mockResolvedValueOnce({
-        horarios: null, zonas: [], cliente_elige_zona: 'none',
+        horarios: null, zonas: [],
         texto_proteccion_datos: null,
         sms_verificacion: true,
       })
@@ -252,37 +251,11 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     expect(wrapper.findComponent(ReservationForm).exists()).toBe(true)
   })
 
-  it('shows "Elegir mesa" button disabled when cliente_elige_zona is "none"', async () => {
-    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'none', texto_proteccion_datos: null })
-    mockFetch.mockResolvedValueOnce([])
-
-    const wrapper = mountPage()
-    await flushPromises()
-
-    const button = wrapper.find('[data-testid="elegir-mesa-button"]')
-    expect(button.exists()).toBe(true)
-    expect(button.attributes('disabled')).toBeDefined()
-    expect(button.attributes('title')).toBe('Próximamente')
-  })
-
-  it('shows "Elegir mesa" button enabled when cliente_elige_zona is "zona_mesa"', async () => {
-    mockFetch.mockResolvedValueOnce({ horarios: null, zonas: [], cliente_elige_zona: 'zona_mesa', texto_proteccion_datos: null })
-    mockFetch.mockResolvedValueOnce([])
-
-    const wrapper = mountPage()
-    await flushPromises()
-
-    const button = wrapper.find('[data-testid="elegir-mesa-button"]')
-    expect(button.exists()).toBe(true)
-    expect(button.attributes('disabled')).toBeUndefined()
-    expect(button.attributes('title')).toBe('Elegir mesa del plano')
-  })
-
   it('shows confirmation after SMS verified', async () => {
     // public-config (sms_verificacion enabled) + dias-bloqueados + sms send + reservas POST
     mockFetch
       .mockResolvedValueOnce({
-        horarios: null, zonas: [], cliente_elige_zona: 'none',
+        horarios: null, zonas: [],
         texto_proteccion_datos: null,
         sms_verificacion: true,
       })
@@ -320,18 +293,15 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
     expect(wrapper.text()).toContain('Reserva confirmada')
   })
 
-  it('passes horariosConfig, zonas, elige_zona, and blocked dates to ReservationForm', async () => {
+  it('passes horariosConfig and blocked dates to ReservationForm', async () => {
     const horarios = {
       comida_inicio: '13:30', comida_fin: '15:30',
       cena_inicio: '21:00', cena_fin: '23:30',
       intervalo_minutos: 15,
     }
-    const zonas = [{ id: 'principal', nombre: 'Principal', capacidad: 70, enabled: true }]
 
     mockFetch.mockResolvedValueOnce({
       horarios,
-      zonas,
-      cliente_elige_zona: 'zona',
       texto_proteccion_datos: null,
     })
     mockFetch.mockResolvedValueOnce([{ id: '1', fecha: '2026-12-25', recurrente: true, motivo: 'Navidad', created_at: '2026-01-01' }])
@@ -341,8 +311,6 @@ describe('reservas.vue multi-step flow (RF-001–RF-005 + SLA)', () => {
 
     const form = wrapper.findComponent(ReservationForm)
     expect(form.props('horariosConfig')).toEqual(horarios)
-    expect(form.props('zonas')).toEqual(zonas)
-    expect(form.props('clienteEligeZona')).toBe('zona')
     expect(form.props('diasBloqueados').length).toBeGreaterThan(0)
   })
 })
