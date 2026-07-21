@@ -292,6 +292,34 @@ describe('ConfiguracionForm (CFG-001)', () => {
     })
   })
 
+  describe('cliente_elige_zona (CFG-014)', () => {
+    it('renders cliente_elige_zona radio group in Reservas section', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.text()).toContain('El cliente puede elegir zona')
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-none"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-zona"]').exists()).toBe(true)
+      expect(wrapper.find('input[data-testid="cfg-elige-zona-zona-mesa"]').exists()).toBe(true)
+    })
+
+    it('defaults to "none"', async () => {
+      const wrapper = await mountForm()
+      const noneRadio = wrapper.find('input[data-testid="cfg-elige-zona-none"]')
+      expect((noneRadio.element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('emits submit with cliente_elige_zona', async () => {
+      const wrapper = await mountForm({
+        currentConfig: {
+          capacidad_total_local: 80,
+          cliente_elige_zona: 'zona',
+        },
+      })
+      await wrapper.find('form').trigger('submit.prevent')
+      const emitted = wrapper.emitted('submit')![0][0]
+      expect(emitted.cliente_elige_zona).toBe('zona')
+    })
+  })
+
   describe('Días bloqueados section (CFG-012, BLO-001)', () => {
     it('renders "Días bloqueados" section heading', async () => {
       const wrapper = await mountForm()

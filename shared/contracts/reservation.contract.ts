@@ -81,6 +81,7 @@ export interface PublicConfig {
   texto_proteccion_datos: string | null
   modo_reserva: 'automatica' | 'verificada' // confirmation mode
   sms_verificacion: boolean // whether SMS verification is required
+  cliente_elige_zona: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
   notificacion_reserva: 'email' | 'sms' | 'ambos'
   restaurant: RestaurantConfig
@@ -173,6 +174,7 @@ export interface ConfigData {
   horarios_config?: HorarioConfig | null
   zonas_config?: ZonaConfig[] | null
   public_config?: PublicConfig | null
+  cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado: boolean
   sms_verificacion: boolean
   notificacion_reserva?: 'email' | 'sms' | 'ambos'
@@ -235,6 +237,7 @@ export interface ConfigUpdatePayload {
   horarios_config?: HorarioConfig | null
   zonas_config?: ZonaConfig[] | null
   public_config?: PublicConfig | null
+  cliente_elige_zona?: 'none' | 'zona' | 'zona_mesa'
   captcha_habilitado?: boolean
   sms_verificacion?: boolean
   notificacion_reserva?: 'email' | 'sms' | 'ambos'

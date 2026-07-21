@@ -1,7 +1,7 @@
 <!--
-  ConfiguracionForm — System settings form with 12 sections
+  ConfiguracionForm — System settings form with 13 sections
   Sections order: Horarios, Precios, Días bloqueados, Zonas restaurante,
-                  General, Diseño, Recomendaciones, Reservas,
+                  Elección mesa, General, Diseño, Recomendaciones, Reservas,
                   Datos restaurante, Protección datos, Optimización imágenes,
                   Correo saliente
 -->
@@ -14,6 +14,7 @@ import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
 type OcupacionModo = 'auto' | 'manual'
 type ReservaModo = 'automatica' | 'verificada'
+type ClienteEligeZona = 'none' | 'zona' | 'zona_mesa'
 
 interface ZoneConfigForm {
   id: string
@@ -64,6 +65,7 @@ interface ConfigFormData {
   notificacion_reserva: 'email' | 'sms' | 'ambos'
   horarios_config: HorarioConfigForm
   zonas_config: ZoneConfigForm[]
+  cliente_elige_zona: ClienteEligeZona
   captcha_habilitado: boolean
   restaurant_nombre: string
   restaurant_direccion: string
@@ -130,6 +132,7 @@ const form = reactive<ConfigFormData>({
     { id: 'terraza', nombre: 'Comedor terraza', capacidad: 100, enabled: true, imagen_url: null },
     { id: 'bar', nombre: 'Bar', capacidad: 20, enabled: true, imagen_url: null },
   ],
+  cliente_elige_zona: (props.currentConfig.cliente_elige_zona as ClienteEligeZona) ?? 'none',
   captcha_habilitado: props.currentConfig.captcha_habilitado ?? false,
   restaurant_nombre: (props.currentConfig as any).restaurant_nombre ?? '',
   restaurant_direccion: (props.currentConfig as any).restaurant_direccion ?? '',
@@ -425,6 +428,7 @@ watch(
     if ((cfg as any).notificacion_reserva !== undefined) form.notificacion_reserva = (cfg as any).notificacion_reserva as 'email' | 'sms' | 'ambos'
     if (cfg.horarios_config !== undefined) form.horarios_config = (cfg.horarios_config as HorarioConfigForm) ?? form.horarios_config
     if (cfg.zonas_config !== undefined) form.zonas_config = (cfg.zonas_config as ZoneConfigForm[]) ?? form.zonas_config
+    if (cfg.cliente_elige_zona !== undefined) form.cliente_elige_zona = (cfg.cliente_elige_zona as ClienteEligeZona) ?? 'none'
     if (cfg.captcha_habilitado !== undefined) form.captcha_habilitado = cfg.captcha_habilitado as boolean
     if ((cfg as any).restaurant_nombre !== undefined) form.restaurant_nombre = (cfg as any).restaurant_nombre as string
     if ((cfg as any).restaurant_direccion !== undefined) form.restaurant_direccion = (cfg as any).restaurant_direccion as string
@@ -1036,6 +1040,48 @@ const checkboxClass = 'h-4 w-4 rounded'
           <template v-if="form.notificacion_reserva === 'email'">Se envía un email de confirmación al cliente (requiere SMTP configurado).</template>
           <template v-else-if="form.notificacion_reserva === 'sms'">Se envía un SMS de confirmación al teléfono del cliente.</template>
           <template v-else>Se envía email y SMS de confirmación al cliente.</template>
+        </p>
+      </div>
+
+      <!-- Cliente elige zona -->
+      <div class="mt-5">
+        <span class="mb-2 block text-sm font-medium text-slate">El cliente puede elegir zona</span>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="none"
+              data-testid="cfg-elige-zona-none"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">No</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="zona"
+              data-testid="cfg-elige-zona-zona"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">Solo zona</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input
+              v-model="form.cliente_elige_zona"
+              type="radio"
+              value="zona_mesa"
+              data-testid="cfg-elige-zona-zona-mesa"
+              class="h-3 w-3 accent-terracotta"
+            />
+            <span class="text-sm text-slate">Zona y mesa</span>
+          </label>
+        </div>
+        <p class="mt-2 text-xs text-gray-400">
+          <strong>No:</strong> el cliente reserva sin elegir zona.<br />
+          <strong>Solo zona:</strong> el cliente elige la zona del restaurante.<br />
+          <strong>Zona y mesa:</strong> el cliente elige zona y mesa (requiere plano interactivo).
         </p>
       </div>
 
