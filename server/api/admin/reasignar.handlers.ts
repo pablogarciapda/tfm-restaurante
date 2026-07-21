@@ -3,13 +3,15 @@
  *
  * handleReasignReserva: updates zona_id and/or mesa_id on a reserva,
  * validates zona against zonas_config enabled zones,
- * validates mesa FK exists and belongs to selected zone.
+ * validates mesa FK exists and belongs to selected zone,
+ * checks for time-window conflicts before assigning a mesa.
  *
  * Uses serverSupabaseServiceRole for all DB access.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
-import type { ZonaConfig } from '#shared/contracts/reservation.contract'
+import type { ZonaConfig, HorarioConfig } from '#shared/contracts/reservation.contract'
+import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
 
 type SupabaseServerClient = SupabaseClient<Database>
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -85,7 +87,7 @@ export async function handleReasignReserva(
     // Validate capacity against reserva comensales
     const { data: reserva } = await supabase
       .from('reservas')
-      .select('numero_comensales')
+      .select('numero_comensales, fecha_hora')
       .eq('id', reserva_id)
       .maybeSingle()
 
@@ -96,6 +98,32 @@ export async function handleReasignReserva(
           body: {
             error: `La mesa tiene capacidad para ${mesa.capacidad_actual} comensales, pero la reserva es de ${reserva.numero_comensales}`,
           },
+        }
+      }
+    }
+
+    // Check for time-window conflicts before reassigning
+    if (reserva?.fecha_hora) {
+      const { data: configHorarios } = await supabase
+        .from('configuracion')
+        .select('horarios_config')
+        .limit(1)
+        .single()
+
+      const horarios = configHorarios?.horarios_config as HorarioConfig | null
+      if (horarios) {
+        const turnos = buildTurnoWindows(horarios)
+        const { data: existingReservas } = await supabase
+          .from('reservas')
+          .select('fecha_hora, estado')
+          .eq('mesa_id', nueva_mesa_id)
+          .neq('id', reserva_id)
+
+        if (existingReservas && hasMesaConflict(existingReservas, reserva.fecha_hora, turnos)) {
+          return {
+            status: 409,
+            body: { error: 'La mesa ya tiene una reserva en ese horario. Seleccione otra mesa o cambie la hora.' },
+          }
         }
       }
     }

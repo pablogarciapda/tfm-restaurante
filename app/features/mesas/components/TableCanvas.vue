@@ -204,7 +204,11 @@ const filteredZones = computed(() => {
 /**
  * Per-mesa turn reservation status.
  * Returns a map of mesa_id → { comida: boolean, cena: boolean }
- * based on reservas that fall within the configured turn time windows.
+ * based on reservas whose booking windows overlap the configured turn time windows.
+ *
+ * Uses 90 min (comida) / 120 min (cena) booking duration instead of
+ * full-turn blocking. A reservation at 14:00 blocks until 15:30, not
+ * until the end of the entire comida turn.
  */
 const mesaTurnoStatus = computed(() => {
   const status: Record<string, { comida: boolean; cena: boolean }> = {}
@@ -225,31 +229,34 @@ const mesaTurnoStatus = computed(() => {
 
   for (const r of props.reservas ?? []) {
     if (!r.mesa_id) continue
-    // Skip estados that never mark a mesa (same as calcularEstadoMesa)
     if (EXCLUDED_ESTADOS.has(r.estado)) continue
-    // Convert ISO timestamp to local date for comparison (reservas are stored
-    // in UTC; the restaurant runs on local time, e.g. CEST = UTC+2)
     const d = new Date(r.fecha_hora)
     const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     if (localDate !== todayStr) continue
     const mins = d.getHours() * 60 + d.getMinutes()
 
-    if (mins >= comidaStart && mins <= comidaEnd) {
-      const s = status[r.mesa_id]
-      if (s) s.comida = true
-    }
-    // Handle cena that may cross midnight
+    // Determine which turn this reservation is in
+    const isComida = mins >= comidaStart && mins < comidaEnd
+    let isCena = false
     if (cenaEnd <= cenaStart) {
-      // Crosses midnight: [cenaStart, 24:00) OR [00:00, cenaEnd]
-      if (mins >= cenaStart && mins < 1440) {
-        const s = status[r.mesa_id]
-        if (s) s.cena = true
-      } else if (mins >= 0 && mins <= cenaEnd) {
-        const s = status[r.mesa_id]
-        if (s) s.cena = true
-      }
+      isCena = mins >= cenaStart || mins < cenaEnd
     } else {
-      if (mins >= cenaStart && mins <= cenaEnd) {
+      isCena = mins >= cenaStart && mins < cenaEnd
+    }
+
+    // Check booking window overlap instead of full-turn membership
+    if (isComida) {
+      const resWin = { start: mins, end: mins + 90 } // 90 min default for comida
+      const turnWin = { start: comidaStart, end: comidaEnd }
+      if (resWin.start < turnWin.end && turnWin.start < resWin.end) {
+        const s = status[r.mesa_id]
+        if (s) s.comida = true
+      }
+    }
+    if (isCena) {
+      const resWin = { start: mins, end: mins + 120 } // 120 min default for cena
+      const turnWin = { start: cenaStart, end: cenaEnd }
+      if (resWin.start < turnWin.end && turnWin.start < resWin.end) {
         const s = status[r.mesa_id]
         if (s) s.cena = true
       }

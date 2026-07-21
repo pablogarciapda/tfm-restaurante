@@ -9,9 +9,10 @@
  *   Ocupada   — estado='confirmada', same day+turn         → #EF4444
  *   Reservada — estado='pendiente', future                 → #F59E0B
  *
- * ⚠️ A reservation BLOCKS the table for the ENTIRE turn (comida or cena), not
- *    just the specific time slot. Once admin marks a reservation 'completada'
- *    (meal finished), the table returns to 'libre' immediately.
+ * A reservation blocks the table for its BOOKING DURATION (default: 90 min
+ * comida / 120 min cena), not the entire turn. Two reservations on the same
+ * table at different hours within the same turn CAN coexist if their windows
+ * don't overlap.
  *
  * "Current service" = selectedDate + active turn window. A reserva matches the
  * current service when its fecha_hora date equals selectedDate and its HH:MM
@@ -29,17 +30,21 @@
  */
 import type { MesaEstado } from '../contracts/mesas.contract'
 import type { HorarioConfig } from '../contracts/reservation.contract'
+import {
+  DEFAULT_DURACION_COMIDA,
+  DEFAULT_DURACION_CENA,
+  bookingWindow,
+  reservationTurn,
+  windowsOverlap,
+} from './reserva-overlap'
+
+// Re-export buildTurnoWindows and TurnoWindow from reserva-overlap for consumers
+export { buildTurnoWindows, type TurnoWindow } from './reserva-overlap'
 
 // ──────────────────────────── Types ────────────────────────────────
 
 /** Active turn selection mirrored from `canvas-store.TurnoFilter`. */
 export type MesaTurno = 'todos' | 'comida' | 'cena'
-
-/** Half-open time window in minutes from 00:00: [start, end). */
-export interface TurnoWindow {
-  start: number
-  end: number
-}
 
 /** Strip of a reserva that feeds the mesa-color derivation. */
 export interface ReservaMesaEstado {
@@ -56,8 +61,8 @@ export interface MesaEstadoContext {
   currentTurn: MesaTurno
   /** Comida and cena time windows (minutes from 00:00). */
   turnos: {
-    comida: TurnoWindow
-    cena: TurnoWindow
+    comida: { start: number; end: number }
+    cena: { start: number; end: number }
   }
 }
 
@@ -72,22 +77,6 @@ function toMinutes(hora: string): number {
 
 /** Estados that NEVER mark a mesa — they are visually invisible. */
 const EXCLUDED_ESTADOS = new Set(['cancelada', 'standby'])
-
-/**
- * Build comida + cena windows from HorarioConfig.
- *
- * Cena windows that cross midnight (e.g. 21:00 → 01:00) keep end < start;
- * callers must treat them specially (see `timeInWindow`).
- */
-export function buildTurnoWindows(h: HorarioConfig): {
-  comida: TurnoWindow
-  cena: TurnoWindow
-} {
-  return {
-    comida: { start: toMinutes(h.comida_inicio), end: toMinutes(h.comida_fin) },
-    cena: { start: toMinutes(h.cena_inicio), end: toMinutes(h.cena_fin) },
-  }
-}
 
 /** Check if a given minute-of-day falls inside a (possibly wrap-around) window. */
 function timeInWindow(mins: number, w: TurnoWindow): boolean {
@@ -125,6 +114,10 @@ function reservaMinutes(fecha_hora: string): number {
  * are dropped before evaluation. The pure function is reactive-friendly:
  * callers in `TableCanvas.vue` recompute on every reservas / turn / date
  * change. Realtime updates modify the reservas array and trigger recompute.
+ *
+ * Uses booking-window overlap instead of full-turn blocking:
+ * a reservation at 14:00 (90 min) blocks until 15:30, not until the
+ * end of the entire comida turn.
  */
 export function calcularEstadoMesa(
   mesaId: string,
@@ -142,7 +135,8 @@ export function calcularEstadoMesa(
 
     const date = reservaDate(r.fecha_hora)
 
-    // "Current service" match: same date AND same active turn window.
+    // "Current service" match: same date AND the reservation's booking window
+    // overlaps with the active turn window.
     const sameDate = date === selectedDate
     let inCurrentService = false
     if (sameDate) {
@@ -151,7 +145,13 @@ export function calcularEstadoMesa(
       } else {
         const mins = reservaMinutes(r.fecha_hora)
         const window = currentTurn === 'comida' ? turnos.comida : turnos.cena
-        inCurrentService = timeInWindow(mins, window)
+        const turno = reservationTurn(mins, turnos.comida, turnos.cena)
+        if (turno === currentTurn) {
+          // Check if the reservation's booking window overlaps with the turn window
+          const duration = turno === 'comida' ? DEFAULT_DURACION_COMIDA : DEFAULT_DURACION_CENA
+          const resWin = bookingWindow(mins, turno, duration)
+          inCurrentService = windowsOverlap(resWin, window)
+        }
       }
     }
 
@@ -159,10 +159,7 @@ export function calcularEstadoMesa(
     const isFuture = date > selectedDate
 
     if (r.estado === 'confirmada') {
-      // Ocupada only when in the current service.
-      // Aplicación: una reserva confirmada bloquea la mesa para TODO el turno
-      // (comida o cena). El admin puede liberarla manualmente marcándola
-      // como 'completada' (la mesa vuelve a libre).
+      // Ocupada when the reservation's booking window overlaps the current turn.
       if (inCurrentService) isOcupada = true
     } else if (r.estado === 'pendiente') {
       // Reservada when it is on the selected day (any turn — waitlist alert

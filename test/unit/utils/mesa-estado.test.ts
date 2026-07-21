@@ -133,9 +133,24 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
   })
 
-  it('ocupada when confirmada exactly at comida_fin (inclusive end, matching slot generator)', () => {
+  it('libre when confirmada exactly at comida_fin (boundary belongs to next turn)', () => {
     const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '15:30') })
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
+  })
+
+  it('ocupada when confirmada within booking window of comida (14:00 blocks until 15:30)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '14:00') })
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
+  })
+
+  it('ocupada when confirmada at 15:00 (booking window 15:00-16:30 overlaps comida)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '15:00') })
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
+  })
+
+  it('libre when confirmada at 15:31 (outside booking window for comida)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '15:31') })
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
   })
 
   it('libre when completada today (admin released the table)', () => {
