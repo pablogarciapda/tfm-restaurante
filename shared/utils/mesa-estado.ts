@@ -36,8 +36,6 @@ import {
   reservationTurn,
   windowsOverlap,
 } from './reserva-overlap'
-export type { TurnoWindow } from './reserva-overlap'
-export { buildTurnoWindows } from './reserva-overlap'
 
 // ──────────────────────────── Types ────────────────────────────────
 

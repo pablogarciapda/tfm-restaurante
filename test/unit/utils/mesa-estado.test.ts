@@ -16,10 +16,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcularEstadoMesa,
-  buildTurnoWindows,
   type MesaEstadoContext,
   type ReservaMesaEstado,
 } from '../../../shared/utils/mesa-estado'
+import { buildTurnoWindows } from '../../../shared/utils/reserva-overlap'
 
 // --- Helpers ---
 
