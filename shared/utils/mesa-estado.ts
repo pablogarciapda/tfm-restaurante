@@ -29,7 +29,6 @@
  * Auto-imported in Nuxt 4 via imports.dirs: ['shared/utils'].
  */
 import type { MesaEstado } from '../contracts/mesas.contract'
-import type { HorarioConfig } from '../contracts/reservation.contract'
 import {
   DEFAULT_DURACION_COMIDA,
   DEFAULT_DURACION_CENA,
@@ -37,9 +36,6 @@ import {
   reservationTurn,
   windowsOverlap,
 } from './reserva-overlap'
-
-// Re-export buildTurnoWindows and TurnoWindow from reserva-overlap for consumers
-export { buildTurnoWindows, type TurnoWindow } from './reserva-overlap'
 
 // ──────────────────────────── Types ────────────────────────────────
 

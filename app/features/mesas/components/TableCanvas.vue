@@ -29,7 +29,8 @@ import TableTooltip from './TableTooltip.vue'
 import type { TooltipData } from './TableTooltip.vue'
 import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
-import { calcularEstadoMesa, buildTurnoWindows, type MesaEstadoContext } from '#shared/utils/mesa-estado'
+import { calcularEstadoMesa, type MesaEstadoContext } from '#shared/utils/mesa-estado'
+import { buildTurnoWindows } from '#shared/utils/reserva-overlap'
 import { rotateGroupAroundCentroid90CW } from '#shared/utils/fusion-math'
 
 export interface ReservaDetail {

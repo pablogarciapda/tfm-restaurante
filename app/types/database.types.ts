@@ -130,7 +130,6 @@ export type Database = {
           canvas_ancho_base: number
           capacidad_total_local: number | null
           captcha_habilitado: boolean
-          cliente_elige_zona: string
           created_at: string
           diseno_original: Json | null
           horarios_config: Json
@@ -177,7 +176,6 @@ export type Database = {
           canvas_ancho_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
-          cliente_elige_zona?: string
           created_at?: string
           diseno_original?: Json | null
           horarios_config?: Json
@@ -224,7 +222,6 @@ export type Database = {
           canvas_ancho_base?: number
           capacidad_total_local?: number | null
           captcha_habilitado?: boolean
-          cliente_elige_zona?: string
           created_at?: string
           diseno_original?: Json | null
           horarios_config?: Json
