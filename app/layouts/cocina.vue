@@ -88,5 +88,7 @@ function closeMobileMenu() {
         <slot />
       </main>
     </div>
+
+    <SmsBalanceAlert />
   </div>
 </template>

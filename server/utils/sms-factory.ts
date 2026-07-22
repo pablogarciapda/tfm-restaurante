@@ -1,13 +1,17 @@
 /**
  * sms-factory.ts — SMS provider factory (SM-004)
  *
- * Reads useRuntimeConfig().smsProvider and returns the appropriate SmsProvider.
- * - 'mock' (default) → MockSmsProvider
- * - 'labsmobile' → LabsMobileProvider (with credentials from runtimeConfig)
- * - unknown/undefined → logs warning, falls back to mock
+ * Single source of truth: labsMobileTest from runtimeConfig.
+ * - labsMobileTest === '1' → MockSmsProvider (test mode, code "1234", zero API calls)
+ * - labsMobileTest === '0' → LabsMobileProvider (real SMS via LabsMobile API)
  *
- * Uses try/catch around the useRuntimeConfig import so unit tests (no Nuxt runtime)
- * gracefully fall back to mock without needing mock setup.
+ * For unit tests, providerNameOverride bypasses testMode check.
+ *
+ * The SmsProvider contract (shared/contracts/sms.contract.ts) keeps the system
+ * decoupled — adding a new provider means:
+ *   1. Create a class that implements SmsProvider
+ *   2. Register it here in the factory
+ *   The rest of the app never changes.
  */
 
 import type { SmsProvider } from '#shared/contracts/sms.contract'
@@ -16,55 +20,77 @@ import { LabsMobileProvider, type LabsMobileConfig } from '../sms/labsmobile'
 
 let _cachedProvider: SmsProvider | null = null
 
-function resolveRuntimeConfig(): { providerName: string; labsMobileConfig?: LabsMobileConfig } {
+interface ResolvedConfig {
+  testMode: string
+  labsMobileConfig?: LabsMobileConfig
+}
+
+function resolveRuntimeConfig(): ResolvedConfig {
+  // useRuntimeConfig() is auto-imported by Nitro for files in server/.
+  // In unit tests (outside Nitro), it throws ReferenceError → catch → mock.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nuxtApp = require('#imports') as { useRuntimeConfig: () => Record<string, unknown> }
-    const config = nuxtApp.useRuntimeConfig()
-    const providerName = (config.smsProvider as string) || 'mock'
+    const config = useRuntimeConfig()
+    const testMode = (config.labsMobileTest as string) || '0'
 
-    const labsMobileConfig: LabsMobileConfig | undefined = config.labsMobileUsername
-      ? {
-          username: (config.labsMobileUsername as string) || '',
-          token: (config.labsMobileToken as string) || '',
-          sender: (config.labsMobileSender as string) || 'LaZingara',
-          testMode: (config.labsMobileTest as string) || '1',
-        }
-      : undefined
+    const username = (config.labsMobileUsername as string) || ''
+    const token = (config.labsMobileToken as string) || ''
 
-    return { providerName, labsMobileConfig }
+    const labsMobileConfig: LabsMobileConfig | undefined =
+      username && token
+        ? {
+            username,
+            token,
+            sender: (config.labsMobileSender as string) || '',
+          }
+        : undefined
+
+    return { testMode, labsMobileConfig }
   } catch {
-    // Running outside Nuxt/Nitro (unit test environments) — default to mock
-    return { providerName: 'mock' }
+    // Outside Nitro (unit test environments) — default to mock
+    return { testMode: '1' }
   }
 }
 
+/**
+ * Get the SMS provider.
+ *
+ * @param providerNameOverride - For unit tests: 'mock' forces mock, 'labsmobile' forces real
+ * @param configOverride - For unit tests: inject credentials without runtimeConfig
+ */
 export function getSmsProvider(
   providerNameOverride?: string,
   configOverride?: LabsMobileConfig,
 ): SmsProvider {
   if (_cachedProvider) return _cachedProvider
 
-  // In Nuxt: read from useRuntimeConfig(). Outside Nuxt: use mock/defaults
-  const { providerName, labsMobileConfig } = resolveRuntimeConfig()
+  const { testMode, labsMobileConfig } = resolveRuntimeConfig()
 
-  const name = providerNameOverride || providerName
+  // providerNameOverride is for unit tests — it bypasses the testMode check
+  const effectiveName = providerNameOverride ?? (testMode === '1' ? 'mock' : 'labsmobile')
 
-  if (name === 'labsmobile') {
-    const mergedConfig = configOverride || labsMobileConfig
+  if (effectiveName === 'labsmobile') {
+    const mergedConfig = configOverride ?? labsMobileConfig
+
+    if (!mergedConfig?.username || !mergedConfig?.token) {
+      console.warn(
+        '[SmsFactory] LabsMobile selected but credentials missing ' +
+          '(username=%s, token=%s). Falling back to mock.',
+        mergedConfig?.username ? '✓' : '✗',
+        mergedConfig?.token ? '✓' : '✗',
+      )
+      _cachedProvider = new MockSmsProvider()
+      return _cachedProvider
+    }
+
     _cachedProvider = new LabsMobileProvider({
-      username: mergedConfig?.username || '',
-      token: mergedConfig?.token || '',
-      sender: mergedConfig?.sender || 'LaZingara',
-      testMode: mergedConfig?.testMode || '1',
+      username: mergedConfig.username,
+      token: mergedConfig.token,
+      sender: mergedConfig.sender || '',
     })
     return _cachedProvider
   }
 
-  if (name !== 'mock') {
-    console.warn(`Unknown SMS_PROVIDER: "${name}", falling back to mock`)
-  }
-
+  // 'mock' or unknown → MockSmsProvider (unit tests, test mode, or fallback)
   _cachedProvider = new MockSmsProvider()
   return _cachedProvider
 }

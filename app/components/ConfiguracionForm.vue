@@ -148,6 +148,26 @@ const testEmail = ref('')
 const errors = ref<Record<string, string>>({})
 const showPassword = ref(false)
 
+// ── SMS balance ──
+const smsBalance = ref<number | null>(null)
+const smsBalanceLoading = ref(false)
+const smsBalanceError = ref('')
+
+async function loadSmsBalance() {
+  smsBalanceLoading.value = true
+  smsBalanceError.value = ''
+  try {
+    const data = await $fetch<{ credits: number }>('/api/labsmobile/balance')
+    smsBalance.value = data.credits
+  } catch (err: unknown) {
+    const msg = (err as { data?: { message?: string } })?.data?.message || 'No disponible'
+    smsBalanceError.value = msg
+    smsBalance.value = null
+  } finally {
+    smsBalanceLoading.value = false
+  }
+}
+
 // ── Diseño config (canvas dimensions) ──
 const {
   config: disenoConfig,
@@ -164,6 +184,7 @@ onMounted(async () => {
   await loadDisenoConfig()
   canvasAncho.value = disenoConfig.value.canvas_ancho_base
   canvasAlto.value = disenoConfig.value.canvas_alto_base
+  loadSmsBalance()
 })
 
 // ── Horarios preview ──
@@ -1037,6 +1058,43 @@ const checkboxClass = 'h-4 w-4 rounded'
           <template v-else-if="form.notificacion_reserva === 'sms'">Se envía un SMS de confirmación al teléfono del cliente.</template>
           <template v-else>Se envía email y SMS de confirmación al cliente.</template>
         </p>
+      </div>
+
+      <!-- SMS balance widget -->
+      <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate">Saldo de SMS</span>
+          <button
+            class="text-xs text-terracotta underline hover:text-terracotta/80 disabled:opacity-40"
+            :disabled="smsBalanceLoading"
+            @click="loadSmsBalance"
+          >
+            {{ smsBalanceLoading ? 'Consultando…' : 'Actualizar' }}
+          </button>
+        </div>
+        <div class="mt-1">
+          <template v-if="smsBalanceLoading">
+            <span class="text-xs text-gray-400">Consultando saldo…</span>
+          </template>
+          <template v-else-if="smsBalanceError">
+            <span class="text-xs text-red-500">{{ smsBalanceError }}</span>
+          </template>
+          <template v-else-if="smsBalance !== null">
+            <span
+              class="text-lg font-bold"
+              :class="smsBalance <= 15 ? 'text-red-600' : smsBalance <= 50 ? 'text-amber-600' : 'text-green-600'"
+            >
+              {{ smsBalance }}
+            </span>
+            <span class="ml-1 text-xs text-gray-500">créditos restantes</span>
+            <p v-if="smsBalance <= 15" class="mt-1 text-xs text-red-500">
+              Quedan pocos SMS. Contacta con LabsMobile para recargar.
+            </p>
+          </template>
+          <template v-else>
+            <span class="text-xs text-gray-400">No disponible</span>
+          </template>
+        </div>
       </div>
 
       <!-- CAPTCHA -->

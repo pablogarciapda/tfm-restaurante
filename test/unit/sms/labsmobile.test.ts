@@ -2,7 +2,7 @@
  * labsmobile.test.ts — LabsMobile adapter tests (SM-003)
  *
  * Tests:
- * - Successful POST to LabsMobile API with Basic auth + test mode
+ * - Successful POST to LabsMobile API with Basic auth
  * - 401 handling (invalid credentials)
  * - verifyCode uses shared sms-store
  * - Network error handling
@@ -30,11 +30,10 @@ describe('LabsMobileProvider (SM-003)', () => {
       username: 'test@example.com',
       token: 'test-token',
       sender: 'TestSender',
-      testMode: '1',
     })
   })
 
-  it('sendVerificationCode POSTs to LabsMobile API with Basic auth + test mode', async () => {
+  it('sendVerificationCode POSTs to LabsMobile API with Basic auth', async () => {
     mockFetch.mockResolvedValueOnce({ code: '0', message: 'OK' })
 
     const result = await provider.sendVerificationCode('+34600000000')
@@ -54,8 +53,9 @@ describe('LabsMobileProvider (SM-003)', () => {
     const body = options.body
     expect(body.message).toContain('TestSender')
     expect(body.recipient).toEqual([{ msisdn: '+34600000000' }])
-    expect(body.test).toBe('1')
     expect(body.tpoa).toBe('TestSender')
+    // test param is NOT sent — LabsMobileProvider now only runs in real mode
+    expect(body.test).toBeUndefined()
 
     // Check result
     expect(result.success).toBe(true)

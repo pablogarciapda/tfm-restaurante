@@ -4,9 +4,11 @@
  * Implements SmsProvider using the LabsMobile HTTP API.
  * - sendVerificationCode: POST to https://api.labsmobile.com/json/send with Basic auth.
  *   Generates a random 4-digit code, stores it via the shared sms-store.
- *   In test mode (labsMobileTest=1), no real SMS is sent.
  * - verifyCode: delegates to the shared in-memory sms-store.
  *   LabsMobile does NOT support server-side code verification.
+ *
+ * This adapter is ONLY used in real mode (labsMobileTest=0).
+ * In test mode (labsMobileTest=1), the factory returns MockSmsProvider instead.
  *
  * Config is injected via constructor (DI) to keep the adapter testable
  * without Nuxt runtime context. The factory (sms-factory.ts) reads useRuntimeConfig()
@@ -20,7 +22,6 @@ export interface LabsMobileConfig {
   username: string
   token: string
   sender: string
-  testMode: string
 }
 
 type FetchError = Error & { response?: { status: number; _data?: unknown } }
@@ -44,13 +45,13 @@ export class LabsMobileProvider implements SmsProvider {
 
   async sendVerificationCode(phone: string): Promise<SmsSendResponse> {
     const code = this.generateCode()
+    const sender = this.config.sender
 
-    const payload = {
-      message: `${this.config.sender}: Tu codigo de verificacion es ${code}`,
-      tpoa: this.config.sender,
+    const payload: Record<string, unknown> = {
+      message: sender ? `${sender}: Tu codigo de verificacion es ${code}` : `Tu codigo de verificacion es ${code}`,
       recipient: [{ msisdn: phone }],
-      test: this.config.testMode,
     }
+    if (sender) payload.tpoa = sender
 
     try {
       await $fetch<{ code: string; message: string }>('https://api.labsmobile.com/json/send', {
@@ -98,5 +99,68 @@ export class LabsMobileProvider implements SmsProvider {
     deleteCode(phone)
 
     return { valid: true }
+  }
+
+  async sendNotification(phone: string, message: string): Promise<SmsSendResponse> {
+    const sender = this.config.sender
+    const payload: Record<string, unknown> = {
+      message,
+      recipient: [{ msisdn: phone }],
+    }
+    if (sender) payload.tpoa = sender
+
+    try {
+      await $fetch<{ code: string; message: string }>('https://api.labsmobile.com/json/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: this.getAuthHeader(),
+        },
+        body: payload,
+      })
+
+      return { success: true }
+    } catch (err: unknown) {
+      const fetchErr = err as FetchError
+
+      if (fetchErr.response?.status === 401) {
+        return { success: false, error: 'Invalid LabsMobile credentials' }
+      }
+
+      console.error('[LabsMobile] sendNotification failed:', {
+        status: fetchErr.response?.status,
+        message: fetchErr.message,
+      })
+      return { success: false, error: 'SMS service unavailable' }
+    }
+  }
+
+  async getBalance(): Promise<SmsBalanceResponse> {
+    try {
+      const data = await $fetch<{ code: number; credits?: string }>('https://api.labsmobile.com/json/balance', {
+        method: 'GET',
+        headers: {
+          Authorization: this.getAuthHeader(),
+        },
+      })
+
+      if (data.code !== 0) {
+        console.error('[LabsMobile] getBalance failed: unexpected code', data.code)
+        return { success: false, error: `Unexpected response code: ${data.code}` }
+      }
+
+      const credits = data.credits ? parseInt(data.credits, 10) : undefined
+      return { success: true, credits }
+    } catch (err: unknown) {
+      const fetchErr = err as FetchError
+      if (fetchErr.response?.status === 401) {
+        return { success: false, error: 'Invalid LabsMobile credentials' }
+      }
+      console.error('[LabsMobile] getBalance failed:', {
+        status: fetchErr.response?.status,
+        message: fetchErr.message,
+      })
+      return { success: false, error: 'Balance service unavailable' }
+    }
   }
 }

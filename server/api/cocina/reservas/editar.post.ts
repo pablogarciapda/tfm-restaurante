@@ -8,6 +8,7 @@
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { sendConfirmationEmail } from '../../../utils/email'
+import { getSmsProvider } from '../../../utils/sms-factory'
 import { generarReferencia } from '#shared/utils/referencia'
 
 export default defineEventHandler(async (event) => {
@@ -164,7 +165,7 @@ export default defineEventHandler(async (event) => {
         })
         const ref = generarReferencia(updated.id, updated.fecha_hora)
         const msg = `✅ Reserva actualizada en ${config?.restaurant_nombre || 'Restaurante'}. ${fecha}. ${updated.numero_comensales} comensales. Ref: ${ref}`
-        console.info(`[editar-reserva] SMS to ${cliente.telefono}: ${msg}`)
+        getSmsProvider().sendNotification(cliente.telefono, msg).catch((err: any) => console.warn('[editar-reserva] SMS failed:', err.message))
       }
     }
   }

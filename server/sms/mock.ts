@@ -42,4 +42,14 @@ export class MockSmsProvider implements SmsProvider {
 
     return { valid: true }
   }
+
+  async sendNotification(phone: string, message: string): Promise<SmsSendResponse> {
+    console.log(`[MockSms] sendNotification → ${phone}: ${message}`)
+    return { success: true }
+  }
+
+  async getBalance(): Promise<SmsBalanceResponse> {
+    console.log('[MockSms] getBalance → returning 9999 (mock)')
+    return { success: true, credits: 9999 }
+  }
 }

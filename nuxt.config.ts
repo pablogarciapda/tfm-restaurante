@@ -75,18 +75,16 @@ export default defineNuxtConfig({
     // SMTP password: set NUXT_SMTP_PASSWORD in .env (server-only, overrides DB value)
     smtpPassword: '',
 
-    // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
-    smsProvider: 'mock',
-
-    // LabsMobile credentials (server-only, NEVER exposed to client) (SM-006)
+    // SMS — LabsMobile credentials (server-only, NEVER exposed to client)
+    // labsMobileTest: '1' = MockSmsProvider (test, code "1234"), '0' = real LabsMobile API
     labsMobileUsername: '',
     labsMobileToken: '',
-    labsMobileSender: 'LaZingara',
-    labsMobileTest: '1',
+    labsMobileSender: '',
+    labsMobileTest: '0',
 
     // Public (exposed to client bundle)
     public: {
-      siteUrl: 'https://www.lazingara.es',
+      siteUrl: '',
     },
   },
 
