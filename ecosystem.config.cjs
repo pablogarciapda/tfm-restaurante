@@ -13,7 +13,7 @@
 // to deploy on older versions; keep that gate intact.
 //
 // Vars (see .env.example): NUXT_PUBLIC_SUPABASE_URL, NUXT_PUBLIC_SUPABASE_KEY,
-// SUPABASE_SERVICE_ROLE_KEY (server-only), NUXT_PUBLIC_SITE_URL, NUXT_SMS_PROVIDER.
+// SUPABASE_SERVICE_ROLE_KEY (server-only), NUXT_PUBLIC_SITE_URL, NUXT_LABS_MOBILE_TEST.
 
 module.exports = {
   apps: [
@@ -35,14 +35,14 @@ module.exports = {
         NUXT_PUBLIC_SUPABASE_URL: process.env.NUXT_PUBLIC_SUPABASE_URL,
         NUXT_PUBLIC_SUPABASE_KEY: process.env.NUXT_PUBLIC_SUPABASE_KEY,
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        // App (runtimeConfig.public)
-        NUXT_PUBLIC_SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || 'https://www.lazingara.es',
-        // SMS (set NUXT_SMS_PROVIDER=labsmobile + creds to enable real SMS)
-        NUXT_SMS_PROVIDER: process.env.NUXT_SMS_PROVIDER || 'labsmobile',
-        NUXT_LABS_MOBILE_USERNAME: process.env.NUXT_LABS_MOBILE_USERNAME || process.env.LABSMOBILE_USERNAME,
-        NUXT_LABS_MOBILE_TOKEN: process.env.NUXT_LABS_MOBILE_TOKEN || process.env.LABSMOBILE_TOKEN,
-        NUXT_LABS_MOBILE_SENDER: process.env.NUXT_LABS_MOBILE_SENDER || process.env.LABSMOBILE_SENDER || 'LaZingara',
-        NUXT_LABS_MOBILE_TEST: process.env.NUXT_LABS_MOBILE_TEST || process.env.LABSMOBILE_TEST || '0',
+        // App (runtimeConfig.public) — site_url se lee de configuracion DB, no de env
+        NUXT_PUBLIC_SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || '',
+        // SMS — Nuxt runtimeConfig reads NUXT_LABS_MOBILE_* vars
+        // labsMobileTest=1 → MockSmsProvider (1234), 0 → real via LabsMobile
+        NUXT_LABS_MOBILE_USERNAME: process.env.NUXT_LABS_MOBILE_USERNAME || '',
+        NUXT_LABS_MOBILE_TOKEN: process.env.NUXT_LABS_MOBILE_TOKEN || '',
+        NUXT_LABS_MOBILE_SENDER: process.env.NUXT_LABS_MOBILE_SENDER || '',
+        NUXT_LABS_MOBILE_TEST: process.env.NUXT_LABS_MOBILE_TEST || '0',
       },
     },
   ],

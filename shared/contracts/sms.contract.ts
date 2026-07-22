@@ -30,6 +30,13 @@ export interface SmsVerifyResponse {
   error?: string
 }
 
+/** Response from a getBalance call */
+export interface SmsBalanceResponse {
+  success: boolean
+  credits?: number
+  error?: string
+}
+
 /**
  * SmsProvider — contract that every SMS adapter must implement.
  *
@@ -45,4 +52,6 @@ export interface SmsProvider {
   sendVerificationCode(phone: string): Promise<SmsSendResponse>
   verifyCode(phone: string, code: string): Promise<SmsVerifyResponse>
   sendNotification(phone: string, message: string): Promise<SmsSendResponse>
+  /** Query remaining credits from the provider. Returns estimated count or -1 if unknown. */
+  getBalance(): Promise<SmsBalanceResponse>
 }
