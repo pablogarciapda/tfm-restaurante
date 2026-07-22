@@ -76,13 +76,13 @@ export default defineNuxtConfig({
     smtpPassword: '',
 
     // SMS provider selection: 'mock' | 'labsmobile' (SM-004)
-    smsProvider: 'mock',
+    smsProvider: 'labsmobile',
 
     // LabsMobile credentials (server-only, NEVER exposed to client) (SM-006)
     labsMobileUsername: '',
     labsMobileToken: '',
     labsMobileSender: 'LaZingara',
-    labsMobileTest: '1',
+    labsMobileTest: '0',
 
     // Public (exposed to client bundle)
     public: {

@@ -5,9 +5,19 @@
  * cliente upsert, modo_reserva branching, email trigger,
  * blocked day validation, slot validation, and zone validation.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleCreateReservation } from '../../../server/api/reservas.handlers'
 import { TEST_RESTAURANT } from '../../__fixtures__/restaurant-config'
+
+const sendNotificationMock = vi.fn().mockResolvedValue({ success: true })
+
+vi.mock('../../../server/utils/sms-factory', () => ({
+  getSmsProvider: () => ({
+    sendVerificationCode: vi.fn(),
+    verifyCode: vi.fn(),
+    sendNotification: sendNotificationMock,
+  }),
+}))
 
 const futureISO = new Date(Date.now() + 86400000 * 2).toISOString()
 
@@ -111,6 +121,10 @@ function createMockSupabase(overrides: {
 }
 
 describe('handleCreateReservation', () => {
+  beforeEach(() => {
+    sendNotificationMock.mockClear()
+  })
+
   it('validates required fields — returns 400 on empty body', async () => {
     const mockSupabase = createMockSupabase({})
     const result = await handleCreateReservation(mockSupabase as any, {} as any)
@@ -522,7 +536,6 @@ describe('handleCreateReservation', () => {
   })
 
   it('SMS notification includes cancel link using site_url from configuracion', async () => {
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
     const mockSupabase = createMockSupabase({
       configSelect: vi.fn().mockResolvedValue({
         data: {
@@ -554,22 +567,18 @@ describe('handleCreateReservation', () => {
     expect(result.status).toBe(200)
     expect(result.body).toHaveProperty('cancel_token')
 
-    // The SMS log call must mention the cancel link built from site_url + token
-    expect(infoSpy).toHaveBeenCalled()
-    const smsLog = infoSpy.mock.calls.find(
-      (c) => typeof c[0] === 'string' && c[0].includes('[reservas] SMS'),
+    // The SMS sendNotification must have been called with a cancel link built from site_url + token
+    expect(sendNotificationMock).toHaveBeenCalled()
+    const smsCall = sendNotificationMock.mock.calls.find(
+      (c: any[]) => typeof c[1] === 'string' && c[1].includes('cancelar?token='),
     )
-    expect(smsLog).toBeDefined()
-    const msg = smsLog![0] as string
+    expect(smsCall).toBeDefined()
+    const msg = smsCall![1] as string
     const token = (result.body as any).cancel_token
     expect(msg).toContain(`${TEST_RESTAURANT.site_url}/cancelar?token=${token}`)
-
-    infoSpy.mockRestore()
   })
 
   it('SMS cancel link omits site_url when not configured (no NaN link)', async () => {
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const mockSupabase = createMockSupabase({
       configSelect: vi.fn().mockResolvedValue({
         data: {
@@ -599,17 +608,14 @@ describe('handleCreateReservation', () => {
     })
 
     expect(result.status).toBe(200)
-    const smsLog = infoSpy.mock.calls.find(
-      (c) => typeof c[0] === 'string' && c[0].includes('[reservas] SMS'),
+    const smsCall = sendNotificationMock.mock.calls.find(
+      (c: any[]) => typeof c[1] === 'string' && c[1].includes('Reserva confirmada'),
     )
-    expect(smsLog).toBeDefined()
-    const msg = smsLog![0] as string
+    expect(smsCall).toBeDefined()
+    const msg = smsCall![1] as string
     // No "undefined" or "null" leaking into the message
     expect(msg).not.toMatch(/(undefined|null)/)
     // No dangling "/cancelar" link with empty origin
     expect(msg).not.toContain('/cancelar?token=')
-
-    infoSpy.mockRestore()
-    warnSpy.mockRestore()
   })
 })

@@ -14,6 +14,7 @@ import { normalizePhone } from '#shared/utils/phone'
 import { isSlotInRange } from '#shared/utils/slots'
 import { generarReferencia } from '#shared/utils/referencia'
 import { sendConfirmationEmail, sendCancellationEmail } from '../utils/email'
+import { getSmsProvider } from '../utils/sms-factory'
 
 type SupabaseServerClient = SupabaseClient<Database>
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -333,7 +334,7 @@ export async function handleCreateReservation(
         ? ` Cancela: ${siteUrl.replace(/\/$/, '')}/cancelar?token=${cancelToken}`
         : ''
       const msg = `✅ Reserva confirmada en ${restaurantNombre || 'Restaurante'}. ${fecha}. ${b.numero_comensales} comensales. Ref: ${ref}${emailInfo}${cancelLink}`
-      console.info(`[reservas] SMS to ${normalizedPhone}: ${msg}`)
+      getSmsProvider().sendNotification(normalizedPhone, msg).catch((err: any) => console.warn('[reservas] SMS failed:', err.message))
     }
   }
 
@@ -462,7 +463,7 @@ export async function handleCancelReservation(
         ? ''
         : ' Te enviaremos un email de confirmación.'
       const msg = `❌ Reserva cancelada en ${cancelRestNombre || 'Restaurante'}. ${fecha}. ${reserva.numero_comensales ?? '?'} comensales. Ref: ${ref ?? reserva.id}.${emailInfo}`
-      console.info(`[cancelar] SMS to ${cliente.telefono}: ${msg}`)
+      getSmsProvider().sendNotification(cliente.telefono, msg).catch((err: any) => console.warn('[cancelar] SMS failed:', err.message))
     }
   }
 

@@ -99,4 +99,38 @@ export class LabsMobileProvider implements SmsProvider {
 
     return { valid: true }
   }
+
+  async sendNotification(phone: string, message: string): Promise<SmsSendResponse> {
+    const payload = {
+      message,
+      tpoa: this.config.sender,
+      recipient: [{ msisdn: phone }],
+      test: this.config.testMode,
+    }
+
+    try {
+      await $fetch<{ code: string; message: string }>('https://api.labsmobile.com/json/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: this.getAuthHeader(),
+        },
+        body: payload,
+      })
+
+      return { success: true }
+    } catch (err: unknown) {
+      const fetchErr = err as FetchError
+
+      if (fetchErr.response?.status === 401) {
+        return { success: false, error: 'Invalid LabsMobile credentials' }
+      }
+
+      console.error('[LabsMobile] sendNotification failed:', {
+        status: fetchErr.response?.status,
+        message: fetchErr.message,
+      })
+      return { success: false, error: 'SMS service unavailable' }
+    }
+  }
 }

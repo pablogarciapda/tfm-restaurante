@@ -37,8 +37,8 @@ module.exports = {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
         // App (runtimeConfig.public)
         NUXT_PUBLIC_SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || 'https://www.lazingara.es',
-        // SMS (defaults to mock — set NUXT_SMS_PROVIDER=labsmobile + creds to enable real SMS)
-        NUXT_SMS_PROVIDER: process.env.NUXT_SMS_PROVIDER || 'mock',
+        // SMS (set NUXT_SMS_PROVIDER=labsmobile + creds to enable real SMS)
+        NUXT_SMS_PROVIDER: process.env.NUXT_SMS_PROVIDER || 'labsmobile',
         NUXT_LABS_MOBILE_USERNAME: process.env.NUXT_LABS_MOBILE_USERNAME,
         NUXT_LABS_MOBILE_TOKEN: process.env.NUXT_LABS_MOBILE_TOKEN,
         NUXT_LABS_MOBILE_SENDER: process.env.NUXT_LABS_MOBILE_SENDER,

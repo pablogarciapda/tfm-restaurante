@@ -38,8 +38,11 @@ export interface SmsVerifyResponse {
  *   Returns success + optional code (mock exposes code for testing; real providers do NOT).
  * - verifyCode(phone, code): check stored code matches + not expired.
  *   Returns valid: true/false + optional error string for context.
+ * - sendNotification(phone, message): send a free-form SMS notification.
+ *   No code storage — fire-and-forget.
  */
 export interface SmsProvider {
   sendVerificationCode(phone: string): Promise<SmsSendResponse>
   verifyCode(phone: string, code: string): Promise<SmsVerifyResponse>
+  sendNotification(phone: string, message: string): Promise<SmsSendResponse>
 }

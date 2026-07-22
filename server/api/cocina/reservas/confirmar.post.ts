@@ -7,6 +7,7 @@
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { sendConfirmationEmail } from '../../../utils/email'
+import { getSmsProvider } from '../../../utils/sms-factory'
 import { generarReferencia } from '#shared/utils/referencia'
 import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
 
@@ -138,7 +139,7 @@ export default defineEventHandler(async (event) => {
       const emailInfo = cliente.email ? ` Tu email es: ${cliente.email}.` : ''
       const ref = generarReferencia(updated.id, updated.fecha_hora)
       const msg = `✅ Reserva confirmada en ${restNombre || 'Restaurante'}. ${fecha}. ${updated.numero_comensales} comensales. Ref: ${ref}${emailInfo}`
-      console.info(`[confirmar] SMS to ${cliente.telefono}: ${msg}`)
+      getSmsProvider().sendNotification(cliente.telefono, msg).catch((err: any) => console.warn('[confirmar] SMS failed:', err.message))
     }
   }
 
