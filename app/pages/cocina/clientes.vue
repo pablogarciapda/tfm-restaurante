@@ -3,7 +3,7 @@
   Protected by auth → role → permissions middleware.
 -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import type { ClienteWithCount, CreateClientePayload, UpdateClientePayload } from '#shared/contracts/reservation.contract'
 
 definePageMeta({
@@ -15,6 +15,7 @@ const clientes = ref<ClienteWithCount[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const editingCliente = ref<CreateClientePayload & { id?: string; telefono?: string } | null>(null)
+const formRef = ref<HTMLDivElement | null>(null)
 const formLoading = ref(false)
 const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -53,6 +54,9 @@ function handleEdit(cliente: ClienteWithCount) {
     email: cliente.email ?? undefined,
   }
   showForm.value = true
+  nextTick(() => {
+    formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 async function handleSave(data: CreateClientePayload | UpdateClientePayload) {
@@ -108,7 +112,7 @@ onMounted(() => {
     </div>
 
     <!-- Cliente form modal -->
-    <div v-if="showForm" class="rounded-lg bg-white p-6 shadow">
+    <div ref="formRef" v-if="showForm" class="rounded-lg bg-white p-6 shadow">
       <ClienteForm
         :cliente="editingCliente"
         :loading="formLoading"
