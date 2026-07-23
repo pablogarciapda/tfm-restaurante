@@ -18,11 +18,13 @@
     "@nuxtjs/turnstile": "1.1.0",
     "@pinia/nuxt": "^0.11.3",
     "@supabase/supabase-js": "^2.108.2",
+    "chart.js": "^4.5.1",
     "konva": "^10.3.0",
     "nodemailer": "^9.0.3",
     "nuxt": "4.4.8",
     "pinia": "^3.0.4",
     "vue": "latest",
+    "vue-chartjs": "^5.3.4",
     "vue-konva": "^3.4.0",
     "vue-router": "latest",
     "zod": "^4.4.3"
