@@ -17,8 +17,8 @@
 /** Cookie name set by @nuxtjs/supabase for the JWT access token */
 const SB_ACCESS_TOKEN_COOKIE = 'sb-access-token'
 
-/** Maximum session duration before forced re-login (24 hours) */
-export const SESSION_MAX_DURATION_MS = 24 * 60 * 60 * 1000
+/** sessionStorage key for the auth flag */
+const AUTH_FLAG_KEY = 'cocina-authenticated'
 
 /**
  * Decode the user ID (sub claim) from the Supabase access token JWT cookie.
@@ -52,38 +52,35 @@ export function getUserIdFromCookie(): string | null {
 }
 
 /**
- * Check if the session has exceeded the maximum duration.
+ * Check if the user has an active session in this browser tab/window.
  *
- * Stores the login timestamp in sessionStorage (survives SPA navigation)
- * and compares it against SESSION_MAX_DURATION_MS.
+ * The flag is stored in sessionStorage, which is cleared when the
+ * browser tab or window is closed. This means:
+ * - Reload (F5) → flag survives, user stays logged in ✓
+ * - SPA navigation → flag survives, user stays logged in ✓
+ * - Close tab/browser → flag is gone, user must re-login ✓
  *
- * Returns true if the session is still valid, false if it needs re-login.
- * If no timestamp is stored (first run), stores it and returns true.
+ * Even if the Supabase cookie (sb-access-token) persists, the user
+ * still needs the sessionStorage flag to access the admin panel.
+ * This is the standard security model for admin dashboards.
  */
-export function isSessionValid(): boolean {
-  if (typeof sessionStorage === 'undefined') return true // SSR guard
-
-  const stored = sessionStorage.getItem('cocina-login-time')
-  const now = Date.now()
-
-  if (!stored) {
-    // First check — store the login time from the JWT's `exp` claim
-    const token = getUserIdFromCookie()
-    if (!token) return false // No session at all
-    sessionStorage.setItem('cocina-login-time', String(now))
-    return true
-  }
-
-  const loginTime = parseInt(stored, 10)
-  if (Number.isNaN(loginTime)) return true
-
-  return now - loginTime < SESSION_MAX_DURATION_MS
+export function isSessionAuthenticated(): boolean {
+  if (typeof sessionStorage === 'undefined') return false
+  return sessionStorage.getItem(AUTH_FLAG_KEY) === 'true'
 }
 
 /**
- * Clear the stored session timestamp (call on explicit logout).
+ * Store the auth flag in sessionStorage (call after successful login).
  */
-export function clearSessionTimestamp(): void {
+export function markSessionAuthenticated(): void {
   if (typeof sessionStorage === 'undefined') return
-  sessionStorage.removeItem('cocina-login-time')
+  sessionStorage.setItem(AUTH_FLAG_KEY, 'true')
+}
+
+/**
+ * Clear the auth flag (call on explicit logout).
+ */
+export function clearSessionAuth(): void {
+  if (typeof sessionStorage === 'undefined') return
+  sessionStorage.removeItem(AUTH_FLAG_KEY)
 }

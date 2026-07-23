@@ -20,18 +20,16 @@
  * Stores the resolved user in 'cocina-auth-user' useState so downstream
  * middleware (role, permissions) don't need to repeat the lookup.
  */
-import { getUserIdFromCookie, isSessionValid } from '#shared/utils/session'
+import { getUserIdFromCookie, isSessionAuthenticated } from '#shared/utils/session'
 
 export default defineNuxtRouteMiddleware(async (to, _from) => {
   // Force the cocina layout for all /cocina/** routes
   to.meta = { ...to.meta, layout: 'cocina' }
 
-  // Check session duration (24h max) before anything else
-  if (!isSessionValid()) {
-    // Session expired — force logout. We don't call client.auth.signOut()
-    // here because it may fail (429). Just clear the UI state and redirect.
-    const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
-    authUser.value = null
+  // sessionStorage flag check — cleared when browser tab/window closes.
+  // This is the PRIMARY auth gate: even if the Supabase cookie persists,
+  // closing the browser invalidates the session.
+  if (!isSessionAuthenticated()) {
     return navigateTo('/cocina')
   }
 
