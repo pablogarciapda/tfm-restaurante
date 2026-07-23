@@ -16,8 +16,6 @@ export const diaEstablecimientoSchema = z.object({
   cierre: z.string().regex(/^\d{2}:\d{2}$/),
   descanso: z.boolean().default(false),
   vacaciones: z.boolean().default(false),
-}).refine((data) => data.apertura <= data.cierre, {
-  message: 'apertura must be before or equal to cierre',
 })
 
 export const establecimientoConfigSchema = z.object({

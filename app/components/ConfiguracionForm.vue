@@ -475,7 +475,29 @@ watch(
     if (cfg.modo_reserva !== undefined) form.modo_reserva = cfg.modo_reserva as ReservaModo
     if ((cfg as any).sms_verificacion !== undefined) form.sms_verificacion = (cfg as any).sms_verificacion as boolean
     if ((cfg as any).notificacion_reserva !== undefined) form.notificacion_reserva = (cfg as any).notificacion_reserva as 'email' | 'sms' | 'ambos'
-    if (cfg.horarios_config !== undefined) form.horarios_config = (cfg.horarios_config as HorarioConfigForm) ?? form.horarios_config
+    if (cfg.horarios_config !== undefined) {
+      const dbVal = cfg.horarios_config as any
+      form.horarios_config = {
+        comida_inicio: dbVal.comida_inicio ?? '13:30',
+        comida_fin: dbVal.comida_fin ?? '15:30',
+        cena_inicio: dbVal.cena_inicio ?? '21:00',
+        cena_fin: dbVal.cena_fin ?? '23:30',
+        intervalo_minutos: dbVal.intervalo_minutos ?? 15,
+        mostrar_horario_cocina: (dbVal.mostrar_horario_cocina !== false),
+        establecimiento: {
+          mostrar_en_contacto: dbVal.establecimiento?.mostrar_en_contacto !== false,
+          dias: dbVal.establecimiento?.dias ?? [
+            { dia: 'lunes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'martes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'miércoles', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'jueves', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'viernes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'sábado', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'domingo', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+          ],
+        },
+      }
+    }
     if (cfg.zonas_config !== undefined) form.zonas_config = (cfg.zonas_config as ZoneConfigForm[]) ?? form.zonas_config
     if (cfg.captcha_habilitado !== undefined) form.captcha_habilitado = cfg.captcha_habilitado as boolean
     if ((cfg as any).restaurant_nombre !== undefined) form.restaurant_nombre = (cfg as any).restaurant_nombre as string
