@@ -102,8 +102,10 @@ async function handleSubmit(formData: ConfigUpdatePayload) {
     })
     config.value = result ?? { ...defaultConfig }
     showToast('Configuración guardada correctamente', 'success')
-  } catch {
-    showToast('Error al guardar la configuración', 'error')
+  } catch (err: unknown) {
+    const data = (err as { data?: { error?: string; fields?: string[] } })?.data
+    const msg = data?.fields?.length ? data.fields.join('; ') : (data?.error || 'Error al guardar la configuración')
+    showToast(msg, 'error')
   } finally {
     saving.value = false
   }

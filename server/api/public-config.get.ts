@@ -7,7 +7,7 @@
  * Uses service role to bypass RLS on configuracion for reads.
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
-import type { PublicConfig, HorarioConfig, ZonaConfig, RestaurantConfig } from '#shared/contracts/reservation.contract'
+import type { PublicConfig, HorarioConfig, ZonaConfig, RestaurantConfig, EstablecimientoConfig } from '#shared/contracts/reservation.contract'
 
 const DEFAULT_RESTAURANT: RestaurantConfig = {
   nombre: '',
@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
   if (error || !data) {
     return {
       horarios: null,
+      establecimiento: null,
       zonas: [],
       texto_proteccion_datos: null,
       modo_reserva: 'automatica',
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const horarios = (data.horarios_config as HorarioConfig) || null
+  const establecimiento = (data.horarios_config as HorarioConfig)?.establecimiento as EstablecimientoConfig | undefined || null
   const allZonas = (data.zonas_config as ZonaConfig[]) || []
   const enabledZonas = allZonas.filter((z) => z.enabled)
 
@@ -63,6 +65,7 @@ export default defineEventHandler(async (event) => {
 
   const publicConfig: PublicConfig = {
     horarios: horarios as HorarioConfig,
+    establecimiento,
     zonas: enabledZonas,
     texto_proteccion_datos: (data.texto_proteccion_datos as string) || null,
     modo_reserva: (data.modo_reserva as 'automatica' | 'verificada') || 'automatica',

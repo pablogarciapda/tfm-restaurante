@@ -23,12 +23,27 @@ interface ZoneConfigForm {
   imagen_url?: string | null
 }
 
+interface DiaEstablecimientoForm {
+  dia: string
+  apertura: string
+  cierre: string
+  descanso: boolean
+  vacaciones: boolean
+}
+
+interface EstablecimientoConfigForm {
+  dias: DiaEstablecimientoForm[]
+  mostrar_en_contacto: boolean
+}
+
 interface HorarioConfigForm {
   comida_inicio: string
   comida_fin: string
   cena_inicio: string
   cena_fin: string
   intervalo_minutos: number
+  mostrar_horario_cocina: boolean
+  establecimiento?: EstablecimientoConfigForm
 }
 
 interface DiaBloqueadoForm {
@@ -116,12 +131,28 @@ const form = reactive<ConfigFormData>({
   modo_reserva: (props.currentConfig.modo_reserva as ReservaModo) ?? 'automatica',
   sms_verificacion: (props.currentConfig as any).sms_verificacion ?? false,
   notificacion_reserva: ((props.currentConfig as any).notificacion_reserva as 'email' | 'sms' | 'ambos') ?? 'email',
-  horarios_config: (props.currentConfig.horarios_config as HorarioConfigForm) ?? {
-    comida_inicio: '13:30',
-    comida_fin: '15:30',
-    cena_inicio: '21:00',
-    cena_fin: '23:30',
-    intervalo_minutos: 15,
+  horarios_config: {
+    ...{
+      comida_inicio: '13:30',
+      comida_fin: '15:30',
+      cena_inicio: '21:00',
+      cena_fin: '23:30',
+      intervalo_minutos: 15,
+      mostrar_horario_cocina: true,
+    },
+    ...(props.currentConfig.horarios_config as Partial<HorarioConfigForm> ?? {}),
+    establecimiento: {
+      mostrar_en_contacto: (props.currentConfig.horarios_config as any)?.establecimiento?.mostrar_en_contacto ?? true,
+      dias: [
+        { dia: 'lunes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'martes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'miércoles', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'jueves', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'viernes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'sábado', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+        { dia: 'domingo', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+      ],
+    },
   },
   zonas_config: (props.currentConfig.zonas_config as ZoneConfigForm[]) ?? [
     { id: 'principal', nombre: 'Comedor principal', capacidad: 70, enabled: true, imagen_url: null },
@@ -444,7 +475,29 @@ watch(
     if (cfg.modo_reserva !== undefined) form.modo_reserva = cfg.modo_reserva as ReservaModo
     if ((cfg as any).sms_verificacion !== undefined) form.sms_verificacion = (cfg as any).sms_verificacion as boolean
     if ((cfg as any).notificacion_reserva !== undefined) form.notificacion_reserva = (cfg as any).notificacion_reserva as 'email' | 'sms' | 'ambos'
-    if (cfg.horarios_config !== undefined) form.horarios_config = (cfg.horarios_config as HorarioConfigForm) ?? form.horarios_config
+    if (cfg.horarios_config !== undefined) {
+      const dbVal = cfg.horarios_config as any
+      form.horarios_config = {
+        comida_inicio: dbVal.comida_inicio ?? '13:30',
+        comida_fin: dbVal.comida_fin ?? '15:30',
+        cena_inicio: dbVal.cena_inicio ?? '21:00',
+        cena_fin: dbVal.cena_fin ?? '23:30',
+        intervalo_minutos: dbVal.intervalo_minutos ?? 15,
+        mostrar_horario_cocina: (dbVal.mostrar_horario_cocina !== false),
+        establecimiento: {
+          mostrar_en_contacto: dbVal.establecimiento?.mostrar_en_contacto !== false,
+          dias: dbVal.establecimiento?.dias ?? [
+            { dia: 'lunes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'martes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'miércoles', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'jueves', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'viernes', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'sábado', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+            { dia: 'domingo', apertura: '09:00', cierre: '23:00', descanso: false, vacaciones: false },
+          ],
+        },
+      }
+    }
     if (cfg.zonas_config !== undefined) form.zonas_config = (cfg.zonas_config as ZoneConfigForm[]) ?? form.zonas_config
     if (cfg.captcha_habilitado !== undefined) form.captcha_habilitado = cfg.captcha_habilitado as boolean
     if ((cfg as any).restaurant_nombre !== undefined) form.restaurant_nombre = (cfg as any).restaurant_nombre as string
@@ -519,92 +572,176 @@ const checkboxClass = 'h-4 w-4 rounded'
     <div :class="sectionClass">
       <h2 :class="sectionTitleClass">Horarios</h2>
 
-      <!-- Comida -->
-      <div class="mb-4">
-        <span class="mb-2 block text-sm font-medium text-slate">Comida</span>
-        <div class="flex items-center gap-2">
-          <input
-            v-model="form.horarios_config.comida_inicio"
-            type="time"
-            data-testid="cfg-comida-inicio"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <span class="text-gray-400">a</span>
-          <input
-            v-model="form.horarios_config.comida_fin"
-            type="time"
-            data-testid="cfg-comida-fin"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <!-- Left column: Meal hours (cocina) -->
+        <div class="rounded-lg border border-gray-200 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="font-semibold text-slate">Turnos de cocina</h3>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                v-model="form.horarios_config.mostrar_horario_cocina"
+                type="checkbox"
+                class="h-4 w-4 rounded"
+              />
+              Mostrar en contacto
+            </label>
+          </div>
 
-      <!-- Cena -->
-      <div class="mb-4">
-        <span class="mb-2 block text-sm font-medium text-slate">Cena</span>
-        <div class="flex items-center gap-2">
-          <input
-            v-model="form.horarios_config.cena_inicio"
-            type="time"
-            data-testid="cfg-cena-inicio"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <span class="text-gray-400">a</span>
-          <input
-            v-model="form.horarios_config.cena_fin"
-            type="time"
-            data-testid="cfg-cena-fin"
-            class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
+          <!-- Comida -->
+          <div class="mb-4">
+            <span class="mb-2 block text-sm font-medium text-slate">Comida</span>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="form.horarios_config.comida_inicio"
+                type="time"
+                data-testid="cfg-comida-inicio"
+                class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+              <span class="text-gray-400">a</span>
+              <input
+                v-model="form.horarios_config.comida_fin"
+                type="time"
+                data-testid="cfg-comida-fin"
+                class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
 
-      <!-- Intervalo -->
-      <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium text-slate" for="cfg-intervalo">
-          Intervalo entre turnos
-        </label>
-        <select
-          id="cfg-intervalo"
-          v-model.number="form.horarios_config.intervalo_minutos"
-          data-testid="cfg-intervalo"
-          class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option :value="15">15 minutos</option>
-          <option :value="20">20 minutos</option>
-          <option :value="30">30 minutos</option>
-        </select>
-      </div>
+          <!-- Cena -->
+          <div class="mb-4">
+            <span class="mb-2 block text-sm font-medium text-slate">Cena</span>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="form.horarios_config.cena_inicio"
+                type="time"
+                data-testid="cfg-cena-inicio"
+                class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+              <span class="text-gray-400">a</span>
+              <input
+                v-model="form.horarios_config.cena_fin"
+                type="time"
+                data-testid="cfg-cena-fin"
+                class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
 
-      <!-- Preview -->
-      <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
-        <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
-        <!-- Comida row -->
-        <div v-if="slotsComida.length > 0" class="mb-2">
-          <span class="mr-2 text-xs font-medium text-amber-700">☀️ Comida</span>
-          <div class="mt-1 flex flex-wrap gap-1">
-            <span
-              v-for="slot in slotsComida"
-              :key="slot.hora"
-              class="rounded-md bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
-              data-testid="slot-preview"
+          <!-- Intervalo -->
+          <div class="mb-4">
+            <label class="mb-1 block text-sm font-medium text-slate" for="cfg-intervalo">
+              Intervalo entre turnos
+            </label>
+            <select
+              id="cfg-intervalo"
+              v-model.number="form.horarios_config.intervalo_minutos"
+              data-testid="cfg-intervalo"
+              class="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
-              {{ slot.hora }}
-            </span>
+              <option :value="15">15 minutos</option>
+              <option :value="20">20 minutos</option>
+              <option :value="30">30 minutos</option>
+            </select>
+          </div>
+
+          <!-- Preview -->
+          <div v-if="slotPreview.length > 0" class="mt-4 rounded-lg bg-gray-50 p-3">
+            <p class="mb-2 text-xs font-medium text-gray-500">Vista previa de turnos</p>
+            <div v-if="slotsComida.length > 0" class="mb-2">
+              <span class="mr-2 text-xs font-medium text-amber-700">☀️ Comida</span>
+              <div class="mt-1 flex flex-wrap gap-1">
+                <span
+                  v-for="slot in slotsComida"
+                  :key="slot.hora"
+                  class="rounded-md bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+                  data-testid="slot-preview"
+                >
+                  {{ slot.hora }}
+                </span>
+              </div>
+            </div>
+            <div v-if="slotsCena.length > 0">
+              <span class="mr-2 text-xs font-medium text-indigo-700">🌙 Cena</span>
+              <div class="mt-1 flex flex-wrap gap-1">
+                <span
+                  v-for="slot in slotsCena"
+                  :key="slot.hora"
+                  class="rounded-md bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800"
+                  data-testid="slot-preview"
+                >
+                  {{ slot.hora }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-        <!-- Cena row -->
-        <div v-if="slotsCena.length > 0">
-          <span class="mr-2 text-xs font-medium text-indigo-700">🌙 Cena</span>
-          <div class="mt-1 flex flex-wrap gap-1">
-            <span
-              v-for="slot in slotsCena"
-              :key="slot.hora"
-              class="rounded-md bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800"
-              data-testid="slot-preview"
-            >
-              {{ slot.hora }}
-            </span>
+
+        <!-- Right column: Establishment hours -->
+        <div class="rounded-lg border border-gray-200 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="font-semibold text-slate">Horario del establecimiento</h3>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                v-model="form.horarios_config.establecimiento.mostrar_en_contacto"
+                type="checkbox"
+                class="h-4 w-4 rounded"
+              />
+              Mostrar en contacto
+            </label>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-xs text-gray-500">
+                  <th class="pb-2 font-medium">Día</th>
+                  <th class="pb-2 font-medium">Apertura</th>
+                  <th class="pb-2 font-medium">Cierre</th>
+                  <th class="pb-2 font-medium text-center">Descanso</th>
+                  <th class="pb-2 font-medium text-center">Vacaciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="(dia, idx) in form.horarios_config.establecimiento.dias" :key="dia.dia">
+                  <td class="py-2 pr-2 font-medium capitalize text-slate">{{ dia.dia }}</td>
+                  <td class="py-2 pr-2">
+                    <input
+                      v-model="dia.apertura"
+                      type="time"
+                      :data-testid="`cfg-est-apertura-${dia.dia}`"
+                      class="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                      :disabled="dia.descanso || dia.vacaciones"
+                    />
+                  </td>
+                  <td class="py-2 pr-2">
+                    <input
+                      v-model="dia.cierre"
+                      type="time"
+                      :data-testid="`cfg-est-cierre-${dia.dia}`"
+                      class="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                      :disabled="dia.descanso || dia.vacaciones"
+                    />
+                  </td>
+                  <td class="py-2 text-center">
+                    <input
+                      v-model="dia.descanso"
+                      type="checkbox"
+                      :data-testid="`cfg-est-descanso-${dia.dia}`"
+                      class="h-4 w-4 rounded"
+                      :disabled="dia.vacaciones"
+                    />
+                  </td>
+                  <td class="py-2 text-center">
+                    <input
+                      v-model="dia.vacaciones"
+                      type="checkbox"
+                      :data-testid="`cfg-est-vacaciones-${dia.dia}`"
+                      class="h-4 w-4 rounded"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
