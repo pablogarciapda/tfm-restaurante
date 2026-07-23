@@ -17,6 +17,24 @@ export interface HorarioConfig {
   cena_inicio: string // "HH:MM" e.g. "21:00"
   cena_fin: string // "HH:MM" e.g. "23:30"
   intervalo_minutos: number // e.g. 15
+  /** Whether to show meal hours on the contact page */
+  mostrar_horario_cocina?: boolean
+}
+
+/** Single day schedule for establishment hours */
+export interface DiaEstablecimiento {
+  dia: string // day name: 'lunes' | 'martes' | ...
+  apertura: string // "HH:MM" opening time
+  cierre: string // "HH:MM" closing time
+  descanso: boolean // rest day (show "Descanso" instead of hours)
+  vacaciones: boolean // holiday (show "Vacaciones" instead — takes priority over descanso)
+}
+
+/** Establishment-wide opening hours (stored in configuracion.horarios_config JSONB) */
+export interface EstablecimientoConfig {
+  dias: DiaEstablecimiento[]
+  /** Whether to show establishment hours on the contact page */
+  mostrar_en_contacto?: boolean
 }
 
 // ──────────────────────────── Zonas ───────────────────────────────
@@ -77,6 +95,7 @@ export interface RestaurantConfig {
 /** Public config (safe for public API, cached in configuracion.public_config JSONB) */
 export interface PublicConfig {
   horarios: HorarioConfig
+  establecimiento: EstablecimientoConfig | null
   zonas: ZonaConfig[] // only enabled zones
   texto_proteccion_datos: string | null
   modo_reserva: 'automatica' | 'verificada' // confirmation mode

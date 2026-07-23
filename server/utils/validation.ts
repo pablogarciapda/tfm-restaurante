@@ -10,6 +10,21 @@ import { z } from 'zod'
 
 // ──────────────────────────── Horarios ────────────────────────────
 
+export const diaEstablecimientoSchema = z.object({
+  dia: z.string().min(1),
+  apertura: z.string().regex(/^\d{2}:\d{2}$/),
+  cierre: z.string().regex(/^\d{2}:\d{2}$/),
+  descanso: z.boolean().default(false),
+  vacaciones: z.boolean().default(false),
+}).refine((data) => data.apertura <= data.cierre, {
+  message: 'apertura must be before or equal to cierre',
+})
+
+export const establecimientoConfigSchema = z.object({
+  dias: z.array(diaEstablecimientoSchema).length(7),
+  mostrar_en_contacto: z.boolean().default(true),
+})
+
 export const horarioConfigSchema = z
   .object({
     comida_inicio: z.string().regex(/^\d{2}:\d{2}$/),
@@ -17,6 +32,8 @@ export const horarioConfigSchema = z
     cena_inicio: z.string().regex(/^\d{2}:\d{2}$/),
     cena_fin: z.string().regex(/^\d{2}:\d{2}$/),
     intervalo_minutos: z.number().int().min(5).max(60),
+    mostrar_horario_cocina: z.boolean().default(true),
+    establecimiento: establecimientoConfigSchema.optional(),
   })
   .refine((data) => data.comida_inicio < data.comida_fin, {
     message: 'comida_inicio must be before comida_fin',

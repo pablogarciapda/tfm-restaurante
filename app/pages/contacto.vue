@@ -29,12 +29,16 @@ const mapTitle = computed(() => `Mapa de ubicación de ${nombre.value || 'Restau
 
 // Format horarios from public-config into readable hours
 const horariosText = ref<{ days: string; hours: string }[]>([])
+const establecimientoDias = ref<{ dia: string; texto: string; estado: string }[]>([])
+const mostrarEstablecimiento = ref(false)
+const mostrarCocina = ref(false)
 
 onMounted(async () => {
   try {
     const publicConfig = await $fetch<any>('/api/public-config')
     if (publicConfig?.horarios) {
       const h = publicConfig.horarios
+      mostrarCocina.value = h.mostrar_horario_cocina !== false
       horariosText.value = [
         {
           days: 'Comida',
@@ -45,6 +49,29 @@ onMounted(async () => {
           hours: `${h.cena_inicio || '—'} – ${h.cena_fin || '—'}`,
         },
       ]
+    }
+    // Establishment hours
+    const est = publicConfig?.establecimiento
+    if (est?.dias && est.dias.length === 7) {
+      mostrarEstablecimiento.value = est.mostrar_en_contacto !== false
+      const nombresDias: Record<string, string> = {
+        lunes: 'Lunes', martes: 'Martes', miércoles: 'Miércoles',
+        jueves: 'Jueves', viernes: 'Viernes', sábado: 'Sábado', domingo: 'Domingo',
+      }
+      establecimientoDias.value = est.dias.map((d: any) => {
+        let texto = ''
+        let estado = 'abierto'
+        if (d.vacaciones) {
+          texto = 'Vacaciones'
+          estado = 'vacaciones'
+        } else if (d.descanso) {
+          texto = 'Descanso'
+          estado = 'descanso'
+        } else {
+          texto = `${d.apertura || '—'} – ${d.cierre || '—'}`
+        }
+        return { dia: nombresDias[d.dia] || d.dia, texto, estado }
+      })
     }
   } catch {
     horariosText.value = []
@@ -97,9 +124,38 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Business hours (CO-001) -->
-          <section class="mb-8" v-if="horariosText.length > 0">
-            <h2 class="mb-4 text-xl font-bold text-slate">Horario</h2>
+          <!-- Establishment hours (before meal hours) -->
+          <section class="mb-8" v-if="mostrarEstablecimiento && establecimientoDias.length > 0">
+            <h2 class="mb-4 text-xl font-bold text-slate">Horario del establecimiento</h2>
+            <div class="overflow-hidden rounded-lg border border-gray-200">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="bg-cream">
+                    <th class="px-4 py-2 font-medium text-slate">Día</th>
+                    <th class="px-4 py-2 font-medium text-slate">Horario</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr v-for="(d, i) in establecimientoDias" :key="i">
+                    <td class="px-4 py-2.5 font-medium capitalize">{{ d.dia }}</td>
+                    <td class="px-4 py-2.5">
+                      <span v-if="d.estado === 'vacaciones'" class="font-medium text-red-600">
+                        {{ d.texto }}
+                      </span>
+                      <span v-else-if="d.estado === 'descanso'" class="font-medium text-amber-600">
+                        {{ d.texto }}
+                      </span>
+                      <span v-else>{{ d.texto }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Business hours (CO-001) — Meal hours -->
+          <section class="mb-8" v-if="mostrarCocina && horariosText.length > 0">
+            <h2 class="mb-4 text-xl font-bold text-slate">Horario de cocina</h2>
             <div class="overflow-hidden rounded-lg border border-gray-200">
               <table class="w-full text-left text-sm">
                 <thead>
