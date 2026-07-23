@@ -1,74 +1,50 @@
-<!--
-  Dashboard Page — /cocina/dashboard (DASH-001–DASH-005)
-
-  Read-only metrics: total platos (disponible=true), today's reservations,
-  and active future events. Uses MetricCard components.
--->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
   middleware: ['auth', 'role'],
 })
 
-const client = useSupabaseClient()
+interface DashboardStats {
+  totalPlatos: number
+  reservasHoy: number
+  eventosActivos: number
+  reservasUltimos30: { fecha: string; total: number }[]
+  topClientes: { nombre: string; telefono: string; total: number }[]
+  reservasPorDiaSemana: { dia: number; total: number }[]
+  reservasPorEstado: { estado: string; total: number }[]
+  aforoActual: { ocupadas: number; capacidad: number }
+  mediaComensales: number
+  totalClientes: number
+  totalReservas: number
+}
 
-const totalPlatos = ref<number | null>(null)
-const reservasHoy = ref<number | null>(null)
-const eventosActivos = ref<number | null>(null)
-const loadingPlatos = ref(true)
-const loadingReservas = ref(true)
-const loadingEventos = ref(true)
-const errors = ref<string[]>([])
+const stats = ref<DashboardStats | null>(null)
+const loading = ref(true)
+const error = ref('')
 
-async function fetchMetrics() {
-  // Today date range for reservations
-  const today = new Date()
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
-  const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString()
+const NOMBRES_DIA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
+const loadingStats = computed(() => loading.value)
+const aforoPct = computed(() => {
+  if (!stats.value?.aforoActual.capacidad) return 0
+  return Math.round((stats.value.aforoActual.ocupadas / stats.value.aforoActual.capacidad) * 100)
+})
+
+async function fetchStats() {
+  loading.value = true
+  error.value = ''
   try {
-    // Total platos (disponible = true)
-    const { count: platosCount, error: platosError } = await client
-      .from('platos')
-      .select('*', { count: 'exact', head: true })
-      .eq('disponible', true)
-
-    if (platosError) errors.value.push('Error al cargar platos')
-    else totalPlatos.value = platosCount ?? 0
-    loadingPlatos.value = false
-
-    // Reservas hoy
-    const { count: reservasCount, error: reservasError } = await client
-      .from('reservas')
-      .select('*', { count: 'exact', head: true })
-      .gte('fecha_hora', todayStart)
-      .lt('fecha_hora', todayEnd)
-
-    if (reservasError) errors.value.push('Error al cargar reservas')
-    else reservasHoy.value = reservasCount ?? 0
-    loadingReservas.value = false
-
-    // Eventos activos (activo=true, fecha >= today)
-    const { count: eventosCount, error: eventosError } = await client
-      .from('eventos')
-      .select('*', { count: 'exact', head: true })
-      .eq('activo', true)
-      .gte('fecha', todayStart)
-
-    if (eventosError) errors.value.push('Error al cargar eventos')
-    else eventosActivos.value = eventosCount ?? 0
-    loadingEventos.value = false
+    stats.value = await $fetch<DashboardStats>('/api/dashboard/stats')
   } catch {
-    errors.value.push('Error de conexión')
-    loadingPlatos.value = false
-    loadingReservas.value = false
-    loadingEventos.value = false
+    error.value = 'Error al cargar las estadísticas'
+  } finally {
+    loading.value = false
   }
 }
 
 onMounted(() => {
-  fetchMetrics()
+  fetchStats()
 })
 </script>
 
@@ -78,34 +54,108 @@ onMounted(() => {
       Panel de Control
     </h1>
 
-    <!-- Error banner -->
-    <div
-      v-if="errors.length > 0"
-      class="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700"
-    >
-      <p v-for="(err, i) in errors" :key="i">{{ err }}</p>
+    <div v-if="error" class="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+      {{ error }}
     </div>
 
-    <!-- Metric cards grid -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <MetricCard
-        label="Platos en carta"
-        :value="totalPlatos ?? '--'"
-        :loading="loadingPlatos"
-        icon="🍽️"
-      />
-      <MetricCard
-        label="Reservas hoy"
-        :value="reservasHoy ?? '--'"
-        :loading="loadingReservas"
-        icon="📅"
-      />
-      <MetricCard
-        label="Eventos activos"
-        :value="eventosActivos ?? '--'"
-        :loading="loadingEventos"
-        icon="🎉"
-      />
+    <!-- Loading state -->
+    <div v-if="loadingStats" class="space-y-6">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="i in 4" :key="i" class="h-24 animate-pulse rounded-lg bg-gray-100" />
+      </div>
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div v-for="i in 3" :key="'chart-'+i" class="h-72 animate-pulse rounded-lg bg-gray-100" />
+      </div>
     </div>
+
+    <!-- Dashboard content -->
+    <template v-if="stats && !loadingStats">
+      <!-- Top metric cards -->
+      <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Platos en carta" :value="stats.totalPlatos" :loading="false" icon="🍽️" />
+        <MetricCard label="Reservas hoy" :value="stats.reservasHoy" :loading="false" icon="📅" />
+        <MetricCard label="Eventos activos" :value="stats.eventosActivos" :loading="false" icon="🎉" />
+        <MetricCard label="Total clientes" :value="stats.totalClientes" :loading="false" icon="👥" />
+      </div>
+
+      <!-- Second row: aforo + media -->
+      <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Aforo actual -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <p class="mb-2 text-sm font-medium text-slate/60">Aforo actual</p>
+          <p class="font-serif text-3xl font-bold text-terracotta">
+            {{ stats.aforoActual.ocupadas }} / {{ stats.aforoActual.capacidad }}
+          </p>
+          <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              :class="aforoPct > 80 ? 'bg-red-500' : aforoPct > 50 ? 'bg-amber-500' : 'bg-green-500'"
+              :style="{ width: aforoPct + '%' }"
+            />
+          </div>
+          <p class="mt-1 text-xs text-slate/50">{{ aforoPct }}% de ocupación</p>
+        </div>
+
+        <!-- Media comensales -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <p class="mb-2 text-sm font-medium text-slate/60">Media comensales</p>
+          <p class="font-serif text-3xl font-bold text-terracotta">
+            {{ stats.mediaComensales }}
+          </p>
+          <p class="mt-1 text-xs text-slate/50">por reserva</p>
+        </div>
+
+        <!-- Total reservas histórico -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <p class="mb-2 text-sm font-medium text-slate/60">Total reservas</p>
+          <p class="font-serif text-3xl font-bold text-terracotta">
+            {{ stats.totalReservas }}
+          </p>
+          <p class="mt-1 text-xs text-slate/50">histórico</p>
+        </div>
+      </div>
+
+      <!-- Charts grid -->
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Top 5 clientes -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <ChartBarHorizontal
+            :labels="stats.topClientes.map(c => c.nombre)"
+            :values="stats.topClientes.map(c => c.total)"
+            title="Top 5 clientes"
+          />
+          <div v-if="stats.topClientes.length === 0" class="flex h-48 items-center justify-center text-sm text-slate/40">
+            Sin datos de clientes
+          </div>
+        </div>
+
+        <!-- Reservas por día de la semana -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <ChartBar
+            :labels="NOMBRES_DIA"
+            :values="stats.reservasPorDiaSemana.map(d => d.total)"
+            title="Reservas por día"
+          />
+        </div>
+
+        <!-- Reservas últimos 30 días -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <ChartLine
+            :labels="stats.reservasUltimos30.map(r => r.fecha.slice(5))"
+            :values="stats.reservasUltimos30.map(r => r.total)"
+            title="Reservas últimos 30 días"
+          />
+        </div>
+
+        <!-- Reservas por estado -->
+        <div class="rounded-lg bg-white p-6 shadow-sm">
+          <ChartDoughnut
+            :labels="stats.reservasPorEstado.map(e => e.estado)"
+            :values="stats.reservasPorEstado.map(e => e.total)"
+            title="Reservas por estado"
+          />
+        </div>
+      </div>
+    </template>
   </div>
 </template>
