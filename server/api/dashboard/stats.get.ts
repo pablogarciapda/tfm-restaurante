@@ -72,10 +72,10 @@ export default defineEventHandler(async (event) => {
       .from('reservas')
       .select('estado')
 
-    // 7. Aforo — mesas totales
+    // 7. Aforo — mesas totales (sumar capacidad_actual, no contar filas)
     const { data: mesas } = await supabase
       .from('mesas')
-      .select('id')
+      .select('capacidad_actual')
 
     // 8. Total clientes
     const { count: totalClientes } = await supabase
@@ -147,7 +147,7 @@ export default defineEventHandler(async (event) => {
       .not('mesa_id', 'is', null)
 
     const mesasOcupadas = new Set((reservasHoyData || []).map((r) => r.mesa_id as string)).size
-    const capacidad = (mesas || []).length
+    const capacidad = (mesas || []).reduce((sum, m) => sum + (m.capacidad_actual as number), 0)
 
     // Media de comensales
     const { data: comensales } = await supabase
