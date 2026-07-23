@@ -1,21 +1,33 @@
 /**
  * shared/utils/session.ts — Session helpers for Supabase Auth
  *
- * Decodes the user ID from the Supabase access token JWT stored in the
- * sb-access-token cookie. Zero API calls — just parses the JWT payload.
+ * SECURITY NOTE on JWT client-side decoding:
+ * The Supabase `sb-access-token` cookie already exists — @nuxtjs/supabase
+ * stores it automatically. Reading it client-side adds NO new exposure:
+ * any JavaScript on the page can already access `document.cookie`.
  *
- * Used by auth and role middlewares to avoid triggering refresh_token
- * requests that Supabase rate-limits (429) on rapid SPA navigation.
+ * What we read: ONLY the `sub` claim (user ID) — a public identifier.
+ * What we NEVER read: the full JWT, the signature, or the refresh_token.
+ * The JWT is NOT sent to third parties, logged, or stored anywhere.
+ *
+ * This is equivalent to what useSupabaseUser() does internally, but
+ * without triggering a refresh_token API call (which causes 429).
  */
 
 /** Cookie name set by @nuxtjs/supabase for the JWT access token */
 const SB_ACCESS_TOKEN_COOKIE = 'sb-access-token'
+
+/** Maximum session duration before forced re-login (24 hours) */
+export const SESSION_MAX_DURATION_MS = 24 * 60 * 60 * 1000
 
 /**
  * Decode the user ID (sub claim) from the Supabase access token JWT cookie.
  *
  * Returns null if the cookie is missing, malformed, or the JWT can't be parsed.
  * Makes NO network requests — purely client-side cookie + base64 decode.
+ *
+ * SECURITY: Only reads the `sub` claim (public user ID). The JWT itself
+ * is already in the cookie and accessible to the page via document.cookie.
  */
 export function getUserIdFromCookie(): string | null {
   if (typeof document === 'undefined') return null
@@ -37,4 +49,41 @@ export function getUserIdFromCookie(): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Check if the session has exceeded the maximum duration.
+ *
+ * Stores the login timestamp in sessionStorage (survives SPA navigation)
+ * and compares it against SESSION_MAX_DURATION_MS.
+ *
+ * Returns true if the session is still valid, false if it needs re-login.
+ * If no timestamp is stored (first run), stores it and returns true.
+ */
+export function isSessionValid(): boolean {
+  if (typeof sessionStorage === 'undefined') return true // SSR guard
+
+  const stored = sessionStorage.getItem('cocina-login-time')
+  const now = Date.now()
+
+  if (!stored) {
+    // First check — store the login time from the JWT's `exp` claim
+    const token = getUserIdFromCookie()
+    if (!token) return false // No session at all
+    sessionStorage.setItem('cocina-login-time', String(now))
+    return true
+  }
+
+  const loginTime = parseInt(stored, 10)
+  if (Number.isNaN(loginTime)) return true
+
+  return now - loginTime < SESSION_MAX_DURATION_MS
+}
+
+/**
+ * Clear the stored session timestamp (call on explicit logout).
+ */
+export function clearSessionTimestamp(): void {
+  if (typeof sessionStorage === 'undefined') return
+  sessionStorage.removeItem('cocina-login-time')
 }

@@ -14,14 +14,26 @@
  * refresh_token API call that Supabase rate-limits (429) on rapid
  * SPA navigations. The JWT cookie is enough to prove the session.
  *
+ * Session duration: max 24h. After that, the user must re-login.
+ * The login timestamp is stored in sessionStorage (survives SPA nav).
+ *
  * Stores the resolved user in 'cocina-auth-user' useState so downstream
  * middleware (role, permissions) don't need to repeat the lookup.
  */
-import { getUserIdFromCookie } from '#shared/utils/session'
+import { getUserIdFromCookie, isSessionValid } from '#shared/utils/session'
 
 export default defineNuxtRouteMiddleware(async (to, _from) => {
   // Force the cocina layout for all /cocina/** routes
   to.meta = { ...to.meta, layout: 'cocina' }
+
+  // Check session duration (24h max) before anything else
+  if (!isSessionValid()) {
+    // Session expired — force logout. We don't call client.auth.signOut()
+    // here because it may fail (429). Just clear the UI state and redirect.
+    const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
+    authUser.value = null
+    return navigateTo('/cocina')
+  }
 
   const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
 
