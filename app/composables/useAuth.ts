@@ -4,6 +4,7 @@
  * Provides signIn, signOut, user (reactive), isLoading, and error state.
  */
 import { ref } from 'vue'
+import { clearSessionAuth } from '#shared/utils/session'
 
 export function useAuth() {
   const client = useSupabaseClient()
@@ -33,6 +34,8 @@ export function useAuth() {
 
   async function signOut() {
     await client.auth.signOut()
+    // Clear sessionStorage flag — next visit requires re-login
+    clearSessionAuth()
     // Clear role and permissions state
     const role = useState<string | null>('cocina-role')
     role.value = null

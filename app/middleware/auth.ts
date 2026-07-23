@@ -5,17 +5,29 @@
  * Unauthenticated users → redirect to /cocina login page.
  * Authenticated users → proceed.
  *
- * NOTE: useSupabaseUser() may be null on fresh SPA boot even when a session
- * exists, because the Supabase plugin initialises asynchronously. We fall
- * back to getSession() before redirecting.
+ * PRIMARY gate: sessionStorage flag. Cleared when browser tab/window closes,
+ * so closing the browser = logout. This also avoids calling useSupabaseUser()
+ * on every navigation when the flag is absent (eliminates 429 rate limits).
+ *
+ * SECONDARY gate: Supabase session chain (useSupabaseUser → getSession →
+ * cookie fallback) from the original middleware.
  *
  * Stores the resolved user in 'cocina-auth-user' useState so downstream
  * middleware (role, permissions) don't need to call getSession() again.
  */
+import { isSessionAuthenticated } from '#shared/utils/session'
+
 export default defineNuxtRouteMiddleware(async (to, _from) => {
   // Force the cocina layout for all /cocina/** routes
   to.meta = { ...to.meta, layout: 'cocina' }
 
+  // PRIMARY gate: sessionStorage — cleared when browser/tab closes.
+  // No Supabase network call needed. If false, redirect immediately.
+  if (!isSessionAuthenticated()) {
+    return navigateTo('/cocina')
+  }
+
+  // SECONDARY gate: try Supabase session chain
   const user = useSupabaseUser()
   const client = useSupabaseClient()
   const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)

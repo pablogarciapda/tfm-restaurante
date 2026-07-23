@@ -60,6 +60,9 @@ async function handleLogin() {
       return
     }
 
+    // Mark session in sessionStorage (cleared when browser/tab closes)
+    sessionStorage.setItem('cocina-authenticated', 'true')
+
     // Hard redirect: SPA re-init reads the fresh session (fixes timing issue with useSupabaseUser)
     window.location.href = '/cocina/dashboard'
   } catch {
