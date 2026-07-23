@@ -45,11 +45,9 @@ const selectedDate = ref('')
 const selectedSlot = ref('') // "HH:MM"
 const slotDateError = ref('')
 
-// Minimum date for picker: tomorrow
+// Minimum date for picker: today (slot validation handles 30-min buffer)
 const minDate = computed(() => {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0] ?? ''
+  return new Date().toISOString().split('T')[0] ?? ''
 })
 
 // Generate slots using shared utility
@@ -94,12 +92,15 @@ const isDateBlocked = computed(() => {
 
 const blockedReason = ref('')
 
-function isSlotPast(slotHora: string): boolean {
+function isSlotDisabled(slotHora: string): boolean {
   if (!selectedDate.value) return false
-  const today = new Date()
-  const d = new Date(selectedDate.value + 'T' + today.toTimeString().slice(0, 8))
-  const slotDate = new Date(selectedDate.value + 'T' + slotHora + ':00')
-  return slotDate <= today
+  // Only apply 30-min buffer for today's date
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (selectedDate.value !== todayStr) return false
+
+  const slotDate = new Date(`${selectedDate.value}T${slotHora}:00`)
+  const cutoff = new Date(Date.now() + 30 * 60 * 1000)
+  return slotDate <= cutoff
 }
 
 function selectSlot(hora: string) {
@@ -289,11 +290,11 @@ function handleSubmit() {
             :key="slot.hora"
             type="button"
             :data-testid="`slot-${slot.hora}`"
-            :disabled="isSlotPast(slot.hora)"
+            :disabled="isSlotDisabled(slot.hora)"
             class="rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             :class="selectedSlot === slot.hora
               ? 'border-terracotta bg-terracotta text-white'
-              : isSlotPast(slot.hora)
+              : isSlotDisabled(slot.hora)
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
                 : 'border-gray-200 bg-white text-slate hover:border-terracotta hover:bg-terracotta/10'"
             @click="selectSlot(slot.hora)"
@@ -312,11 +313,11 @@ function handleSubmit() {
             :key="slot.hora"
             type="button"
             :data-testid="`slot-${slot.hora}`"
-            :disabled="isSlotPast(slot.hora)"
+            :disabled="isSlotDisabled(slot.hora)"
             class="rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             :class="selectedSlot === slot.hora
               ? 'border-terracotta bg-terracotta text-white'
-              : isSlotPast(slot.hora)
+              : isSlotDisabled(slot.hora)
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
                 : 'border-gray-200 bg-white text-slate hover:border-terracotta hover:bg-terracotta/10'"
             @click="selectSlot(slot.hora)"
