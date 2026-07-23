@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { generateSlots } from '#shared/utils/slots'
 import { isValidSpanishPhone } from '#shared/utils/phone'
@@ -170,6 +170,18 @@ function validate(): boolean {
 }
 
 const captchaError = ref('')
+const formRef = ref<HTMLFormElement | null>(null)
+
+function scrollToFirstError() {
+  nextTick(() => {
+    if (!formRef.value) return
+    // Find first input with error class, or first visible error message
+    const firstError =
+      formRef.value.querySelector<HTMLElement>('[class*="border-red-500"]') ??
+      formRef.value.querySelector<HTMLElement>('p.text-red-600')
+    firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
 
 function validateAll(): boolean {
   const base = validate()
@@ -182,7 +194,10 @@ function validateAll(): boolean {
 }
 
 function handleSubmit() {
-  if (!validateAll()) return
+  if (!validateAll()) {
+    scrollToFirstError()
+    return
+  }
 
   // Include timezone offset so PostgreSQL interprets the time correctly
   const tzOffset = -new Date().getTimezoneOffset()
@@ -207,7 +222,7 @@ function handleSubmit() {
 </script>
 
 <template>
-  <form novalidate class="space-y-5" @submit.prevent="handleSubmit">
+  <form ref="formRef" novalidate class="space-y-5" @submit.prevent="handleSubmit">
     <!-- Nombre -->
     <div>
       <label for="nombre" class="block text-sm font-medium text-slate">Nombre *</label>
