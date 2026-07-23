@@ -30,7 +30,13 @@ function resolveRuntimeConfig(): ResolvedConfig {
   // In unit tests (outside Nitro), it throws ReferenceError → catch → mock.
   try {
     const config = useRuntimeConfig()
-    const testMode = (config.labsMobileTest as string) || '0'
+
+    // Read test mode from runtimeConfig first, fallback to process.env
+    // (process.env fallback covers cases where dotenv/.env isn't picked up)
+    const testMode =
+      (config.labsMobileTest as string) ||
+      process.env.NUXT_LABS_MOBILE_TEST ||
+      '0'
 
     const username = (config.labsMobileUsername as string) || ''
     const token = (config.labsMobileToken as string) || ''

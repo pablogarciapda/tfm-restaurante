@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { generateSlots } from '#shared/utils/slots'
+import { isValidSpanishPhone } from '#shared/utils/phone'
 
 /**
  * ReservationForm — Slot-grid reservation form (RF-001, SLA-001–SLA-006)
@@ -111,15 +112,9 @@ function selectSlot(hora: string) {
 // ── Turnstile CAPTCHA ──
 const captchaToken = ref<string>()
 
-// ── Phone validation (same as before) ──
+// ── Phone validation (mobile only, uses shared utility) ──
 function validatePhone(raw: string): string | null {
-  const cleaned = raw.trim().replace(/[\s\-()]/g, '')
-
-  if (/^[679]\d{8}$/.test(cleaned)) return null
-  if (/^\+34[679]\d{8}$/.test(cleaned)) return null
-  if (/^34[679]\d{8}$/.test(cleaned)) return null
-
-  return 'Formato de teléfono no válido (ej: 600123456)'
+  return isValidSpanishPhone(raw) ? null : 'Teléfono móvil no válido (ej: 600123456)'
 }
 
 // ── Validation ──
