@@ -72,10 +72,12 @@ export default defineEventHandler(async (event) => {
       .from('reservas')
       .select('estado')
 
-    // 7. Aforo — mesas totales (sumar capacidad_actual, no contar filas)
-    const { data: mesas } = await supabase
-      .from('mesas')
-      .select('capacidad_actual')
+    // 7. Aforo — capacidad total desde configuracion (zonas o manual)
+    const { data: configRow } = await supabase
+      .from('configuracion')
+      .select('zonas_config, modo_ocupacion, ocupacion_manual')
+      .limit(1)
+      .single()
 
     // 8. Total clientes
     const { count: totalClientes } = await supabase
@@ -137,17 +139,24 @@ export default defineEventHandler(async (event) => {
     }
     const reservasPorEstado = Array.from(estadoCount.entries()).map(([estado, total]) => ({ estado, total }))
 
-    // Aforo actual: mesas ocupadas hoy (confirmadas con mesa asignada) vs total
+    // Aforo actual: comensales en reservas de hoy vs capacidad total configurada
     const { data: reservasHoyData } = await supabase
       .from('reservas')
-      .select('mesa_id')
+      .select('numero_comensales')
       .gte('fecha_hora', todayStart)
       .lt('fecha_hora', todayEnd)
-      .in('estado', ['confirmada', 'completada'])
-      .not('mesa_id', 'is', null)
+      .in('estado', ['confirmada', 'completada', 'pendiente'])
 
-    const mesasOcupadas = new Set((reservasHoyData || []).map((r) => r.mesa_id as string)).size
-    const capacidad = (mesas || []).reduce((sum, m) => sum + (m.capacidad_actual as number), 0)
+    const ocupadas = (reservasHoyData || []).reduce((sum, r) => sum + (r.numero_comensales as number), 0)
+
+    // Capacidad total desde zonas_config (habilitadas) o modo manual
+    let capacidad = 0
+    const zonas = (configRow?.zonas_config as any[]) || []
+    if (zonas.length > 0) {
+      capacidad = zonas.filter((z) => z.enabled !== false).reduce((sum, z) => sum + (z.capacidad as number || 0), 0)
+    } else if (configRow?.modo_ocupacion === 'manual') {
+      capacidad = (configRow?.ocupacion_manual as number) || 0
+    }
 
     // Media de comensales
     const { data: comensales } = await supabase
@@ -174,7 +183,7 @@ export default defineEventHandler(async (event) => {
       topClientes,
       reservasPorDiaSemana,
       reservasPorEstado,
-      aforoActual: { ocupadas: mesasOcupadas, capacidad },
+      aforoActual: { ocupadas, capacidad },
       mediaComensales,
       totalClientes: totalClientes ?? 0,
       totalReservas: totalReservas ?? 0,
