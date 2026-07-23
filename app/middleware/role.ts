@@ -6,34 +6,27 @@
  * Missing profile → force logout + redirect to /cocina.
  *
  * Reads the user ID from 'cocina-auth-user' useState (set by auth middleware)
- * so we don't need a second getSession() call.
+ * so we don't need a second getSession() call. Falls back to
+ * useSupabaseUser() for non-SPA-boot navigation where the reactive ref
+ * is already populated.
  */
-import { getUserIdFromCookie } from '#shared/utils/session'
-
 export default defineNuxtRouteMiddleware(async (_to, _from) => {
   const user = useSupabaseUser()
   const client = useSupabaseClient()
   const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
 
-  // Priority: shared state > reactive ref > JWT cookie (no API) > getSession()
+  // Priority: shared state from auth middleware > reactive ref > getSession()
   let userId: string
   if (authUser.value?.id) {
     userId = authUser.value.id
   } else if (user.value?.id) {
     userId = user.value.id
   } else {
-    // Decode JWT from sb-access-token cookie — zero API calls.
-    // Avoids triggering refresh_token that Supabase rate-limits (429).
-    const cookieId = getUserIdFromCookie()
-    if (cookieId) {
-      userId = cookieId
-    } else {
-      const { data: { session } } = await client.auth.getSession()
-      if (!session?.user?.id) {
-        return navigateTo('/cocina')
-      }
-      userId = session.user.id
+    const { data: { session } } = await client.auth.getSession()
+    if (!session?.user?.id) {
+      return navigateTo('/cocina')
     }
+    userId = session.user.id
   }
 
   const { data: profile, error } = await client

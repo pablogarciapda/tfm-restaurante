@@ -5,55 +5,56 @@
  * Unauthenticated users → redirect to /cocina login page.
  * Authenticated users → proceed.
  *
- * Priority (NO API calls unless absolutely necessary):
- *   1. Our own cached authUser useState
- *   2. useSupabaseUser() reactive ref (synced by Supabase plugin)
- *   3. Decode user ID from sb-access-token cookie JWT (zero API calls)
+ * PRIMARY gate: sessionStorage flag. Cleared when browser tab/window closes,
+ * so closing the browser = logout. This also avoids calling useSupabaseUser()
+ * on every navigation when the flag is absent (eliminates 429 rate limits).
  *
- * We DO NOT call client.auth.getSession() because it triggers a
- * refresh_token API call that Supabase rate-limits (429) on rapid
- * SPA navigations. The JWT cookie is enough to prove the session.
- *
- * Session duration: max 24h. After that, the user must re-login.
- * The login timestamp is stored in sessionStorage (survives SPA nav).
+ * SECONDARY gate: Supabase session chain (useSupabaseUser → getSession →
+ * cookie fallback) from the original middleware.
  *
  * Stores the resolved user in 'cocina-auth-user' useState so downstream
- * middleware (role, permissions) don't need to repeat the lookup.
+ * middleware (role, permissions) don't need to call getSession() again.
  */
-import { getUserIdFromCookie, isSessionAuthenticated } from '#shared/utils/session'
+import { isSessionAuthenticated } from '#shared/utils/session'
 
 export default defineNuxtRouteMiddleware(async (to, _from) => {
   // Force the cocina layout for all /cocina/** routes
   to.meta = { ...to.meta, layout: 'cocina' }
 
-  // sessionStorage flag check — cleared when browser tab/window closes.
-  // This is the PRIMARY auth gate: even if the Supabase cookie persists,
-  // closing the browser invalidates the session.
+  // PRIMARY gate: sessionStorage — cleared when browser/tab closes.
+  // No Supabase network call needed. If false, redirect immediately.
   if (!isSessionAuthenticated()) {
     return navigateTo('/cocina')
   }
 
+  // SECONDARY gate: try Supabase session chain
+  const user = useSupabaseUser()
+  const client = useSupabaseClient()
   const authUser = useState<{ id: string } | null>('cocina-auth-user', () => null)
 
-  // 1. Own cache — set by a previous middleware run
-  if (authUser.value) return
-
-  // 2. Supabase reactive user (fast, synced by plugin, no API call)
-  const user = useSupabaseUser()
   if (user.value) {
     authUser.value = { id: user.value.id }
-    return
+    return // Authenticated — proceed
   }
 
-  // 3. Decode JWT from sb-access-token cookie — NO API call
-  //    This avoids triggering a refresh_token request that Supabase
-  //    rate-limits at 429 on rapid SPA navigation.
-  const userId = getUserIdFromCookie()
-  if (userId) {
-    authUser.value = { id: userId }
-    return
+  // Fallback: useSupabaseUser() may not have resolved yet on SPA boot.
+  // Read the session directly from cookie/storage.
+  try {
+    const { data: { session } } = await client.auth.getSession()
+    if (session?.user?.id) {
+      authUser.value = { id: session.user.id }
+      return
+    }
+  } catch {
+    // getSession() can throw 429 (rate limited) on rapid page refreshes.
+    // If the user already has the auth cookie from a previous session,
+    // let them through — the token refresh will work on the next attempt.
+    console.warn('[auth] getSession() failed — user may need to re-login')
   }
 
-  // No session at all — redirect to login
-  return navigateTo('/cocina')
+  // Last resort: check if there's a refresh_token cookie (means session exists)
+  const hasSession = document?.cookie?.includes('sb-refresh-token') ?? false
+  if (!hasSession) {
+    return navigateTo('/cocina')
+  }
 })
