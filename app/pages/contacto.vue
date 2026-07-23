@@ -10,13 +10,8 @@ import { ref, computed, onMounted } from 'vue'
 
 const { restaurant, nombre, telefono, mapsUrl, email, poblacion } = useRestaurantConfig()
 
-// Build maps src from restaurant address or fallback
+// Build maps src from restaurant address (embed uses q=place, not a maps URL)
 const mapsSrc = computed(() => {
-  const mapsUrlVal = mapsUrl.value || restaurant.value.maps_url
-  if (mapsUrlVal) {
-    const encoded = encodeURIComponent(mapsUrlVal)
-    return `https://maps.google.com/maps?q=${encoded}&t=m&z=16&output=embed&iwloc=near`
-  }
   const dir = restaurant.value.direccion
   if (dir) {
     const encoded = encodeURIComponent(dir)
@@ -174,8 +169,15 @@ onMounted(async () => {
             </div>
           </section>
 
-          <!-- Map (CO-002) -->
-          <section>
+          </div>
+
+        <!-- Right: Contact Form (CO-004) + Map below button -->
+        <div>
+          <h2 class="mb-4 text-xl font-bold text-slate">Envíanos un mensaje</h2>
+          <ContactForm />
+
+          <!-- Map (CO-002) below form -->
+          <section class="mt-12">
             <h2 class="mb-4 text-xl font-bold text-slate">Ubicación</h2>
             <MapEmbed
               :src="mapsSrc"
@@ -183,12 +185,6 @@ onMounted(async () => {
               :caption="nombre ? `${nombre}, ${poblacion || ''}` : undefined"
             />
           </section>
-        </div>
-
-        <!-- Right: Contact Form (CO-004) -->
-        <div>
-          <h2 class="mb-4 text-xl font-bold text-slate">Envíanos un mensaje</h2>
-          <ContactForm />
         </div>
       </div>
     </div>
