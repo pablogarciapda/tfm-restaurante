@@ -110,11 +110,18 @@ async function handleDeactivate(userId: string) {
 }
 
 async function handleResetPassword(userId: string) {
+  const user = users.value.find((u) => u.id === userId)
+  if (!user?.email) {
+    console.warn('[usuarios] No se encontró email para el usuario:', userId)
+    return
+  }
+
   try {
     await $fetch('/api/cocina/usuarios/reset-password', {
       method: 'POST',
-      body: { id: userId },
+      body: { email: user.email },
     })
+    // TODO: success notification — toast when system is in place
   } catch {
     // Error handling via toast in production
   }
