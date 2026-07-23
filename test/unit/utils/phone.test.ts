@@ -16,9 +16,8 @@ describe('normalizePhone', () => {
     expect(normalizePhone('712345678')).toBe('+34712345678')
   })
 
-  it('normalizes plain 9-digit Spanish mobile (starts with 9)', () => {
-    // Some Spanish mobile prefixes: 900, 910
-    expect(normalizePhone('912345678')).toBe('+34912345678')
+  it('rejects landline (starts with 9) — only mobile 6/7 accepted', () => {
+    expect(normalizePhone('912345678')).toBeNull()
   })
 
   it('keeps already valid E.164 +34 format', () => {
@@ -57,13 +56,13 @@ describe('normalizePhone', () => {
     expect(normalizePhone('600abc456')).toBeNull()
   })
 
-  it('returns null for phone starting with 5', () => {
-    // Spanish mobiles start with 6, 7, or 9
+  it('rejects phone starting with 5 (not a valid mobile prefix)', () => {
+    // Spanish mobiles only start with 6 or 7
     expect(normalizePhone('500123456')).toBeNull()
   })
 
-  it('handles +34 prefix that starts with 9', () => {
-    expect(normalizePhone('+34900123456')).toBe('+34900123456')
+  it('rejects +34 prefix that starts with 9 (landline)', () => {
+    expect(normalizePhone('+34900123456')).toBeNull()
   })
 
   it('handles trimmed input with leading/trailing spaces', () => {

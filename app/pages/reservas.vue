@@ -10,7 +10,7 @@
  * GDPR tracking: returning customers who already accepted GDPR skip the
  * consent step. Acceptance is stored per-phone in clientes.gdpr_aceptado.
  */
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { normalizePhone } from '#shared/utils/phone'
 import { generarReferencia } from '#shared/utils/referencia'
 import type { PublicConfig, DiaBloqueado, HorarioConfig } from '#shared/contracts/reservation.contract'
@@ -33,6 +33,7 @@ const error = ref('')
 const gdprText = ref<string | null>(null)
 
 // Public config from /api/public-config
+const sectionRef = ref<HTMLElement | null>(null)
 const publicConfig = ref<PublicConfig | null>(null)
 const horariosConfig = ref<HorarioConfig | null>(null)
 const captchaHabilitado = ref(false)
@@ -215,13 +216,22 @@ async function handleResend() {
     error.value = 'Error al reenviar el código. Inténtalo de nuevo.'
   }
 }
+
+// Scroll to form section when advancing to SMS, GDPR or confirmation
+watch(step, (newStep) => {
+  if (newStep !== 'form') {
+    nextTick(() => {
+      sectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+})
 </script>
 
 <template>
   <div>
     <PageHero title="Reservas" :subtitle="`Reserva tu mesa en ${nombre || 'el restaurante'}`" />
 
-    <section class="mx-auto max-w-lg px-4 py-12">
+    <section ref="sectionRef" class="mx-auto max-w-lg px-4 py-12">
       <!-- API error -->
       <div v-if="error" class="mb-6 rounded-lg bg-red-50 p-4 text-center text-red-800">
         {{ error }}

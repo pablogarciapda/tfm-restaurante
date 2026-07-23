@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { generateSlots } from '#shared/utils/slots'
+import { isValidSpanishPhone } from '#shared/utils/phone'
 
 /**
  * ReservationForm — Slot-grid reservation form (RF-001, SLA-001–SLA-006)
@@ -111,15 +112,9 @@ function selectSlot(hora: string) {
 // ── Turnstile CAPTCHA ──
 const captchaToken = ref<string>()
 
-// ── Phone validation (same as before) ──
+// ── Phone validation (mobile only, uses shared utility) ──
 function validatePhone(raw: string): string | null {
-  const cleaned = raw.trim().replace(/[\s\-()]/g, '')
-
-  if (/^[679]\d{8}$/.test(cleaned)) return null
-  if (/^\+34[679]\d{8}$/.test(cleaned)) return null
-  if (/^34[679]\d{8}$/.test(cleaned)) return null
-
-  return 'Formato de teléfono no válido (ej: 600123456)'
+  return isValidSpanishPhone(raw) ? null : 'Teléfono móvil no válido (ej: 600123456)'
 }
 
 // ── Validation ──
@@ -175,6 +170,18 @@ function validate(): boolean {
 }
 
 const captchaError = ref('')
+const formRef = ref<HTMLFormElement | null>(null)
+
+function scrollToFirstError() {
+  nextTick(() => {
+    if (!formRef.value) return
+    // Find first input with error class, or first visible error message
+    const firstError =
+      formRef.value.querySelector<HTMLElement>('[class*="border-red-500"]') ??
+      formRef.value.querySelector<HTMLElement>('p.text-red-600')
+    firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
 
 function validateAll(): boolean {
   const base = validate()
@@ -187,7 +194,10 @@ function validateAll(): boolean {
 }
 
 function handleSubmit() {
-  if (!validateAll()) return
+  if (!validateAll()) {
+    scrollToFirstError()
+    return
+  }
 
   // Include timezone offset so PostgreSQL interprets the time correctly
   const tzOffset = -new Date().getTimezoneOffset()
@@ -212,7 +222,7 @@ function handleSubmit() {
 </script>
 
 <template>
-  <form novalidate class="space-y-5" @submit.prevent="handleSubmit">
+  <form ref="formRef" novalidate class="space-y-5" @submit.prevent="handleSubmit">
     <!-- Nombre -->
     <div>
       <label for="nombre" class="block text-sm font-medium text-slate">Nombre *</label>
