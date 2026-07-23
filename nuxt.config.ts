@@ -26,6 +26,12 @@ export default defineNuxtConfig({
     cookieOptions: {
       secure: process.env.NUXT_PUBLIC_SUPABASE_COOKIE_SECURE !== 'false',
     },
+    // Reduce unnecessary auth token refreshes on page load
+    clientOptions: {
+      auth: {
+        detectSessionInUrl: false,
+      },
+    },
   },
 
   // @nuxt/fonts — Playfair Display (serif headings) + Inter (sans body)

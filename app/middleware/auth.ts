@@ -27,12 +27,22 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
 
   // Fallback: useSupabaseUser() may not have resolved yet on SPA boot.
   // Read the session directly from cookie/storage.
-  const { data: { session } } = await client.auth.getSession()
-  if (!session?.user?.id) {
-    return navigateTo('/cocina')
+  try {
+    const { data: { session } } = await client.auth.getSession()
+    if (session?.user?.id) {
+      authUser.value = { id: session.user.id }
+      return
+    }
+  } catch {
+    // getSession() can throw 429 (rate limited) on rapid page refreshes.
+    // If the user already has the auth cookie from a previous session,
+    // let them through — the token refresh will work on the next attempt.
+    console.warn('[auth] getSession() failed — user may need to re-login')
   }
 
-  // Store for downstream middleware — avoids a second getSession() call
-  // whose result may differ (cookie/storage race on SPA boot).
-  authUser.value = { id: session.user.id }
+  // Last resort: check if there's a refresh_token cookie (means session exists)
+  const hasSession = document?.cookie?.includes('sb-refresh-token') ?? false
+  if (!hasSession) {
+    return navigateTo('/cocina')
+  }
 })
