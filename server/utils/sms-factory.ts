@@ -31,12 +31,17 @@ function resolveRuntimeConfig(): ResolvedConfig {
   try {
     const config = useRuntimeConfig()
 
-    // Read test mode from runtimeConfig first, fallback to process.env
-    // (process.env fallback covers cases where dotenv/.env isn't picked up)
+    // Priority: 1) process.env (direct, always reliable at dev time)
+    //           2) Nuxt runtimeConfig (may or may not merge the env var)
+    //           3) '0' default
+    // IMPORTANT: config.labsMobileTest defaults to '0' — which is truthy! —
+    // so putting it before process.env would mask the env var override.
     const testMode =
-      (config.labsMobileTest as string) ||
       process.env.NUXT_LABS_MOBILE_TEST ||
+      (config.labsMobileTest as string) ||
       '0'
+
+    console.log('[SmsFactory] testMode resolved to:', testMode, '(env:', process.env.NUXT_LABS_MOBILE_TEST, 'config:', config.labsMobileTest, ')')
 
     const username = (config.labsMobileUsername as string) || ''
     const token = (config.labsMobileToken as string) || ''
@@ -53,6 +58,7 @@ function resolveRuntimeConfig(): ResolvedConfig {
     return { testMode, labsMobileConfig }
   } catch {
     // Outside Nitro (unit test environments) — default to mock
+    console.log('[SmsFactory] useRuntimeConfig() not available, defaulting to mock')
     return { testMode: '1' }
   }
 }

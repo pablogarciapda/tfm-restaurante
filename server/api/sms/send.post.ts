@@ -60,5 +60,5 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { success: true }
+  return { success: true, provider: provider.constructor.name }
 })
