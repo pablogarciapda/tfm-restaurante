@@ -13,6 +13,7 @@ interface MockAdminClient {
   createUser: ReturnType<typeof vi.fn>
   generateLink: ReturnType<typeof vi.fn>
   listUsers: ReturnType<typeof vi.fn>
+  getUserById: ReturnType<typeof vi.fn>
 }
 
 interface MockProfileClient {
@@ -56,6 +57,7 @@ function createMockAdmin(overrides?: Partial<MockAdminClient>): MockSupabase {
     createUser: overrides?.createUser ?? vi.fn(),
     generateLink: overrides?.generateLink ?? vi.fn(),
     listUsers: overrides?.listUsers ?? vi.fn(),
+    getUserById: overrides?.getUserById ?? vi.fn(),
   }
 
   const from = vi.fn().mockReturnValue({
@@ -496,6 +498,75 @@ describe('handleResetPassword (USR-005)', () => {
     )
 
     expect(result.status).toBe(500)
+  })
+
+  it('resolves email from id when email is not provided', async () => {
+    const getUserById = vi.fn().mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'resolved@test.com' } },
+      error: null,
+    })
+    const generateLink = vi.fn().mockResolvedValue({
+      data: { properties: { action_link: 'https://app.supabase.com/reset?token=xyz' } },
+      error: null,
+    })
+
+    const handler = await getHandler()
+    const result = await handler.handleResetPassword(
+      createMockAdmin({ generateLink, getUserById }),
+      { id: 'user-1' },
+    )
+
+    expect(getUserById).toHaveBeenCalledWith('user-1')
+    expect(generateLink).toHaveBeenCalledWith({
+      type: 'recovery',
+      email: 'resolved@test.com',
+    })
+    expect(result.status).toBe(200)
+    expect(result.body.link).toBe('https://app.supabase.com/reset?token=xyz')
+  })
+
+  it('prefers email over id when both provided (defensive)', async () => {
+    const getUserById = vi.fn()
+    const generateLink = vi.fn().mockResolvedValue({
+      data: { properties: { action_link: 'https://app.supabase.com/reset?token=abc' } },
+      error: null,
+    })
+
+    const handler = await getHandler()
+    const result = await handler.handleResetPassword(
+      createMockAdmin({ generateLink, getUserById }),
+      { id: 'user-1', email: 'explicit@test.com' },
+    )
+
+    expect(getUserById).not.toHaveBeenCalled()
+    expect(generateLink).toHaveBeenCalledWith({
+      type: 'recovery',
+      email: 'explicit@test.com',
+    })
+    expect(result.status).toBe(200)
+  })
+
+  it('returns 400 when neither id nor email is provided', async () => {
+    const handler = await getHandler()
+    const result = await handler.handleResetPassword(createMockAdmin(), {})
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('Email')
+  })
+
+  it('returns 404 when user id does not exist', async () => {
+    const getUserById = vi.fn().mockResolvedValue({
+      data: { user: null },
+      error: null,
+    })
+
+    const handler = await getHandler()
+    const result = await handler.handleResetPassword(
+      createMockAdmin({ getUserById }),
+      { id: 'ghost' },
+    )
+
+    expect(result.status).toBe(404)
+    expect(result.body.error).toContain('Usuario')
   })
 })
 
