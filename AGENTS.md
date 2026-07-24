@@ -366,6 +366,20 @@
 - **No crear archivos de documentación** salvo petición explícita.
 - **Commits:** conventional commits, sin atribución AI.
 
+## 8.5. VPS / Despliegue — Cookie Secure en HTTP
+
+⚠️ **Regla fija:** cuando el app corre en el VPS por HTTP (puerto 3000 directo, sin nginx SSL), el `.env` debe tener:
+
+```env
+NUXT_PUBLIC_SUPABASE_COOKIE_SECURE=false
+```
+
+Sin esto, las cookies de Supabase se marcan `Secure: true` y el navegador las ignora en HTTP → login loop. Esta variable se evalúa en build time (`nuxt.config.ts`), así que requiere `pnpm build` después de cambiarla.
+
+Localhost funciona sin esta variable porque los navegadores eximen localhost de la regla Secure.
+
+Más detalles en `doc/vps-deployment-notes.md`.
+
 ## 9. Estructura de carpetas
 
 ```
