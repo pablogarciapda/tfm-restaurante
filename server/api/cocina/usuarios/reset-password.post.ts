@@ -7,7 +7,8 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const supabase = serverSupabaseServiceRole(event)
-  const result = await handleResetPassword(supabase, body || {})
+  const runtimeConfig = useRuntimeConfig(event)
+  const result = await handleResetPassword(supabase, body || {}, runtimeConfig)
 
   if (result.status >= 400) {
     throw createError({

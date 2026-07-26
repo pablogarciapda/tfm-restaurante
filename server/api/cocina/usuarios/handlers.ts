@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import { sendPasswordResetEmail } from '../../../utils/email'
 
 // ── Types ──
 
@@ -268,6 +269,7 @@ export async function handleDeactivateUser(
 export async function handleResetPassword(
   supabase: SupabaseServerClient,
   body: Record<string, unknown>,
+  runtimeConfig?: any,
 ): Promise<HandlerResult> {
   const { email: rawEmail, id } = body
 
@@ -321,9 +323,14 @@ export async function handleResetPassword(
     }
   }
 
+  // Send the reset email (fire-and-forget — don't block on email failure)
+  sendPasswordResetEmail({ email, resetLink: link }, supabase, runtimeConfig).catch((err) => {
+    console.warn('[usuarios] Password reset email failed:', err)
+  })
+
   return {
     status: 200,
-    body: { success: true, link, email },
+    body: { success: true, email },
   }
 }
 
