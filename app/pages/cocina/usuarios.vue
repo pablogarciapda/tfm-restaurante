@@ -26,6 +26,16 @@ const showForm = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
 const editingUser = ref<{ email: string; role: string; id: string; permissions: Record<string, boolean> } | null>(null)
 const loading = ref(false)
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string, type: 'success' | 'error') {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { message, type }
+  toastTimer = setTimeout(() => {
+    toast.value = null
+  }, 3000)
+}
 
 // ── Fetch users ──
 async function loadUsers() {
@@ -78,8 +88,13 @@ async function handleCreateSubmit(formData: Record<string, unknown>) {
     })
     closeForm()
     await loadUsers()
-  } catch {
-    // Error handling via toast in production
+    showToast('Usuario creado correctamente', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al crear usuario'
+    showToast(statusMessage, 'error')
   }
 }
 
@@ -92,8 +107,13 @@ async function handleEditSubmit(formData: Record<string, unknown>) {
     })
     closeForm()
     await loadUsers()
-  } catch {
-    // Error handling via toast in production
+    showToast('Usuario actualizado correctamente', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al actualizar usuario'
+    showToast(statusMessage, 'error')
   }
 }
 
@@ -104,26 +124,52 @@ async function handleDeactivate(userId: string) {
       body: { id: userId },
     })
     await loadUsers()
-  } catch {
-    // Error handling via toast in production
+    showToast('Usuario desactivado', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al desactivar usuario'
+    showToast(statusMessage, 'error')
   }
 }
 
 async function handleResetPassword(userId: string) {
   const user = users.value.find((u) => u.id === userId)
-  if (!user?.email) {
-    console.warn('[usuarios] No se encontró email para el usuario:', userId)
-    return
-  }
 
   try {
+    const body: { id: string; email?: string } = { id: userId }
+    // Forward email too as defensive redundancy — backend resolves from id either way.
+    if (user?.email) body.email = user.email
+
     await $fetch('/api/cocina/usuarios/reset-password', {
       method: 'POST',
-      body: { email: user.email },
+      body,
     })
-    // TODO: success notification — toast when system is in place
-  } catch {
-    // Error handling via toast in production
+    showToast('Se ha enviado un enlace de restablecimiento al usuario', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al restablecer la contraseña'
+    showToast(statusMessage, 'error')
+  }
+}
+
+async function handleDelete(userId: string) {
+  try {
+    await $fetch('/api/cocina/usuarios/delete', {
+      method: 'POST',
+      body: { id: userId },
+    })
+    await loadUsers()
+    showToast('Usuario eliminado correctamente', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al eliminar usuario'
+    showToast(statusMessage, 'error')
   }
 }
 </script>
@@ -176,6 +222,18 @@ async function handleResetPassword(userId: string) {
       @edit="openEdit"
       @deactivate="handleDeactivate"
       @reset-password="handleResetPassword"
+      @delete="handleDelete"
     />
   </div>
+
+  <!-- Toast notification -->
+  <Teleport to="body">
+    <div
+      v-if="toast"
+      class="fixed right-4 top-4 z-50 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all"
+      :class="toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'"
+    >
+      {{ toast.message }}
+    </div>
+  </Teleport>
 </template>

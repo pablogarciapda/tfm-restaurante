@@ -150,4 +150,32 @@ describe('UsuariosTable (USR-001)', () => {
 
     expect(wrapper.emitted('deactivate')).toBeFalsy()
   })
+
+  // ── RED: Emits delete event when confirmed ──
+  it('emits delete event when confirmed', async () => {
+    const wrapper = await mountTable()
+    const deleteBtn = wrapper.find('[data-testid="delete-user"]')
+    await deleteBtn.trigger('click')
+    await nextTick()
+
+    const confirmBtn = wrapper.find('[data-testid="confirm-delete"]')
+    await confirmBtn.trigger('click')
+
+    const emitted = wrapper.emitted('delete') as Array<[string]>
+    expect(emitted).toBeTruthy()
+    expect(emitted[0][0]).toBe('u1')
+  })
+
+  // ── TRIANGULATE: Cancel delete does not emit ──
+  it('does not emit delete when cancelled', async () => {
+    const wrapper = await mountTable()
+    const deleteBtn = wrapper.find('[data-testid="delete-user"]')
+    await deleteBtn.trigger('click')
+    await nextTick()
+
+    const cancelBtn = wrapper.find('[data-testid="cancel-delete"]')
+    await cancelBtn.trigger('click')
+
+    expect(wrapper.emitted('delete')).toBeFalsy()
+  })
 })

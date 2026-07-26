@@ -261,16 +261,43 @@ export async function handleDeactivateUser(
 }
 
 // ─── USR-005: Reset Password ───────────────────────────────────────
+//
+// Accepts either a direct `email` or a user `id` (resolved server-side via
+// admin.getUserById). Prefer sending `id` from the admin panel so the
+// backend stays the single source of truth for emails.
 export async function handleResetPassword(
   supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
-  const { email } = body
+  const { email: rawEmail, id } = body
 
-  if (!email || typeof email !== 'string') {
+  // Defensive: an explicit email wins. Otherwise resolve from id.
+  let email: string | undefined
+  if (typeof rawEmail === 'string' && rawEmail.trim()) {
+    email = rawEmail.trim()
+  } else if (typeof id === 'string' && id.trim()) {
+    const { data, error: lookupError } = await supabase.auth.admin.getUserById(id.trim())
+    if (lookupError) {
+      return {
+        status: 500,
+        body: { error: `Error al resolver el usuario: ${lookupError.message}` },
+      }
+    }
+    const resolved = data?.user?.email
+    if (typeof resolved === 'string' && resolved.trim()) {
+      email = resolved.trim()
+    } else {
+      return {
+        status: 404,
+        body: { error: 'Usuario no encontrado (sin email asociado)' },
+      }
+    }
+  }
+
+  if (!email) {
     return {
       status: 400,
-      body: { error: 'Email es requerido' },
+      body: { error: 'Email es requerido (no se pudo resolver el usuario)' },
     }
   }
 
@@ -296,6 +323,52 @@ export async function handleResetPassword(
 
   return {
     status: 200,
-    body: { success: true, link },
+    body: { success: true, link, email },
+  }
+}
+
+// ─── USR-007: Delete User ──────────────────────────────────────────
+//
+// Profiles table has FK profiles.id → auth.users.id (NO CASCADE).
+// Must delete profile row BEFORE auth user to avoid FK violation.
+export async function handleDeleteUser(
+  supabase: SupabaseServerClient,
+  body: Record<string, unknown>,
+): Promise<HandlerResult> {
+  const { id } = body
+
+  if (!id || typeof id !== 'string') {
+    return {
+      status: 400,
+      body: { error: 'ID de usuario es requerido' },
+    }
+  }
+
+  // Step 1: Delete profile row (required before auth user due to FK)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', id)
+
+  if (profileError) {
+    return {
+      status: 500,
+      body: { error: `Error al eliminar perfil: ${profileError.message}` },
+    }
+  }
+
+  // Step 2: Delete auth user
+  const { error: authError } = await supabase.auth.admin.deleteUser(id)
+
+  if (authError) {
+    return {
+      status: 500,
+      body: { error: `Error al eliminar usuario de auth: ${authError.message}` },
+    }
+  }
+
+  return {
+    status: 200,
+    body: { success: true },
   }
 }

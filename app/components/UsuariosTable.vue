@@ -22,12 +22,13 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'edit' | 'deactivate' | 'reset-password', userId: string): void
+  (e: 'edit' | 'deactivate' | 'reset-password' | 'delete', userId: string): void
 }>()
 
 // ── Confirmation state ──
 const confirmDeactivateId = ref<string | null>(null)
 const confirmResetId = ref<string | null>(null)
+const confirmDeleteId = ref<string | null>(null)
 
 function roleBadge(role: string): string {
   return role === 'admin' ? 'Administrador' : 'Editor'
@@ -155,6 +156,33 @@ function roleBadgeClass(role: string): string {
                 @click="confirmResetId = user.id"
               >
                 Restablecer contraseña
+              </button>
+
+              <!-- Delete -->
+              <template v-if="confirmDeleteId === user.id">
+                <span class="text-xs text-red-600">¿Eliminar?</span>
+                <button
+                  data-testid="confirm-delete"
+                  class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white"
+                  @click="emit('delete', user.id); confirmDeleteId = null"
+                >
+                  Sí
+                </button>
+                <button
+                  data-testid="cancel-delete"
+                  class="rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-slate"
+                  @click="confirmDeleteId = null"
+                >
+                  No
+                </button>
+              </template>
+              <button
+                v-else
+                data-testid="delete-user"
+                class="rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                @click="confirmDeleteId = user.id"
+              >
+                Eliminar
               </button>
             </div>
           </td>
