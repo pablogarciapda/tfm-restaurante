@@ -6,13 +6,25 @@
  * via NuxtLink. Each card has a title, short description, and "Ver más" BaseButton.
  *
  * Eventos card: shows image from the closest upcoming event in DB.
+ *
+ * Password recovery: Supabase redirects to Site URL (root) with recovery tokens
+ * in hash fragment. Detect and redirect to /recuperar-password.
  */
 
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { toProxyUrl } from '~/utils/image-url'
 
 const { nombre, poblacion } = useRestaurantConfig()
 const supabase = useSupabaseClient()
+
+// Redirect password recovery tokens to /recuperar-password
+onMounted(() => {
+  const hash = window.location.hash
+  if (hash && hash.includes('type=recovery')) {
+    // Preserve the hash and redirect to recovery page
+    window.location.replace(`/recuperar-password${hash}`)
+  }
+})
 
 const { data: proximoEvento } = useAsyncData('home-proximo-evento', async () => {
   const { data } = await supabase
