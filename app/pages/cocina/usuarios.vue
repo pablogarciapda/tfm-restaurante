@@ -155,6 +155,23 @@ async function handleResetPassword(userId: string) {
     showToast(statusMessage, 'error')
   }
 }
+
+async function handleDelete(userId: string) {
+  try {
+    await $fetch('/api/cocina/usuarios/delete', {
+      method: 'POST',
+      body: { id: userId },
+    })
+    await loadUsers()
+    showToast('Usuario eliminado correctamente', 'success')
+  } catch (err: unknown) {
+    const statusMessage =
+      (err as { statusMessage?: string; message?: string })?.statusMessage ??
+      (err as { message?: string })?.message ??
+      'Error al eliminar usuario'
+    showToast(statusMessage, 'error')
+  }
+}
 </script>
 
 <template>
@@ -205,6 +222,7 @@ async function handleResetPassword(userId: string) {
       @edit="openEdit"
       @deactivate="handleDeactivate"
       @reset-password="handleResetPassword"
+      @delete="handleDelete"
     />
   </div>
 
