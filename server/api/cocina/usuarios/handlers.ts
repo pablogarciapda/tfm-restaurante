@@ -46,6 +46,27 @@ function isDuplicateError(error: { message: string }): boolean {
   return /duplicate|already exists/i.test(error.message)
 }
 
+/**
+ * Resolve the redirect URL for password recovery from the DB site_url config.
+ * Falls back to localhost:3000 for local dev.
+ */
+async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('configuracion')
+      .select('site_url')
+      .limit(1)
+      .single()
+
+    if (data?.site_url) {
+      return `${String(data.site_url).replace(/\/$/, '')}/recuperar-password`
+    }
+  } catch {
+    // fall through
+  }
+  return 'http://localhost:3000/recuperar-password'
+}
+
 // ─── USR-002: Create User ──────────────────────────────────────────
 export async function handleCreateUser(
   supabase: SupabaseServerClient,
@@ -306,6 +327,9 @@ export async function handleResetPassword(
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'recovery',
     email,
+    options: {
+      redirectTo: await resolveRedirectTo(supabase),
+    },
   })
 
   if (error) {

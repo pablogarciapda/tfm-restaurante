@@ -476,6 +476,7 @@ describe('handleResetPassword (USR-005)', () => {
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'user@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
   })
 
@@ -532,6 +533,7 @@ describe('handleResetPassword (USR-005)', () => {
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'resolved@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
     expect(result.status).toBe(200)
     expect(result.body.email).toBe('resolved@test.com')
@@ -554,6 +556,7 @@ describe('handleResetPassword (USR-005)', () => {
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'explicit@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
     expect(result.status).toBe(200)
   })
