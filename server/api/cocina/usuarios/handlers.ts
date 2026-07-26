@@ -47,8 +47,8 @@ function isDuplicateError(error: { message: string }): boolean {
 }
 
 /**
- * Resolve the redirect URL for password recovery from the DB site_url config.
- * Falls back to localhost:3000 for local dev.
+ * Resolve the redirect URL for password recovery.
+ * Reads site_url from DB config, falls back to localhost:3000 for dev.
  */
 async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string> {
   try {
@@ -59,7 +59,8 @@ async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string
       .single()
 
     if (data?.site_url) {
-      return `${String(data.site_url).replace(/\/$/, '')}/recuperar-password`
+      const base = String(data.site_url).replace(/\/$/, '')
+      return `${base}/recuperar-password`
     }
   } catch {
     // fall through
@@ -324,11 +325,13 @@ export async function handleResetPassword(
     }
   }
 
+  const redirectTo = await resolveRedirectTo(supabase)
+
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: {
-      redirectTo: await resolveRedirectTo(supabase),
+      redirectTo,
     },
   })
 
@@ -347,8 +350,16 @@ export async function handleResetPassword(
     }
   }
 
+  // Supabase generateLink ignores options.redirectTo and uses the dashboard Site URL.
+  // Workaround: append redirect_to manually to the action_link so Supabase redirects
+  // to our recovery page instead of the root.
+  const separator = link.includes('?') ? '&' : '?'
+  const resetLink = `${link}${separator}redirect_to=${encodeURIComponent(redirectTo)}`
+
+  console.log('[usuarios] Final reset link:', resetLink)
+
   // Send the reset email (fire-and-forget — don't block on email failure)
-  sendPasswordResetEmail({ email, resetLink: link }, supabase, runtimeConfig).catch((err) => {
+  sendPasswordResetEmail({ email, resetLink }, supabase, runtimeConfig).catch((err) => {
     console.warn('[usuarios] Password reset email failed:', err)
   })
 
