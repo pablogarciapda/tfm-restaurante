@@ -326,3 +326,49 @@ export async function handleResetPassword(
     body: { success: true, link, email },
   }
 }
+
+// ─── USR-007: Delete User ──────────────────────────────────────────
+//
+// Profiles table has FK profiles.id → auth.users.id (NO CASCADE).
+// Must delete profile row BEFORE auth user to avoid FK violation.
+export async function handleDeleteUser(
+  supabase: SupabaseServerClient,
+  body: Record<string, unknown>,
+): Promise<HandlerResult> {
+  const { id } = body
+
+  if (!id || typeof id !== 'string') {
+    return {
+      status: 400,
+      body: { error: 'ID de usuario es requerido' },
+    }
+  }
+
+  // Step 1: Delete profile row (required before auth user due to FK)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', id)
+
+  if (profileError) {
+    return {
+      status: 500,
+      body: { error: `Error al eliminar perfil: ${profileError.message}` },
+    }
+  }
+
+  // Step 2: Delete auth user
+  const { error: authError } = await supabase.auth.admin.deleteUser(id)
+
+  if (authError) {
+    return {
+      status: 500,
+      body: { error: `Error al eliminar usuario de auth: ${authError.message}` },
+    }
+  }
+
+  return {
+    status: 200,
+    body: { success: true },
+  }
+}

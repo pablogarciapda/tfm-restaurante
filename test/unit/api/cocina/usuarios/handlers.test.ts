@@ -14,6 +14,7 @@ interface MockAdminClient {
   generateLink: ReturnType<typeof vi.fn>
   listUsers: ReturnType<typeof vi.fn>
   getUserById: ReturnType<typeof vi.fn>
+  deleteUser: ReturnType<typeof vi.fn>
 }
 
 interface MockProfileClient {
@@ -21,6 +22,7 @@ interface MockProfileClient {
   insert: ReturnType<typeof vi.fn>
   update: ReturnType<typeof vi.fn>
   upsert: ReturnType<typeof vi.fn>
+  delete: ReturnType<typeof vi.fn>
 }
 
 interface MockSupabase {
@@ -49,6 +51,10 @@ let handlersModule: {
     supabase: MockSupabase,
     body: Record<string, unknown>,
   ) => Promise<HandlerResult>
+  handleDeleteUser: (
+    supabase: MockSupabase,
+    body: Record<string, unknown>,
+  ) => Promise<HandlerResult>
 }
 
 // ── Helpers ──
@@ -58,6 +64,7 @@ function createMockAdmin(overrides?: Partial<MockAdminClient>): MockSupabase {
     generateLink: overrides?.generateLink ?? vi.fn(),
     listUsers: overrides?.listUsers ?? vi.fn(),
     getUserById: overrides?.getUserById ?? vi.fn(),
+    deleteUser: overrides?.deleteUser ?? vi.fn(),
   }
 
   const from = vi.fn().mockReturnValue({
@@ -65,6 +72,7 @@ function createMockAdmin(overrides?: Partial<MockAdminClient>): MockSupabase {
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     upsert: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
@@ -567,6 +575,64 @@ describe('handleResetPassword (USR-005)', () => {
 
     expect(result.status).toBe(404)
     expect(result.body.error).toContain('Usuario')
+  })
+})
+
+// ─── USR-007 — Delete User ─────────────────────────────────────────
+describe('handleDeleteUser (USR-007)', () => {
+  it('returns 400 when id is missing', async () => {
+    const handler = await getHandler()
+    const result = await handler.handleDeleteUser(createMockAdmin(), {})
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('ID')
+  })
+
+  it('deletes profile then auth user and returns success', async () => {
+    const deleteUser = vi.fn().mockResolvedValue({ error: null })
+    const handler = await getHandler()
+    const result = await handler.handleDeleteUser(
+      createMockAdmin({ deleteUser }),
+      { id: 'user-1' },
+    )
+    // from('profiles').delete().eq('id', 'user-1') resolves via mock chain
+    expect(deleteUser).toHaveBeenCalledWith('user-1')
+    expect(result.status).toBe(200)
+    expect(result.body.success).toBe(true)
+  })
+
+  it('returns 500 when profile delete fails', async () => {
+    const deleteUser = vi.fn()
+    // Override from to return a chain where eq resolves with error
+    const eqError = vi.fn().mockImplementation(function (this: any) {
+      return {
+        then: (resolve: (v: unknown) => void) =>
+          resolve({ data: null, error: { message: 'FK violation' } }),
+      }
+    })
+    const deleteChain = vi.fn().mockReturnValue({ eq: eqError })
+    const from = vi.fn().mockReturnValue({ delete: deleteChain })
+    const supabase = { auth: { admin: { deleteUser } }, from } as any
+
+    const handler = await getHandler()
+    const result = await handler.handleDeleteUser(supabase, { id: 'user-1' })
+
+    expect(result.status).toBe(500)
+    expect(result.body.error).toContain('perfil')
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 when auth deleteUser fails', async () => {
+    const deleteUser = vi.fn().mockResolvedValue({
+      error: { message: 'User not found' },
+    })
+    const handler = await getHandler()
+    const result = await handler.handleDeleteUser(
+      createMockAdmin({ deleteUser }),
+      { id: 'user-1' },
+    )
+    // profile delete succeeds (mock chain), auth delete fails
+    expect(result.status).toBe(500)
+    expect(result.body.error).toContain('auth')
   })
 })
 
