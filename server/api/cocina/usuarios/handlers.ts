@@ -350,13 +350,12 @@ export async function handleResetPassword(
     }
   }
 
-  // Supabase generateLink ignores options.redirectTo and uses the dashboard Site URL.
-  // Workaround: append redirect_to manually to the action_link so Supabase redirects
-  // to our recovery page instead of the root.
-  const separator = link.includes('?') ? '&' : '?'
-  const resetLink = `${link}${separator}redirect_to=${encodeURIComponent(redirectTo)}`
-
-  console.log('[usuarios] Final reset link:', resetLink)
+  // Supabase generateLink embeds redirect_to from the dashboard Site URL.
+  // Replace it with our recovery page URL so the user lands on the password form.
+  const resetLink = link.replace(
+    /redirect_to=[^&]+/,
+    `redirect_to=${encodeURIComponent(redirectTo)}`,
+  )
 
   // Send the reset email (fire-and-forget — don't block on email failure)
   sendPasswordResetEmail({ email, resetLink }, supabase, runtimeConfig).catch((err) => {
