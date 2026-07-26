@@ -250,7 +250,7 @@
 - `/cocina/diseno` -> Editor de plano (modo diseño): pestañas por zona, formas de mesa, texto/capacidad, dibujo de líneas, imagen de fondo por zona, zoom, guardar posiciones con feedback
 - `/cocina/clientes` -> CRUD clientes con historial de reservas
 - `/cocina/configuracion` -> Ajustes del sistema (precios, capacidad, recomendados, horarios, zonas, días bloqueados, categorías CRUD, SMTP, datos restaurante multi-tenant, precio menú domingo) con toast de confirmación
-- `/cocina/usuarios` -> Gestión de usuarios y permisos
+- `/cocina/usuarios` -> Gestión de usuarios: crear, editar, desactivar, eliminar (hard delete con cascade), restablecer contraseña. Toast feedback en todas las acciones.
 
 ## 6. Funcionalidades Clave
 
@@ -282,6 +282,7 @@
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 - **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
+- **Usuarios Admin:** CRUD completo con tabla, crear/editar usuarios, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (resolve email por id server-side). Toast de éxito/error en todas las acciones. Bypass SMS/CAPTCHA para reservas creadas desde panel (flag `admin_created`).
 - **Reservas Admin:** Lista de reservas con filtro por fecha + modal de reasignar (cambiar zona/mesa en una reserva existente con motivo obligatorio) + modal de confirmar reservas pendientes con notificación configurable. **Reservas pasadas** bloqueadas para Editar/Cancelar/Reasignar. **Bypass SMS/CAPTCHA** para reservas creadas desde panel (flag `admin_created`).
 
 ## 7. Roadmap / MVP — Estado Actual
@@ -299,6 +300,7 @@
 - Editor menú diario con precio desde Configuración, fecha read-only, crear/editar por día
 - **CRUD eventos con categorías dinámicas:** tabla `categorias_eventos` con relaciones FK, formulario carga categorías desde DB, gestión de categorías desde Configuración
 - Gestión de usuarios y permisos (roles, permisos granulares)
+- **CRUD usuarios completo:** tabla, formulario crear/editar, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (resolve email por id server-side). Toast de éxito/error en todas las acciones.
 - **Configuración del sistema:** precios menú, capacidad, modo ocupación, categorías CRUD inline con auto-uppercase y orden, toggle recomendados + título personalizable, categorías de eventos CRUD, notificaciones toast con auto-dismiss
 - **Drag & drop en carta admin:** reorden de platos por categoría vía HTML5 DnD
 - **Drag & drop en menú diario:** reorden independiente por sección (primer/segundo/postre/bebida/pan)
@@ -354,7 +356,7 @@
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
 - **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
 - **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
-- **Tests:** 920 passed, 45 pre-existing failures (same patterns — useMesasFusion, useMenuDiario, layouts/cocina, nuxt smoke).
+- **Tests:** 958 passed, 16 pre-existing failures (same patterns — useMesasFusion, useMenuDiario, layouts/cocina, nuxt smoke).
 
 ## 8. Reglas para agentes IA
 
@@ -485,7 +487,7 @@ tfm-restaurant/
 | `TableNode` | Mesa interactiva Konva con forma, color de estado, turnos M/T, texto contra-rotado |
 | `TableTooltip` | Tooltip hover mesas en canvas |
 | `UsuarioForm` | CRUD formulario usuarios |
-| `UsuariosTable` | Tabla usuarios admin |
+| `UsuariosTable` | Tabla usuarios admin (sticky, Recom solo ★, columna familia) |
 
 ## 10. Decisiones de Arquitectura y Patrones
 
@@ -538,3 +540,6 @@ tfm-restaurant/
 | **Fecha hora futura (timezone-safe)** | `new Date(body.fecha_hora) <= new Date()` fallaba para horas CEST (14:00 → 12:00 UTC, servidor en ~19:00 UTC) | Comparar solo fecha YYYY-MM-DD via `body.fecha_hora.slice(0, 10) >= new Date().toISOString().slice(0, 10)` |
 | **Mesa redonda Wedge Konva** | Semicírculo comida (top) se renderizaba abajo y cena (bottom) arriba | Konva Wedge `rotation:0` = bottom half (empieza a las 3, barre 180° CW). `rotation:-180` = top half. Swapped valores: `roundOverlayTop → rotation: -180`, `roundOverlayBottom → rotation: 0` |
 | **Etiquetas M/T full turno** | Ambos turnos mostraban "M/T" centrado en vez de M arriba + T abajo | `turnLabel` partido en `topLabel`/`bottomLabel`. `turnLabelPos` partido en `topLabelPos`/`bottomLabelPos`. Template rinde dos `<v-text>` independientes |
+| **Reset password por id** | Frontend buscaba email en lista local; si auth.admin.listUsers() no devolvía email → 400 "Email es requerido" | Handler acepta `id` además de `email`. Si solo llega id, resuelve email server-side con `auth.admin.getUserById(id)`. Elimina dependencia frágil del frontend |
+| **Eliminar usuario cascade** | profiles.id FK → auth.users.id (sin CASCADE). Borrar auth user sin profile → FK violation | Handler borra profile PRIMERO (`supabase.from('profiles').delete()`), DESPUÉS `auth.admin.deleteUser(id)`. Si profile falla, no toca auth |
+| **Toast feedback admin** | Catch silencioso en crear/editar/desactivar/reset → "no hace nada" | Todas las acciones muestran toast verde (éxito) / rojo (error con statusMessage). Patrón replicado de clientes.vue |
