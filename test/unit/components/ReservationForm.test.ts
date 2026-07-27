@@ -64,14 +64,14 @@ describe('ReservationForm (RF-001 + SLA slots)', () => {
     const wrapper = mount(ReservationForm)
     await wrapper.find('#telefono').setValue('12345')
     await wrapper.find('form').trigger('submit.prevent')
-    expect(wrapper.text()).toContain('Formato de teléfono no válido')
+    expect(wrapper.text()).toContain('Teléfono móvil no válido')
   })
 
   it('rejects phone starting with 5 (not Spanish mobile)', async () => {
     const wrapper = mount(ReservationForm)
     await wrapper.find('#telefono').setValue('512345678')
     await wrapper.find('form').trigger('submit.prevent')
-    expect(wrapper.text()).toContain('Formato de teléfono')
+    expect(wrapper.text()).toContain('Teléfono móvil no válido')
   })
 
   it('shows error when email is invalid', async () => {

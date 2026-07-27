@@ -176,6 +176,7 @@
 | `zona_id` | `text` | Nullable, id de zona desde zonas_config |
 | `cancel_token` | `uuid` | Nullable, unique. Token para cancelación sin auth |
 | `cancelado_en` | `timestamptz` | Nullable, momento de la cancelación |
+| `cancelado_por` | `text` | Nullable, 'camarero' o 'cliente' |
 | `created_at` | `timestamptz` | Default now() |
 
 ### `clientes`
@@ -310,7 +311,7 @@
 - **Precio 0 → "Consultar":** en carta pública cuando el precio es 0
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
-- 965 tests unitarios pasando (10 pre-existing failures; 54 adicionales por fixes recientes)
+- 974 tests unitarios pasando (1 pre-existing failure; 8 skipped; 54 adicionales por fixes recientes)
 - **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona/mesa, slots de 15 minutos en horarios configurables
 - **GDPR tracking:** consentimiento explícito registrado en `clientes.gdpr_aceptado` + `gdpr_aceptado_at`. Sincronización automática de datos del cliente (nombre/apellidos/email) desde el formulario de reserva
 - **SMS toggle independiente:** `sms_verificacion` separado de `modo_reserva`. Control independiente para requerir verificación SMS
@@ -329,6 +330,15 @@
 - **Rate limiting SMS:** 1 request/phone/min + 5 request/IP/min
 - **Phone normalization:** shared/utils/phone.ts (disponible client+server)
 - **Multi-tenant (Datos Restaurante):** Todos los datos del restaurante (nombre, dirección, teléfono, email, redes sociales, logo) son configurables desde admin via `useRestaurantConfig` + `RestaurantConfig` contract en `shared/`. Header y footer públicos leen estos datos dinámicamente.
+- **Menú diario día por defecto:** El editor de menú diario selecciona automáticamente el día de hoy al abrir. Precio domingo usa `precio_menu_domingo` (no el diario). Fechas siempre calculadas desde la semana actual.
+- **Filtros reservas Mañana/Fin de semana:** Botones de filtro rápido en listado de reservas: "Hoy", "Mañana" (día siguiente), "Fin de semana" (sábado + domingo más cercanos).
+- **Datos cliente en edición reserva:** El modal de edición muestra nombre, apellidos, teléfono y email del cliente (query expandida con join a `clientes`).
+- **Sorting reservas:** Columnas Pax y Nombre son ordenables (click en header, asc/desc).
+- **Popup datos cliente:** Click en nombre de cliente en listado muestra popup con teléfono (clicable `tel:`) y email (clicable `mailto:`).
+- **Tracking cancelación:** Columna `cancelado_por` ('camarero' | 'cliente') en `reservas`. Cancel admin setea `cancelado_en` + `cancelado_por: 'camarero'`. Cancel público setea `cancelado_por: 'cliente'`. Badge "cancelada" muestra indicador gris `admin` o `email`.
+- **SMS diferido para nuevos:** Cuando SMS está activo y el cliente es nuevo, el SMS se envía DESPUÉS de aceptar el GDPR (no antes). Experiencia: GDPR popup → aceptar → SMS enviado → verificación.
+- **Password reset email:** `handleResetPassword` llama a `sendPasswordResetEmail` (fire-and-forget) después de `generateLink`. Template HTML en `server/utils/email.ts`. Link no se expone en respuesta.
+- **Página recuperar contraseña:** `/recuperar-password` parsea hash fragment, establece sesión, muestra formulario de nueva contraseña.
 - **Realtime Carta:** Subscripción Realtime en `onMounted` para actualizar platos en vivo (INSERT/UPDATE/DELETE). También escucha cambios en `categorias` y `familias`.
 - **Realtime Menú Diario:** Subscripción Realtime para actualizar platos del menú y precio en vivo cuando admin marca items como `agotado`.
 - **D.O. Vinos/Subcategorías (familias):** Tabla `familias` con FK → `categorias`. `platos.familia_id` permite asignar plato a subcategoría. `FamilySelector` como segundo scroll horizontal en carta pública. `PlatoForm` carga familias dinámicamente según categoría seleccionada.
@@ -357,7 +367,7 @@
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
 - **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
 - **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
-- **Tests:** 965 passed, 10 pre-existing failures (same patterns — useMesasFusion, useMenuDiario, layouts/cocina, nuxt smoke).
+- **Tests:** 974 passed, 1 pre-existing failure, 8 skipped.
 
 ## 8. Reglas para agentes IA
 
@@ -548,3 +558,10 @@ tfm-restaurant/
 | **Supabase redirect_to ignored** | `generateLink` ignora `options.redirectTo` y usa Site URL del dashboard | Home page detecta `type=recovery` en URL hash y redirige a `/recuperar-password`. Función `resolveRedirectTo` lee `site_url` de la DB para el link del email |
 | **Password recovery page** | Sin página para cambiar contraseña tras clic en email | `/recuperar-password` parsea hash fragment (`#access_token=...&type=recovery`), establece sesión con `setSession()`, muestra formulario, llama a `updateUser({ password })` |
 | **Multi-tenant placeholders** | Placeholders hardcodeados con datos de La Zíngara en ConfiguracionForm | Todos los placeholders genéricos (nombre, dirección, teléfono, maps, email SMTP). CORS configurable vía `.env` sin hardcoded en `nuxt.config.ts` |
+| **Menú diario día por defecto** | El editor siempre mostraba Domingo (day 0) | `selectedDay = ref(new Date().getDay())`. Precio domingo usa `precio_menu_domingo`. Fecha siempre recalculada desde la semana actual (no la guardada en DB) |
+| **Filtros reservas rápido** | Sin botones de filtro rápido | Botones "Hoy", "Mañana", "Fin de semana" calculan rangos de fechas automáticamente |
+| **Datos cliente en reserva** | Query solo traía `nombre` del cliente | Query expandida: `cliente:cliente_id(nombre,apellidos,telefono,email)`. Modal de edición muestra todos los campos |
+| **Popup datos cliente** | Sin acceso rápido a teléfono/email | Click en nombre muestra popup con teléfono clicable (`tel:`) y email clicable (`mailto:`) |
+| **Sorting reservas** | Sin ordenación en columnas | Columnas Pax y Nombre son ordenables (click en header, toggle asc/desc) |
+| **Tracking cancelación** | Sin registro de quién canceló | Columna `cancelado_por text` ('camarero' | 'cliente'). Admin cancel setea `cancelado_en` + `cancelado_por: 'camarero'`. Público setea `cancelado_por: 'cliente'` |
+| **SMS diferido para nuevos** | SMS se enviaba antes del GDPR para nuevos clientes | Cuando SMS activo + cliente nuevo: GDPR popup primero → al aceptar → SMS enviado → verificación. Para existentes: SMS inmediato |

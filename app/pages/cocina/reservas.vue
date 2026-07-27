@@ -1459,6 +1459,10 @@ onMounted(async () => {
                 >
                   {{ reserva.estado }}
                 </span>
+                <span
+                  v-if="reserva.estado === 'cancelada' && reserva.cancelado_por"
+                  class="ml-1 text-xs text-gray-400"
+                >{{ reserva.cancelado_por === 'camarero' ? 'admin' : 'email' }}</span>
               </td>
               <td class="px-4 py-2">
                 <span
@@ -1467,10 +1471,6 @@ onMounted(async () => {
                   @click="openClientPopup(reserva)"
                 >{{ (reserva.cliente as any)?.nombre }}</span>
                 <span v-else>—</span>
-                <span
-                  v-if="reserva.estado === 'cancelada' && reserva.cancelado_por"
-                  class="ml-1 text-xs text-gray-400"
-                >({{ reserva.cancelado_por === 'camarero' ? 'cancelado por camarero' : 'cancelado por cliente' }})</span>
               </td>
               <td class="px-4 py-2 font-mono text-xs text-gray-500">
                 {{ generarReferencia(reserva.id, reserva.fecha_hora) }}
