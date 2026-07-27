@@ -146,7 +146,7 @@ export function useMesasFusion() {
   // unfuseMesas — check reservations first, return them to UI
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function unfuseMesas(fusionId: string): Promise<UnfuseResult> {
+  async function unfuseMesas(fusionId: string, fecha?: string): Promise<UnfuseResult> {
     // Find all mesas in this fusion group
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
@@ -156,12 +156,18 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Check for active reservations
-    const { data: reservas, error: reservasError } = await client
+    // Check for active reservations on the selected date only
+    let query = client
       .from('reservas')
       .select('*')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
+
+    if (fecha) {
+      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
+    }
+
+    const { data: reservas, error: reservasError } = await query
 
     if (reservasError) {
       return { success: false, error: `Error al consultar reservas: ${reservasError.message}` }
@@ -186,7 +192,7 @@ export function useMesasFusion() {
   // cancelReservationsAndUnfuse
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function cancelReservationsAndUnfuse(fusionId: string): Promise<UnfuseResult> {
+  async function cancelReservationsAndUnfuse(fusionId: string, fecha?: string): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
       .map((m) => m.id)
@@ -195,12 +201,18 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Cancel active reservations
-    const { error: cancelError } = await client
+    // Cancel active reservations on the selected date only
+    let query = client
       .from('reservas')
       .update({ estado: 'cancelada' })
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
+
+    if (fecha) {
+      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
+    }
+
+    const { error: cancelError } = await query
 
     if (cancelError) {
       return { success: false, error: `Error al cancelar reservas: ${cancelError.message}` }
@@ -213,7 +225,7 @@ export function useMesasFusion() {
   // moveReservationsToStandby
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function moveReservationsToStandby(fusionId: string): Promise<UnfuseResult> {
+  async function moveReservationsToStandby(fusionId: string, fecha?: string): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
       .map((m) => m.id)
@@ -222,12 +234,18 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Move active reservations to standby
-    const { error: standbyError } = await client
+    // Move active reservations to standby on the selected date only
+    let query = client
       .from('reservas')
       .update({ estado: 'standby' })
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
+
+    if (fecha) {
+      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
+    }
+
+    const { error: standbyError } = await query
 
     if (standbyError) {
       return { success: false, error: `Error al mover reservas a standby: ${standbyError.message}` }

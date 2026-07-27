@@ -684,7 +684,7 @@ async function handleUnfuse() {
     ?? selectedMesas().find((m) => m.id_fusion)?.id_fusion
   if (!fusionId) return
 
-  const result = await unfuseMesas(fusionId)
+  const result = await unfuseMesas(fusionId, guardarFecha.value)
 
   if (result.hasReservations && result.reservations) {
     fusionDialogReservations.value = result.reservations
@@ -695,13 +695,13 @@ async function handleUnfuse() {
 }
 
 async function handleFusionCancel() {
-  await cancelReservationsAndUnfuse(fusionDialogFusionId.value)
+  await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value)
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }
 
 async function handleFusionStandby() {
-  await moveReservationsToStandby(fusionDialogFusionId.value)
+  await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value)
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }
