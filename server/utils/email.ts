@@ -68,7 +68,7 @@ export async function getEmailConfig(
     port: data.smtp_port ?? 587,
     user: data.smtp_user ?? '',
     password,
-    fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@lazingara.es',
+    fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@midominio.com',
     security: ['auto', 'ssl', 'starttls', 'none'].includes(securityRaw)
       ? (securityRaw as EmailConfig['security'])
       : 'auto',
@@ -430,6 +430,109 @@ export async function sendCancellationEmail(
     }
   } catch (err: any) {
     console.warn('[email] Fire-and-forget cancellation error:', err.message)
+  }
+}
+
+interface PasswordResetParams {
+  email: string
+  resetLink: string
+}
+
+/**
+ * Build an HTML email for admin password reset.
+ * Pure function — no side effects.
+ */
+export function buildPasswordResetHtml(
+  params: PasswordResetParams,
+  restaurant: RestaurantInfo,
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f3f0; font-family: Georgia, 'Times New Roman', serif;">
+  <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; margin-top: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <tr>
+      <td style="background-color: #c25b3c; padding: 32px 24px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: normal;">${restaurant.nombre || 'Restaurante'}</h1>
+        <p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">Restablecer contraseña</p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding: 32px 24px;">
+        <p style="margin: 0 0 16px; color: #333; font-size: 16px;">Hola,</p>
+        <p style="margin: 0 0 24px; color: #555; font-size: 15px;">Un administrador ha solicitado restablecer tu contraseña para acceder al panel de administración. Haz clic en el botón de abajo para crear una nueva contraseña:</p>
+
+        <!-- CTA Button -->
+        <table role="presentation" style="width: 100%; margin-bottom: 24px;">
+          <tr>
+            <td style="text-align: center;">
+              <a href="${params.resetLink}"
+                 style="display: inline-block; padding: 12px 32px; background-color: #c25b3c; color: #ffffff; font-size: 15px; font-weight: bold; text-decoration: none; border-radius: 6px;">
+                Restablecer contraseña
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0 0 8px; color: #999; font-size: 13px;">Si no solicitaste este cambio, ignora este email. Tu contraseña permanecerá sin cambios.</p>
+        <p style="margin: 0; color: #999; font-size: 12px;">Este enlace expira en 24 horas.</p>
+
+        <hr style="border: none; border-top: 1px solid #e8e2dc; margin: 24px 0 20px;">
+        <p style="margin: 0 0 4px; color: #c25b3c; font-size: 14px; font-weight: bold;">${restaurant.nombre}</p>
+        <p style="margin: 0 0 2px; color: #666; font-size: 13px;">${restaurant.direccion}</p>
+        ${restaurant.telefono ? `<p style="margin: 0 0 2px; color: #666; font-size: 13px;">☎ ${restaurant.telefono}</p>` : ''}
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #f5f3f0; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; color: #aaa; font-size: 11px;">Este email es automático, no respondas a este mensaje.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim()
+}
+
+/**
+ * Convenience: send password reset email to an admin user.
+ * Fire-and-forget — does NOT throw.
+ */
+export async function sendPasswordResetEmail(
+  params: PasswordResetParams,
+  supabase: any,
+  runtimeConfig: any,
+): Promise<void> {
+  if (!params.email) {
+    console.warn('[email] No email address for password reset — skipping')
+    return
+  }
+
+  try {
+    const config = await getEmailConfig(supabase, runtimeConfig)
+    if (!config) {
+      console.warn('[email] SMTP not configured — password reset email not sent')
+      return
+    }
+
+    const restaurantInfo = await getRestaurantInfo(supabase)
+    const html = buildPasswordResetHtml(params, restaurantInfo)
+    const asunto = `Restablecer contraseña — ${restaurantInfo.nombre}`
+    const result = await sendEmail(config, params.email, asunto, html, restaurantInfo.nombre)
+
+    if (!result.success) {
+      console.warn('[email] Failed to send password reset:', result.message)
+    }
+  } catch (err: any) {
+    console.warn('[email] Fire-and-forget password reset error:', err.message)
   }
 }
 

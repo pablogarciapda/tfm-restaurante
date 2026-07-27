@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import { sendPasswordResetEmail } from '../../../utils/email'
 
 // ── Types ──
 
@@ -43,6 +44,28 @@ const MIN_PASSWORD_LENGTH = 6
 
 function isDuplicateError(error: { message: string }): boolean {
   return /duplicate|already exists/i.test(error.message)
+}
+
+/**
+ * Resolve the redirect URL for password recovery.
+ * Reads site_url from DB config, falls back to localhost:3000 for dev.
+ */
+async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('configuracion')
+      .select('site_url')
+      .limit(1)
+      .single()
+
+    if (data?.site_url) {
+      const base = String(data.site_url).replace(/\/$/, '')
+      return `${base}/recuperar-password`
+    }
+  } catch {
+    // fall through
+  }
+  return 'http://localhost:3000/recuperar-password'
 }
 
 // ─── USR-002: Create User ──────────────────────────────────────────
@@ -268,6 +291,7 @@ export async function handleDeactivateUser(
 export async function handleResetPassword(
   supabase: SupabaseServerClient,
   body: Record<string, unknown>,
+  runtimeConfig?: any,
 ): Promise<HandlerResult> {
   const { email: rawEmail, id } = body
 
@@ -301,9 +325,14 @@ export async function handleResetPassword(
     }
   }
 
+  const redirectTo = await resolveRedirectTo(supabase)
+
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'recovery',
     email,
+    options: {
+      redirectTo,
+    },
   })
 
   if (error) {
@@ -321,9 +350,21 @@ export async function handleResetPassword(
     }
   }
 
+  // Supabase generateLink embeds redirect_to from the dashboard Site URL.
+  // Replace it with our recovery page URL so the user lands on the password form.
+  const resetLink = link.replace(
+    /redirect_to=[^&]+/,
+    `redirect_to=${encodeURIComponent(redirectTo)}`,
+  )
+
+  // Send the reset email (fire-and-forget — don't block on email failure)
+  sendPasswordResetEmail({ email, resetLink }, supabase, runtimeConfig).catch((err) => {
+    console.warn('[usuarios] Password reset email failed:', err)
+  })
+
   return {
     status: 200,
-    body: { success: true, link, email },
+    body: { success: true, email },
   }
 }
 

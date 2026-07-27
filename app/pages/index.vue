@@ -6,13 +6,25 @@
  * via NuxtLink. Each card has a title, short description, and "Ver más" BaseButton.
  *
  * Eventos card: shows image from the closest upcoming event in DB.
+ *
+ * Password recovery: Supabase redirects to Site URL (root) with recovery tokens
+ * in hash fragment. Detect and redirect to /recuperar-password.
  */
 
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { toProxyUrl } from '~/utils/image-url'
 
 const { nombre, poblacion } = useRestaurantConfig()
 const supabase = useSupabaseClient()
+
+// Redirect password recovery tokens to /recuperar-password
+onMounted(() => {
+  const hash = window.location.hash
+  if (hash && hash.includes('type=recovery')) {
+    // Preserve the hash and redirect to recovery page
+    window.location.replace(`/recuperar-password${hash}`)
+  }
+})
 
 const { data: proximoEvento } = useAsyncData('home-proximo-evento', async () => {
   const { data } = await supabase
@@ -121,7 +133,7 @@ const eventoAlt = computed(() => {
         <NuxtLink to="/contacto" class="group h-full">
           <BaseCard
             image="https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=800"
-            image-alt="Mapa de Santa María del Páramo"
+            image-alt="Mapa de ubicación del restaurante"
           >
             <h2 class="text-xl font-bold text-slate">Contacto</h2>
             <p class="mt-2 text-sm text-gray-600">

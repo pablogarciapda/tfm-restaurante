@@ -8,6 +8,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Mock sendPasswordResetEmail to avoid actual SMTP calls in tests
+vi.mock('../../../../../server/utils/email', () => ({
+  sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
+}))
+
 // ── Type for mock Supabase admin client ──
 interface MockAdminClient {
   createUser: ReturnType<typeof vi.fn>
@@ -450,7 +455,7 @@ describe('handleResetPassword (USR-005)', () => {
     expect(result.body.error).toContain('Email')
   })
 
-  it('calls auth.admin.generateLink with type recovery and returns link', async () => {
+  it('calls auth.admin.generateLink with type recovery and sends email', async () => {
     const generateLink = vi.fn().mockResolvedValue({
       data: {
         properties: { action_link: 'https://app.supabase.com/reset?token=abc' },
@@ -466,12 +471,12 @@ describe('handleResetPassword (USR-005)', () => {
 
     expect(result.status).toBe(200)
     expect(result.body.success).toBe(true)
-    expect(result.body.link).toBe(
-      'https://app.supabase.com/reset?token=abc',
-    )
+    expect(result.body.email).toBe('user@test.com')
+    expect(result.body.link).toBeUndefined() // link not exposed in response (security)
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'user@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
   })
 
@@ -528,9 +533,10 @@ describe('handleResetPassword (USR-005)', () => {
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'resolved@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
     expect(result.status).toBe(200)
-    expect(result.body.link).toBe('https://app.supabase.com/reset?token=xyz')
+    expect(result.body.email).toBe('resolved@test.com')
   })
 
   it('prefers email over id when both provided (defensive)', async () => {
@@ -550,6 +556,7 @@ describe('handleResetPassword (USR-005)', () => {
     expect(generateLink).toHaveBeenCalledWith({
       type: 'recovery',
       email: 'explicit@test.com',
+      options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
     expect(result.status).toBe(200)
   })
