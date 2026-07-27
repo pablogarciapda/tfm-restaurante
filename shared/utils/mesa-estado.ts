@@ -158,9 +158,15 @@ export function calcularEstadoMesa(
       // Ocupada when the reservation's booking window overlaps the current turn.
       if (inCurrentService) isOcupada = true
     } else if (r.estado === 'pendiente') {
-      // Reservada when it is on the selected day (any turn — waitlist alert
-      // for later today) OR on a strictly future date.
-      if (sameDate || isFuture) isReservada = true
+      // For specific turns: only mark reservada if the reservation is in the
+      // current turn (reuses inCurrentService). For 'todos': inCurrentService
+      // is already true for any same-date reserva (see line 139-141), so
+      // sameDate && inCurrentService covers "any turn on the same date".
+      if (isFuture) {
+        isReservada = true
+      } else if (sameDate && inCurrentService) {
+        isReservada = true
+      }
     }
     // Other estados fall through — they do not mark the mesa.
   }

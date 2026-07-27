@@ -174,9 +174,24 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('reservada')
   })
 
-  it('reservada when pendiente today in cena but currentTurn=comida (today, wrong turn — still reserved)', () => {
+  it('libre when pendiente today in cena but currentTurn=comida (wrong turn — not reserved for lunch)', () => {
     const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '22:00') })
-    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('reservada')
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
+  })
+
+  it('reservada when pendiente today in cena and currentTurn=cena (correct turn)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '22:00') })
+    expect(calcularEstadoMesa('m1', [r], ctx('cena'))).toBe('reservada')
+  })
+
+  it('reservada when pendiente today in cena and currentTurn=todos (any turn counts)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '22:00') })
+    expect(calcularEstadoMesa('m1', [r], ctx('todos'))).toBe('reservada')
+  })
+
+  it('libre when pendiente today in comida but currentTurn=cena (wrong turn)', () => {
+    const r = reserva({ mesa_id: 'm1', estado: 'pendiente', fecha_hora: localTime(TODAY, '14:00') })
+    expect(calcularEstadoMesa('m1', [r], ctx('cena'))).toBe('libre')
   })
 
   it('libre when pendiente on a past date (no current service, not future)', () => {
