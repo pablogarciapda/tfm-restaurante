@@ -119,26 +119,26 @@ describe('calculateFusionPositions', () => {
     alto: 100,
   }
 
-  it('places one child to the right of parent (touching)', () => {
+  it('places one child below parent (touching)', () => {
     const child = { id: 'c1', ancho: 80, alto: 80 }
     const result = calculateFusionPositions(parent, [child], 1200, 800)
 
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('c1')
-    expect(result[0].posicion_x).toBe(200) // parent.x + parent.ancho
+    expect(result[0].posicion_x).toBe(100) // parent.x (same x)
+    expect(result[0].posicion_y).toBe(300) // parent.y + parent.alto
+  })
+
+  it('wraps child to right when it does not fit vertically', () => {
+    const child = { id: 'c1', ancho: 80, alto: 80 }
+    // Stage height is just enough for the parent but not the child below it
+    const result = calculateFusionPositions(parent, [child], 1200, 250)
+
+    expect(result[0].posicion_x).toBe(200) // parent.x + parent.ancho (wrapped right)
     expect(result[0].posicion_y).toBe(200) // parent.y
   })
 
-  it('wraps child to next row when it does not fit horizontally', () => {
-    const child = { id: 'c1', ancho: 80, alto: 80 }
-    // Stage width is just enough for the parent but not the child next to it
-    const result = calculateFusionPositions(parent, [child], 150, 800)
-
-    expect(result[0].posicion_x).toBe(100) // wrapped back to parent.x
-    expect(result[0].posicion_y).toBe(300) // parent.y + parent.alto + gap
-  })
-
-  it('positions multiple children in a row', () => {
+  it('positions multiple children in a column', () => {
     const children = [
       { id: 'c1', ancho: 80, alto: 80 },
       { id: 'c2', ancho: 90, alto: 100 },
@@ -147,13 +147,13 @@ describe('calculateFusionPositions', () => {
     const result = calculateFusionPositions(parent, children, 1200, 800)
 
     expect(result).toHaveLength(3)
-    expect(result[0].posicion_x).toBe(200) // parent.x + parent.ancho
-    expect(result[1].posicion_x).toBe(280) // c1.x + c1.ancho
-    expect(result[2].posicion_x).toBe(370) // c2.x + c2.ancho
-    // All same y (same row)
-    expect(result[0].posicion_y).toBe(200)
-    expect(result[1].posicion_y).toBe(200)
-    expect(result[2].posicion_y).toBe(200)
+    expect(result[0].posicion_x).toBe(100) // parent.x (same x)
+    expect(result[1].posicion_x).toBe(100) // parent.x (same x)
+    expect(result[2].posicion_x).toBe(100) // parent.x (same x)
+    // All stacked vertically
+    expect(result[0].posicion_y).toBe(300)  // parent.y + parent.alto
+    expect(result[1].posicion_y).toBe(380)  // c1.y + c1.alto
+    expect(result[2].posicion_y).toBe(480)  // c2.y + c2.alto
   })
 
   it('returns empty array for empty children', () => {

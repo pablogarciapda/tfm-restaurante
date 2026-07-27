@@ -214,10 +214,10 @@ const COLLISION_PAD = 4
  * Calculate positions for child tables adjacent to the parent table,
  * accounting for each member's rotation.
  *
- * Children are placed to the RIGHT of the parent (touching, same y).
- * If they don't fit within stageWidth, they wrap to the next row below.
+ * Children are stacked VERTICALLY below the parent (touching, same x).
+ * If a child doesn't fit within stageHeight, they wrap to the RIGHT of the parent.
  * If the target position COLLIDES with an existing (non-fusion-group) mesa,
- * the child is shifted to the next available row below.
+ * the child is shifted to the next available position.
  * The parent STAYS in place.
  *
  * Positions are returned as absolute canvas coordinates. FusionGroupNode
@@ -235,7 +235,7 @@ export function calculateFusionPositions(
   parent: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'forma' | 'rotacion'>,
   children: Pick<Mesa, 'id' | 'ancho' | 'alto' | 'forma' | 'rotacion'>[],
   stageWidth: number,
-  _stageHeight: number,
+  stageHeight: number,
   existingMesas?: Pick<Mesa, 'id' | 'posicion_x' | 'posicion_y' | 'ancho' | 'alto' | 'forma' | 'rotacion'>[],
 ): Array<{ id: string; posicion_x: number; posicion_y: number }> {
   const GAP = 0 // Touching (border strokes provide visual separation)
@@ -250,18 +250,26 @@ export function calculateFusionPositions(
   // Use effective extent of parent (accounts for rotation)
   const parentExtent = mesaExtents(parent)
 
-  let currentX = parent.posicion_x + parentExtent.right + GAP
-  let currentY = parent.posicion_y
-  let rowMaxHeight = parentExtent.bottom
+  // Start stacking BELOW the parent (vertical arrangement)
+  let currentX = parent.posicion_x
+  let currentY = parent.posicion_y + parentExtent.bottom + GAP
+  let colMaxWidth = parentExtent.right
 
   for (const child of children) {
     const childExtent = mesaExtents(child)
 
-    // If doesn't fit in current row, wrap to next row below
+    // If doesn't fit vertically below parent, wrap to RIGHT of parent
+    if (currentY + childExtent.bottom > stageHeight) {
+      currentX += colMaxWidth + GAP
+      currentY = parent.posicion_y
+      colMaxWidth = 0
+    }
+
+    // If doesn't fit horizontally either, try next row below
     if (currentX + childExtent.right > stageWidth) {
       currentX = parent.posicion_x
-      currentY += rowMaxHeight + GAP
-      rowMaxHeight = 0
+      currentY += (colMaxWidth || childExtent.right) + GAP
+      colMaxWidth = 0
     }
 
     // Check for collisions and find a non-overlapping position
@@ -277,13 +285,12 @@ export function calculateFusionPositions(
       const collides = occupiedRects.some((other) => rectsOverlap(candidateRect, other))
       if (!collides) break
 
-      // Collision: try next row below
+      // Collision: try next position below
+      currentY += (childExtent.bottom || rowMaxHeight) + GAP
       currentX = parent.posicion_x
-      currentY += (rowMaxHeight || childExtent.bottom) + GAP
-      rowMaxHeight = 0 // reset for the new row
 
       // Safety: if we've gone way off stage, break to avoid infinite loop
-      if (currentY > _stageHeight + 1000) break
+      if (currentY > stageHeight + 1000) break
     }
 
     positions.push({
@@ -292,9 +299,9 @@ export function calculateFusionPositions(
       posicion_y: currentY,
     })
 
-    // Advance for next child
-    currentX += childExtent.right + GAP
-    rowMaxHeight = Math.max(rowMaxHeight, childExtent.bottom)
+    // Advance DOWN for next child (vertical stacking)
+    currentY += childExtent.bottom + GAP
+    colMaxWidth = Math.max(colMaxWidth, childExtent.right)
   }
 
   return positions
