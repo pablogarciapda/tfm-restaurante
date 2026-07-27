@@ -855,6 +855,27 @@ function setToday() {
   filterHasta.value = today
 }
 
+function setTomorrow() {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const str = toLocalDateString(tomorrow)
+  filterDesde.value = str
+  filterHasta.value = str
+}
+
+function setWeekend() {
+  const today = new Date()
+  const dayOfWeek = today.getDay() // 0=Sun..6=Sat
+  // Days until next Saturday (6): if today is Sat(6) => next Sat is in 7 days
+  const daysToSat = (6 - dayOfWeek + 7) % 7 || 7
+  const saturday = new Date(today)
+  saturday.setDate(today.getDate() + daysToSat)
+  const sunday = new Date(saturday)
+  sunday.setDate(saturday.getDate() + 1)
+  filterDesde.value = toLocalDateString(saturday)
+  filterHasta.value = toLocalDateString(sunday)
+}
+
 function clearDateFilter() {
   filterDesde.value = toLocalDateString()
   filterHasta.value = ''
@@ -1307,6 +1328,20 @@ onMounted(async () => {
             @click="setToday"
           >
             Hoy
+          </button>
+          <button
+            type="button"
+            class="rounded bg-terracotta px-2 py-1 text-xs text-white hover:bg-terracotta/90"
+            @click="setTomorrow"
+          >
+            Mañana
+          </button>
+          <button
+            type="button"
+            class="rounded bg-terracotta px-2 py-1 text-xs text-white hover:bg-terracotta/90"
+            @click="setWeekend"
+          >
+            Fin de semana
           </button>
           <button
             v-if="filterDesde || filterHasta"
