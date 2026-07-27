@@ -176,6 +176,7 @@
 | `zona_id` | `text` | Nullable, id de zona desde zonas_config |
 | `cancel_token` | `uuid` | Nullable, unique. Token para cancelación sin auth |
 | `cancelado_en` | `timestamptz` | Nullable, momento de la cancelación |
+| `cancelado_por` | `text` | Nullable, 'camarero' o 'cliente' |
 | `created_at` | `timestamptz` | Default now() |
 
 ### `clientes`
@@ -238,6 +239,7 @@
 - `/eventos` -> Eventos
 - `/contacto` -> Contacto
 - `/cancelar` -> Cancelación de reserva por token (sin auth, desde email)
+- `/recuperar-password` -> Restablecimiento de contraseña (sin auth, desde email de reset)
 
 ### Administración (SPA, protegidas tras login en `/cocina`)
 
@@ -282,7 +284,7 @@
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 - **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
-- **Usuarios Admin:** CRUD completo con tabla, crear/editar usuarios, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (resolve email por id server-side). Toast de éxito/error en todas las acciones. Bypass SMS/CAPTCHA para reservas creadas desde panel (flag `admin_created`).
+- **Usuarios Admin:** CRUD completo con tabla, crear/editar usuarios, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (envía email con enlace a `/recuperar-password`, resolve email por id server-side). Toast de éxito/error en todas las acciones. Bypass SMS/CAPTCHA para reservas creadas desde panel (flag `admin_created`).
 - **Reservas Admin:** Lista de reservas con filtro por fecha + modal de reasignar (cambiar zona/mesa en una reserva existente con motivo obligatorio) + modal de confirmar reservas pendientes con notificación configurable. **Reservas pasadas** bloqueadas para Editar/Cancelar/Reasignar. **Bypass SMS/CAPTCHA** para reservas creadas desde panel (flag `admin_created`).
 
 ## 7. Roadmap / MVP — Estado Actual
@@ -300,7 +302,7 @@
 - Editor menú diario con precio desde Configuración, fecha read-only, crear/editar por día
 - **CRUD eventos con categorías dinámicas:** tabla `categorias_eventos` con relaciones FK, formulario carga categorías desde DB, gestión de categorías desde Configuración
 - Gestión de usuarios y permisos (roles, permisos granulares)
-- **CRUD usuarios completo:** tabla, formulario crear/editar, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (resolve email por id server-side). Toast de éxito/error en todas las acciones.
+- **CRUD usuarios completo:** tabla, formulario crear/editar, desactivar (soft), eliminar (hard delete con cascade profiles → auth.users), restablecer contraseña (envía email con enlace, resolve email por id server-side). Toast de éxito/error en todas las acciones.
 - **Configuración del sistema:** precios menú, capacidad, modo ocupación, categorías CRUD inline con auto-uppercase y orden, toggle recomendados + título personalizable, categorías de eventos CRUD, notificaciones toast con auto-dismiss
 - **Drag & drop en carta admin:** reorden de platos por categoría vía HTML5 DnD
 - **Drag & drop en menú diario:** reorden independiente por sección (primer/segundo/postre/bebida/pan)
@@ -309,7 +311,7 @@
 - **Precio 0 → "Consultar":** en carta pública cuando el precio es 0
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
-- 767 tests unitarios pasando (6 pre-existing failures en test/unit/layouts/cocina.test.ts + nuxt smoke tests; 41 adicionales por refactor de ConfiguracionForm.vue y slots.ts)
+- 974 tests unitarios pasando (1 pre-existing failure; 8 skipped; 54 adicionales por fixes recientes)
 - **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona/mesa, slots de 15 minutos en horarios configurables
 - **GDPR tracking:** consentimiento explícito registrado en `clientes.gdpr_aceptado` + `gdpr_aceptado_at`. Sincronización automática de datos del cliente (nombre/apellidos/email) desde el formulario de reserva
 - **SMS toggle independiente:** `sms_verificacion` separado de `modo_reserva`. Control independiente para requerir verificación SMS
@@ -328,6 +330,15 @@
 - **Rate limiting SMS:** 1 request/phone/min + 5 request/IP/min
 - **Phone normalization:** shared/utils/phone.ts (disponible client+server)
 - **Multi-tenant (Datos Restaurante):** Todos los datos del restaurante (nombre, dirección, teléfono, email, redes sociales, logo) son configurables desde admin via `useRestaurantConfig` + `RestaurantConfig` contract en `shared/`. Header y footer públicos leen estos datos dinámicamente.
+- **Menú diario día por defecto:** El editor de menú diario selecciona automáticamente el día de hoy al abrir. Precio domingo usa `precio_menu_domingo` (no el diario). Fechas siempre calculadas desde la semana actual.
+- **Filtros reservas Mañana/Fin de semana:** Botones de filtro rápido en listado de reservas: "Hoy", "Mañana" (día siguiente), "Fin de semana" (sábado + domingo más cercanos).
+- **Datos cliente en edición reserva:** El modal de edición muestra nombre, apellidos, teléfono y email del cliente (query expandida con join a `clientes`).
+- **Sorting reservas:** Columnas Pax y Nombre son ordenables (click en header, asc/desc).
+- **Popup datos cliente:** Click en nombre de cliente en listado muestra popup con teléfono (clicable `tel:`) y email (clicable `mailto:`).
+- **Tracking cancelación:** Columna `cancelado_por` ('camarero' | 'cliente') en `reservas`. Cancel admin setea `cancelado_en` + `cancelado_por: 'camarero'`. Cancel público setea `cancelado_por: 'cliente'`. Badge "cancelada" muestra indicador gris `admin` o `email`.
+- **SMS diferido para nuevos:** Cuando SMS está activo y el cliente es nuevo, el SMS se envía DESPUÉS de aceptar el GDPR (no antes). Experiencia: GDPR popup → aceptar → SMS enviado → verificación.
+- **Password reset email:** `handleResetPassword` llama a `sendPasswordResetEmail` (fire-and-forget) después de `generateLink`. Template HTML en `server/utils/email.ts`. Link no se expone en respuesta.
+- **Página recuperar contraseña:** `/recuperar-password` parsea hash fragment, establece sesión, muestra formulario de nueva contraseña.
 - **Realtime Carta:** Subscripción Realtime en `onMounted` para actualizar platos en vivo (INSERT/UPDATE/DELETE). También escucha cambios en `categorias` y `familias`.
 - **Realtime Menú Diario:** Subscripción Realtime para actualizar platos del menú y precio en vivo cuando admin marca items como `agotado`.
 - **D.O. Vinos/Subcategorías (familias):** Tabla `familias` con FK → `categorias`. `platos.familia_id` permite asignar plato a subcategoría. `FamilySelector` como segundo scroll horizontal en carta pública. `PlatoForm` carga familias dinámicamente según categoría seleccionada.
@@ -356,7 +367,7 @@
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
 - **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
 - **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
-- **Tests:** 958 passed, 16 pre-existing failures (same patterns — useMesasFusion, useMenuDiario, layouts/cocina, nuxt smoke).
+- **Tests:** 974 passed, 1 pre-existing failure, 8 skipped.
 
 ## 8. Reglas para agentes IA
 
@@ -396,7 +407,7 @@ tfm-restaurant/
 │   │   └── mesas/             # Motor de mesas (stores, components, composables)
 │   ├── layouts/               # Layouts Nuxt
 │   ├── middleware/             # Protección rutas admin
-│   ├── pages/                 # 7 páginas (ver rutas sección 5)
+│   ├── pages/                 # 8 páginas (ver rutas sección 5)
 │   │   └── cocina/            # 10 páginas admin
 │   ├── plugins/               # Plugins Nuxt (Supabase, Konva, etc.)
 │   ├── stores/                # Pinia stores
@@ -543,3 +554,14 @@ tfm-restaurant/
 | **Reset password por id** | Frontend buscaba email en lista local; si auth.admin.listUsers() no devolvía email → 400 "Email es requerido" | Handler acepta `id` además de `email`. Si solo llega id, resuelve email server-side con `auth.admin.getUserById(id)`. Elimina dependencia frágil del frontend |
 | **Eliminar usuario cascade** | profiles.id FK → auth.users.id (sin CASCADE). Borrar auth user sin profile → FK violation | Handler borra profile PRIMERO (`supabase.from('profiles').delete()`), DESPUÉS `auth.admin.deleteUser(id)`. Si profile falla, no toca auth |
 | **Toast feedback admin** | Catch silencioso en crear/editar/desactivar/reset → "no hace nada" | Todas las acciones muestran toast verde (éxito) / rojo (error con statusMessage). Patrón replicado de clientes.vue |
+| **Password reset email** | `generateLink()` solo genera URL, NO envía email | Se llama a `sendPasswordResetEmail` después de generar el link (fire-and-forget). Template HTML con botón "Restablecer contraseña". Link no se expone en respuesta (seguridad) |
+| **Supabase redirect_to ignored** | `generateLink` ignora `options.redirectTo` y usa Site URL del dashboard | Home page detecta `type=recovery` en URL hash y redirige a `/recuperar-password`. Función `resolveRedirectTo` lee `site_url` de la DB para el link del email |
+| **Password recovery page** | Sin página para cambiar contraseña tras clic en email | `/recuperar-password` parsea hash fragment (`#access_token=...&type=recovery`), establece sesión con `setSession()`, muestra formulario, llama a `updateUser({ password })` |
+| **Multi-tenant placeholders** | Placeholders hardcodeados con datos de La Zíngara en ConfiguracionForm | Todos los placeholders genéricos (nombre, dirección, teléfono, maps, email SMTP). CORS configurable vía `.env` sin hardcoded en `nuxt.config.ts` |
+| **Menú diario día por defecto** | El editor siempre mostraba Domingo (day 0) | `selectedDay = ref(new Date().getDay())`. Precio domingo usa `precio_menu_domingo`. Fecha siempre recalculada desde la semana actual (no la guardada en DB) |
+| **Filtros reservas rápido** | Sin botones de filtro rápido | Botones "Hoy", "Mañana", "Fin de semana" calculan rangos de fechas automáticamente |
+| **Datos cliente en reserva** | Query solo traía `nombre` del cliente | Query expandida: `cliente:cliente_id(nombre,apellidos,telefono,email)`. Modal de edición muestra todos los campos |
+| **Popup datos cliente** | Sin acceso rápido a teléfono/email | Click en nombre muestra popup con teléfono clicable (`tel:`) y email clicable (`mailto:`) |
+| **Sorting reservas** | Sin ordenación en columnas | Columnas Pax y Nombre son ordenables (click en header, toggle asc/desc) |
+| **Tracking cancelación** | Sin registro de quién canceló | Columna `cancelado_por text` ('camarero' | 'cliente'). Admin cancel setea `cancelado_en` + `cancelado_por: 'camarero'`. Público setea `cancelado_por: 'cliente'` |
+| **SMS diferido para nuevos** | SMS se enviaba antes del GDPR para nuevos clientes | Cuando SMS activo + cliente nuevo: GDPR popup primero → al aceptar → SMS enviado → verificación. Para existentes: SMS inmediato |

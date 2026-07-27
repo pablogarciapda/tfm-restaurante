@@ -688,13 +688,15 @@ async function loadConfiguracion() {
 interface ReservaRow {
   id: string
   nombre_cliente?: string
-  cliente?: { nombre?: string } | null
+  cliente?: { nombre?: string; apellidos?: string; telefono?: string; email?: string } | null
   fecha_hora: string
   numero_comensales: number | null
   estado: string
   zona_id?: string | null
   mesa_id?: string | null
   created_at?: string
+  cancelado_en?: string | null
+  cancelado_por?: string | null
 }
 
 interface ZonaOption {
@@ -832,7 +834,7 @@ async function loadReservas() {
 
     const { data, error } = await client
       .from('reservas')
-      .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cliente:cliente_id(nombre)')
+      .select('id, fecha_hora, numero_comensales, estado, zona_id, mesa_id, created_at, cancelado_en, cancelado_por, cliente:cliente_id(nombre,apellidos,telefono,email)')
       .gte('fecha_hora', from.toISOString().slice(0, 10))
       .lte('fecha_hora', to.toISOString().slice(0, 10) + 'T23:59:59')
       .order('fecha_hora', { ascending: true })
@@ -855,9 +857,59 @@ function setToday() {
   filterHasta.value = today
 }
 
+function setTomorrow() {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const str = toLocalDateString(tomorrow)
+  filterDesde.value = str
+  filterHasta.value = str
+}
+
+function setWeekend() {
+  const today = new Date()
+  const dayOfWeek = today.getDay() // 0=Sun..6=Sat
+  // Days until next Saturday (6): if today is Sat(6) => next Sat is in 7 days
+  const daysToSat = (6 - dayOfWeek + 7) % 7 || 7
+  const saturday = new Date(today)
+  saturday.setDate(today.getDate() + daysToSat)
+  const sunday = new Date(saturday)
+  sunday.setDate(saturday.getDate() + 1)
+  filterDesde.value = toLocalDateString(saturday)
+  filterHasta.value = toLocalDateString(sunday)
+}
+
 function clearDateFilter() {
   filterDesde.value = toLocalDateString()
   filterHasta.value = ''
+}
+
+// ── Sorting ──
+const sortField = ref<'pax' | 'nombre' | null>(null)
+const sortDir = ref<'asc' | 'desc'>('asc')
+
+function toggleSort(field: 'pax' | 'nombre') {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'asc'
+  }
+}
+
+// ── Client info popup ──
+const clientPopupShow = ref(false)
+const clientPopupData = ref<{ nombre: string; apellidos?: string; telefono?: string; email?: string } | null>(null)
+
+function openClientPopup(reserva: ReservaRow) {
+  const c = reserva.cliente as any
+  if (!c?.nombre) return
+  clientPopupData.value = { nombre: c.nombre, apellidos: c.apellidos, telefono: c.telefono, email: c.email }
+  clientPopupShow.value = true
+}
+
+function closeClientPopup() {
+  clientPopupShow.value = false
+  clientPopupData.value = null
 }
 
 const filteredReservas = computed(() => {
@@ -871,6 +923,22 @@ const filteredReservas = computed(() => {
     const endDate = new Date(y!, m! - 1, d! + 1)
     const endStr = toLocalDateString(endDate)
     list = list.filter((r) => r.fecha_hora.slice(0, 10) < endStr)
+  }
+  // Sort
+  if (sortField.value) {
+    list = [...list].sort((a, b) => {
+      let va: number | string = 0
+      let vb: number | string = 0
+      if (sortField.value === 'pax') {
+        va = a.numero_comensales ?? 0
+        vb = b.numero_comensales ?? 0
+      } else if (sortField.value === 'nombre') {
+        va = (a.cliente as any)?.nombre ?? ''
+        vb = (b.cliente as any)?.nombre ?? ''
+      }
+      if (typeof va === 'string') return sortDir.value === 'asc' ? va.localeCompare(vb as string) : (vb as string).localeCompare(va)
+      return sortDir.value === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number)
+    })
   }
   return list
 })
@@ -906,7 +974,11 @@ function closeReasignar() {
 async function cancelarReserva(reserva: ReservaRow) {
   if (!confirm('¿Cancelar esta reserva?')) return
   try {
-    await client.from('reservas').update({ estado: 'cancelada' }).eq('id', reserva.id)
+    await client.from('reservas').update({
+      estado: 'cancelada',
+      cancelado_en: new Date().toISOString(),
+      cancelado_por: 'camarero',
+    }).eq('id', reserva.id)
     await loadReservas()
     showToast('Reserva cancelada', 'success')
   } catch {
@@ -1309,6 +1381,20 @@ onMounted(async () => {
             Hoy
           </button>
           <button
+            type="button"
+            class="rounded bg-terracotta px-2 py-1 text-xs text-white hover:bg-terracotta/90"
+            @click="setTomorrow"
+          >
+            Mañana
+          </button>
+          <button
+            type="button"
+            class="rounded bg-terracotta px-2 py-1 text-xs text-white hover:bg-terracotta/90"
+            @click="setWeekend"
+          >
+            Fin de semana
+          </button>
+          <button
             v-if="filterDesde || filterHasta"
             type="button"
             class="rounded bg-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-300"
@@ -1329,11 +1415,21 @@ onMounted(async () => {
           <thead class="border-b border-gray-100 bg-gray-50">
             <tr>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
-              <th class="px-4 py-2 text-left font-medium text-gray-500">Pax</th>
+              <th
+                class="px-4 py-2 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-terracotta"
+                @click="toggleSort('pax')"
+              >
+                Pax {{ sortField === 'pax' ? (sortDir === 'asc' ? '↑' : '↓') : '' }}
+              </th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Zona</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Mesa</th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
-              <th class="px-4 py-2 text-left font-medium text-gray-500">Nombre</th>
+              <th
+                class="px-4 py-2 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-terracotta"
+                @click="toggleSort('nombre')"
+              >
+                Nombre {{ sortField === 'nombre' ? (sortDir === 'asc' ? '↑' : '↓') : '' }}
+              </th>
               <th class="px-4 py-2 text-left font-medium text-gray-500">Ref</th>
               <th class="px-4 py-2 text-right font-medium text-gray-500">Acción</th>
             </tr>
@@ -1363,9 +1459,18 @@ onMounted(async () => {
                 >
                   {{ reserva.estado }}
                 </span>
+                <span
+                  v-if="reserva.estado === 'cancelada' && reserva.cancelado_por"
+                  class="ml-1 text-xs text-gray-400"
+                >{{ reserva.cancelado_por === 'camarero' ? 'admin' : 'email' }}</span>
               </td>
               <td class="px-4 py-2">
-                {{ (reserva.cliente as any)?.nombre || '—' }}
+                <span
+                  v-if="(reserva.cliente as any)?.nombre"
+                  class="cursor-pointer text-terracotta hover:underline"
+                  @click="openClientPopup(reserva)"
+                >{{ (reserva.cliente as any)?.nombre }}</span>
+                <span v-else>—</span>
               </td>
               <td class="px-4 py-2 font-mono text-xs text-gray-500">
                 {{ generarReferencia(reserva.id, reserva.fecha_hora) }}
@@ -1959,6 +2064,38 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- Client info popup -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="clientPopupShow && clientPopupData"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          @click.self="closeClientPopup"
+        >
+          <div class="rounded-xl bg-white p-6 shadow-xl w-80">
+            <h3 class="mb-4 text-lg font-bold text-slate">Datos del cliente</h3>
+            <div class="space-y-2 text-sm">
+              <p><span class="font-medium text-gray-500">Nombre:</span> {{ clientPopupData.nombre }} {{ clientPopupData.apellidos }}</p>
+              <p v-if="clientPopupData.telefono">
+                <span class="font-medium text-gray-500">Teléfono:</span>
+                <a :href="`tel:${clientPopupData.telefono}`" class="text-terracotta hover:underline">{{ clientPopupData.telefono }}</a>
+              </p>
+              <p v-if="clientPopupData.email">
+                <span class="font-medium text-gray-500">Email:</span>
+                <a :href="`mailto:${clientPopupData.email}`" class="text-terracotta hover:underline">{{ clientPopupData.email }}</a>
+              </p>
+            </div>
+            <button
+              class="mt-4 w-full rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200"
+              @click="closeClientPopup"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- MFU-007: editor-blocked toast -->
     <div

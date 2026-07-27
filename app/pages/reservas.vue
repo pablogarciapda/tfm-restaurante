@@ -162,22 +162,24 @@ async function handleFormSubmit(data: ReservationPayload) {
       await submitReservation(false, !yaAcepto && !!gdprText.value)
     }
   } else {
-    // SMS verification: send code first
-    try {
-      await $fetch('/api/sms/send', {
-        method: 'POST',
-        body: { phone: normalizedPhone },
-      })
-
-      if (gdprText.value && !yaAcepto) {
-        step.value = 'gdpr'
-      } else {
-        step.value = 'sms'
-      }
-    } catch {
-      error.value = 'Error al enviar el código. Inténtalo de nuevo.'
-    } finally {
+    // SMS verification required
+    if (gdprText.value && !yaAcepto) {
+      // New client: show GDPR FIRST, send SMS only after accept
       sending.value = false
+      step.value = 'gdpr'
+    } else {
+      // Existing client: send SMS immediately
+      try {
+        await $fetch('/api/sms/send', {
+          method: 'POST',
+          body: { phone: normalizedPhone },
+        })
+        step.value = 'sms'
+      } catch {
+        error.value = 'Error al enviar el código. Inténtalo de nuevo.'
+      } finally {
+        sending.value = false
+      }
     }
   }
 }
@@ -188,7 +190,21 @@ async function handleGdprAccept() {
   if (!smsVerificacion.value) {
     await submitReservation(false, true)
   } else {
-    step.value = 'sms'
+    // New client accepted GDPR → now send SMS
+    sending.value = true
+    error.value = ''
+    try {
+      await $fetch('/api/sms/send', {
+        method: 'POST',
+        body: { phone: formData.value.telefono },
+      })
+      step.value = 'sms'
+    } catch {
+      error.value = 'Error al enviar el código. Inténtalo de nuevo.'
+      step.value = 'form'
+    } finally {
+      sending.value = false
+    }
   }
 }
 

@@ -49,9 +49,10 @@ interface MenuItem {
 interface ConfigPrice {
   precio_menu_diario: number | null
   precio_menu_sabado: number | null
+  precio_menu_domingo: number | null
 }
 
-const selectedDay = ref(0)
+const selectedDay = ref(new Date().getDay())
 const configs = ref<Config[]>([])
 const items = ref<MenuItem[]>([])
 const configPrice = ref<ConfigPrice | null>(null)
@@ -179,7 +180,7 @@ function getDateForDay(dayOfWeek: number): string {
 async function loadConfigPrice() {
   const { data } = await client
     .from('configuracion')
-    .select('precio_menu_diario, precio_menu_sabado')
+    .select('precio_menu_diario, precio_menu_sabado, precio_menu_domingo')
     .single()
   if (data) configPrice.value = data as ConfigPrice
 }
@@ -217,9 +218,11 @@ async function toggleFestivo(configId: string, es_festivo: boolean) {
 }
 
 async function createConfig(dayOfWeek: number) {
-  const defaultPrecio = dayOfWeek === 6
-    ? String(configPrice.value?.precio_menu_sabado ?? '')
-    : String(configPrice.value?.precio_menu_diario ?? '')
+  const defaultPrecio = dayOfWeek === 0
+    ? String(configPrice.value?.precio_menu_domingo ?? '')
+    : dayOfWeek === 6
+      ? String(configPrice.value?.precio_menu_sabado ?? '')
+      : String(configPrice.value?.precio_menu_diario ?? '')
 
   const { data } = await client.from('menu_diario_config').insert({
     day_of_week: dayOfWeek,
@@ -413,15 +416,20 @@ const currentConfig = computed(() =>
 
 const currentDayPrice = computed(() => {
   if (!configPrice.value) return null
-  return selectedDay.value === 6
-    ? configPrice.value.precio_menu_sabado
-    : configPrice.value.precio_menu_diario
+  if (selectedDay.value === 0) return configPrice.value.precio_menu_domingo
+  if (selectedDay.value === 6) return configPrice.value.precio_menu_sabado
+  return configPrice.value.precio_menu_diario
 })
 
 onMounted(async () => {
   await Promise.all([loadConfigs(), loadConfigPrice()])
+
+  const today = new Date().getDay()
+  const todayConfig = configs.value.find((c) => c.day_of_week === today)
   const firstActive = configs.value.find((c) => c.activo)
-  if (firstActive) selectDay(firstActive.day_of_week)
+
+  if (todayConfig) selectDay(today)
+  else if (firstActive) selectDay(firstActive.day_of_week)
   else if (configs.value.length > 0) selectDay(configs.value[0].day_of_week)
 })
 </script>
@@ -468,7 +476,7 @@ onMounted(async () => {
         <!-- Date display (read-only — managed by day_of_week + activo) -->
         <div class="text-sm text-gray-600">
           Fecha:
-          <span class="font-medium text-slate">{{ currentConfig.fecha ?? getDateForDay(selectedDay) }}</span>
+          <span class="font-medium text-slate">{{ getDateForDay(selectedDay) }}</span>
         </div>
 
         <!-- Price from Configuración -->

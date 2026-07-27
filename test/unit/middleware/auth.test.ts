@@ -16,6 +16,12 @@ const mockSignOut = vi.fn()
 const mockGetSession = vi.fn()
 const stateMap = new Map<string, ReturnType<typeof ref>>()
 
+// ---------- Mock isSessionAuthenticated ----------
+let sessionAuthenticated = true
+vi.mock('#shared/utils/session', () => ({
+  isSessionAuthenticated: () => sessionAuthenticated,
+}))
+
 // ---------- Inject Nuxt auto-imports ----------
 const g = globalThis as Record<string, unknown>
 g.defineNuxtRouteMiddleware = (fn: (...args: unknown[]) => unknown) => fn
@@ -43,12 +49,14 @@ describe('auth middleware (AUTH-003)', () => {
     vi.clearAllMocks()
     stateMap.clear()
     userRef.value = null
+    sessionAuthenticated = true
     // Default: no session in storage
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
   })
 
-  // ── RED: Unauthenticated → redirect ──
+  // ── RED: Unauthenticated (no sessionStorage flag) → redirect ──
   it('redirects to /cocina when user is null and no session exists', async () => {
+    sessionAuthenticated = false
     const mod = await import('../../../app/middleware/auth')
     const result = await mod.default(
       { path: '/cocina/dashboard', fullPath: '/cocina/dashboard' },
@@ -56,10 +64,11 @@ describe('auth middleware (AUTH-003)', () => {
     )
 
     expect(result).toBeDefined()
-    expect(mockGetSession).toHaveBeenCalled()
+    expect(mockGetSession).not.toHaveBeenCalled()
     expect(mockNavigateTo).toHaveBeenCalledWith('/cocina')
-    // Should NOT store auth user
-    expect(stateMap.get('cocina-auth-user')?.value).toBeNull()
+    // Should NOT store auth user (state never created — redirect happens first)
+    const authUser = stateMap.get('cocina-auth-user')
+    expect(authUser?.value ?? null).toBeNull()
   })
 
   // ── FIX: SPA boot with existing session ──
@@ -98,8 +107,9 @@ describe('auth middleware (AUTH-003)', () => {
     expect(stateMap.get('cocina-auth-user')?.value).toEqual({ id: 'user-1' })
   })
 
-  // ── TRIANGULATE: different routes all redirect ──
+  // ── TRIANGULATE: different routes all redirect when unauthenticated ──
   it('redirects to /cocina regardless of which protected route was requested', async () => {
+    sessionAuthenticated = false
     const mod = await import('../../../app/middleware/auth')
 
     for (const route of ['/cocina/carta', '/cocina/eventos', '/cocina/reservas']) {

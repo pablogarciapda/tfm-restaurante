@@ -35,6 +35,10 @@ export default defineConfig({
           environmentOptions: {
             nuxt: { domEnvironment: 'happy-dom' },
           },
+          // Serialize Nuxt integration tests — concurrent dev servers
+          // fight over ports and .nuxt/dev build directory.
+          pool: 'forks',
+          singleFork: true,
         },
         resolve: {
           alias: {

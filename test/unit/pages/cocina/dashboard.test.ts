@@ -10,41 +10,12 @@ import { ref } from 'vue'
 
 const mockNavigateTo = vi.fn((p: string) => p)
 
-/**
- * Creates a chainable-thenable mock for Supabase query chains.
- * Any method call returns `this`. When awaited, returns the configured response.
- */
-function createQueryChain(resolveValue: unknown) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain: Record<string, any> = {
-    then(resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) {
-      return Promise.resolve(resolveValue).then(resolve, reject)
-    },
-    catch(reject: (e: unknown) => unknown) {
-      return Promise.resolve(resolveValue).catch(reject)
-    },
-  }
-
-  const methods = ['select', 'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'order', 'limit', 'single', 'maybeSingle']
-  for (const m of methods) {
-    chain[m] = () => chain
-  }
-
-  return chain
-}
-
-// Query responses (count-based)
-let queryResponses: Array<{ count: number; error: null | Error }> = [
-  { count: 12, error: null },
-  { count: 5, error: null },
-  { count: 3, error: null },
-]
-let queryIndex = 0
-
-const mockSelect = vi.fn(() => {
-  const resp = queryResponses[queryIndex] ?? { count: 0, error: null }
-  queryIndex++
-  return createQueryChain(resp)
+// Dashboard now uses $fetch instead of Supabase client
+let fetchResponse: unknown = null
+let fetchShouldThrow = false
+const mock$fetch = vi.fn(async () => {
+  if (fetchShouldThrow) throw new Error('network error')
+  return fetchResponse
 })
 
 const g = globalThis as Record<string, unknown>
@@ -53,8 +24,9 @@ g.definePageMeta = (_meta: unknown) => {}
 g.useSupabaseUser = () => ref({ id: '1', email: 'admin@test.com' })
 g.useSupabaseClient = () => ({
   auth: { signOut: vi.fn() },
-  from: () => ({ select: mockSelect }),
+  from: vi.fn(),
 })
+g.$fetch = mock$fetch
 g.navigateTo = (...args: unknown[]) => mockNavigateTo(...args)
 g.useState = (key: string, init?: unknown) => ref(init ?? null)
 g.useRouter = () => ({ push: mockNavigateTo })
@@ -63,12 +35,20 @@ g.useRoute = () => ({ path: '/cocina/dashboard' })
 describe('Dashboard Page (DASH-001–DASH-005)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    queryIndex = 0
-    queryResponses = [
-      { count: 12, error: null },
-      { count: 5, error: null },
-      { count: 3, error: null },
-    ]
+    fetchShouldThrow = false
+    fetchResponse = {
+      totalPlatos: 12,
+      reservasHoy: 5,
+      eventosActivos: 3,
+      totalClientes: 20,
+      totalReservas: 40,
+      mediaComensales: 2.5,
+      aforoActual: { ocupadas: 3, capacidad: 10 },
+      reservasUltimos30: [],
+      topClientes: [],
+      reservasPorDiaSemana: [],
+      reservasPorEstado: [],
+    }
   })
 
   async function mountDashboard() {
@@ -79,8 +59,12 @@ describe('Dashboard Page (DASH-001–DASH-005)', () => {
           NuxtLink: { template: '<a><slot /></a>', props: ['to'] },
           MetricCard: {
             template: '<div class="metric-card"><span class="m-label">{{ label }}</span><span class="m-value">{{ value }}</span></div>',
-            props: ['label', 'value', 'loading'],
+            props: ['label', 'value', 'loading', 'icon'],
           },
+          ChartBarHorizontal: { template: '<div class="chart-bar-horizontal" />', props: ['data', 'title'] },
+          ChartBar: { template: '<div class="chart-bar" />', props: ['data', 'title'] },
+          ChartLine: { template: '<div class="chart-line" />', props: ['data', 'title'] },
+          ChartDoughnut: { template: '<div class="chart-doughnut" />', props: ['data', 'title'] },
         },
       },
     })
@@ -92,10 +76,10 @@ describe('Dashboard Page (DASH-001–DASH-005)', () => {
     expect(wrapper.text()).toContain('Panel de Control')
   })
 
-  it('renders 3 MetricCard components', async () => {
+  it('renders 4 MetricCard components', async () => {
     const wrapper = await mountDashboard()
     await flushPromises()
-    expect(wrapper.findAll('.metric-card')).toHaveLength(3)
+    expect(wrapper.findAll('.metric-card')).toHaveLength(4)
   })
 
   it('displays labels in Spanish', async () => {
@@ -108,11 +92,19 @@ describe('Dashboard Page (DASH-001–DASH-005)', () => {
   })
 
   it('shows metric values from Supabase', async () => {
-    queryResponses = [
-      { count: 42, error: null },
-      { count: 7, error: null },
-      { count: 1, error: null },
-    ]
+    fetchResponse = {
+      totalPlatos: 42,
+      reservasHoy: 7,
+      eventosActivos: 1,
+      totalClientes: 20,
+      totalReservas: 40,
+      mediaComensales: 2.5,
+      aforoActual: { ocupadas: 3, capacidad: 10 },
+      reservasUltimos30: [],
+      topClientes: [],
+      reservasPorDiaSemana: [],
+      reservasPorEstado: [],
+    }
 
     const wrapper = await mountDashboard()
     await flushPromises()

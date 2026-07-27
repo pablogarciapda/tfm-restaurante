@@ -610,6 +610,7 @@ export type Database = {
         Row: {
           cancel_token: string | null
           cancelado_en: string | null
+          cancelado_por: string | null
           cliente_id: string | null
           created_at: string
           estado: string | null
@@ -622,6 +623,7 @@ export type Database = {
         Insert: {
           cancel_token?: string | null
           cancelado_en?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           created_at?: string
           estado?: string | null
@@ -634,6 +636,7 @@ export type Database = {
         Update: {
           cancel_token?: string | null
           cancelado_en?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           created_at?: string
           estado?: string | null

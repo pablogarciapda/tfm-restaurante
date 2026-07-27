@@ -270,7 +270,7 @@ Configura las dimensiones del lienzo del plano interactivo de mesas:
 
 | Pregunta | Respuesta |
 |----------|-----------|
-| ¿Cómo recupero mi contraseña? | Pide al administrador que te restablezca el acceso |
+| ¿Cómo recupero mi contraseña? | El administrador pulsa "Restablecer contraseña" en Usuarios. Recibirás un email con un enlace para crear una nueva contraseña. |
 | ¿Por qué no veo algunas secciones? | Tu usuario tiene permisos limitados. Habla con el administrador |
 | ¿Los cambios en la carta se ven al instante en la web? | Sí, los cambios son en tiempo real |
 | ¿Puedo tener el menú diario de la semana entera ya preparado? | Sí, cada día se configura independientemente y se activa cuando quieras |
