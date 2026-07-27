@@ -15,14 +15,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Turno debe ser "comida" o "cena"' })
   }
 
+  const fusions = Array.isArray(body.fusions) ? body.fusions : []
+
   const { error } = await supabase
     .from('canvas_layouts')
     .upsert({
-      fecha: body.fecha, turno, zona: body.zona || '', positions: body.positions,
+      fecha: body.fecha, turno, zona: body.zona || '', positions: body.positions, fusions,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'fecha, turno, zona' })
 
   if (error) throw createError({ statusCode: 500, statusMessage: `Error al guardar: ${error.message}` })
 
-  return { success: true, fecha: body.fecha, turno, count: body.positions.length }
+  return { success: true, fecha: body.fecha, turno, count: body.positions.length, fusions_count: fusions.length }
 })

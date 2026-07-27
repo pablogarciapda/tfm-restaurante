@@ -127,6 +127,29 @@ function collectLayoutPositions(positionsMap: Record<string, { x: number; y: num
   })
 }
 
+/** Collect current fusion groups from ALL mesas in the store (across all zones). */
+function collectFusionGroups(): Array<{ id_fusion: string; parent_id: string; capacity: number; mesa_ids: string[] }> {
+  const fusionGroups = new Map<string, Mesa[]>()
+  for (const m of store.mesas) {
+    if (!m.id_fusion) continue
+    const group = fusionGroups.get(m.id_fusion) ?? []
+    group.push(m)
+    fusionGroups.set(m.id_fusion, group)
+  }
+  const fusions: Array<{ id_fusion: string; parent_id: string; capacity: number; mesa_ids: string[] }> = []
+  for (const [fusionId, mesas] of fusionGroups) {
+    const parent = mesas.find((m) => m.mesa_padre_id === null)
+    if (!parent) continue
+    fusions.push({
+      id_fusion: fusionId,
+      parent_id: parent.id,
+      capacity: parent.capacidad_actual,
+      mesa_ids: mesas.map((m) => m.id),
+    })
+  }
+  return fusions
+}
+
 /** Guarda el layout actual para la fecha + turno seleccionado en canvas_layouts */
 async function handleGuardarCanvas() {
   const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
@@ -138,12 +161,14 @@ async function handleGuardarCanvas() {
   try {
     const positionsMap = canvasRef.value?.getMesaPositions() ?? {}
     const positions = collectLayoutPositions(positionsMap)
+    const fusions = collectFusionGroups()
     await $fetch('/api/canvas/save-layout', {
       method: 'POST',
-      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions },
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions, fusions },
     })
     const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
-    showToast(`Layout guardado (${positions.length} mesas) — ${guardarFecha.value} ${turnoLabel}`, 'success')
+    const fusionMsg = fusions.length > 0 ? ` (${fusions.length} fusiones)` : ''
+    showToast(`Layout guardado (${positions.length} mesas)${fusionMsg} — ${guardarFecha.value} ${turnoLabel}`, 'success')
   } catch (e: any) {
     showToast(e?.statusMessage || 'Error al guardar layout', 'error')
   } finally {
@@ -191,6 +216,9 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
     const data: any = await $fetch('/api/canvas/load-layout', {
       params: { fecha, turno, zona: store.activeZona },
     })
+    const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
+
+    // 1. Restore positions
     if (data?.positions?.length) {
       for (const pos of data.positions) {
         await updateMesa(pos.mesa_id, {
@@ -199,9 +227,67 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
           rotacion: pos.rotacion,
         })
       }
-      await loadMesas(store.activeZona)
-      const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
-      showToast(`Layout cargado: ${fecha} (${turnoLabel}) — ${data.positions.length} mesas`, 'success')
+    }
+
+    // 2. Restore fusions: clear all + apply saved
+    const savedFusions: Array<{ id_fusion: string; parent_id: string; capacity: number; mesa_ids: string[] }> =
+      Array.isArray(data?.fusions) ? data.fusions : []
+
+    // Fetch all mesas (without zone filter) to clear fusions globally
+    const { data: allMesas } = await client.from('mesas').select('id, capacidad_base, id_fusion')
+    const clearUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
+    if (allMesas) {
+      for (const m of allMesas) {
+        if (m.id_fusion != null) {
+          clearUpdates.push({
+            id: m.id,
+            data: { id_fusion: null, mesa_padre_id: null, capacidad_actual: m.capacidad_base },
+          })
+        }
+      }
+      // Update DB: clear all fusion state
+      for (const u of clearUpdates) {
+        try {
+          await client.from('mesas').update(u.data as Record<string, unknown>).eq('id', u.id)
+        } catch { /* ignore individual errors */ }
+      }
+      // Update store
+      if (clearUpdates.length > 0) {
+        store.batchUpdateMesas(clearUpdates)
+      }
+    }
+
+    // Apply saved fusions to DB and store
+    const fusionUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
+    for (const fusion of savedFusions) {
+      for (const mesaId of fusion.mesa_ids) {
+        const isParent = mesaId === fusion.parent_id
+        fusionUpdates.push({
+          id: mesaId,
+          data: {
+            id_fusion: fusion.id_fusion,
+            mesa_padre_id: isParent ? null : fusion.parent_id,
+            capacidad_actual: fusion.capacity,
+          },
+        })
+      }
+    }
+    if (fusionUpdates.length > 0) {
+      for (const u of fusionUpdates) {
+        try {
+          await client.from('mesas').update(u.data as Record<string, unknown>).eq('id', u.id)
+        } catch { /* ignore individual errors */ }
+      }
+      store.batchUpdateMesas(clearUpdates.concat(fusionUpdates))
+    }
+
+    // Reload store from DB to get final state
+    await loadMesas()
+
+    const posMsg = data?.positions?.length ? ` (${data.positions.length} mesas)` : ''
+    const fusMsg = savedFusions.length > 0 ? ` — ${savedFusions.length} fusiones` : ''
+    if (data?.positions?.length || savedFusions.length > 0) {
+      showToast(`Layout cargado: ${fecha} (${turnoLabel})${posMsg}${fusMsg}`, 'success')
     }
   } catch {
     // no layout for this date/turno — silently skip
@@ -717,27 +803,39 @@ const reasignarSaving = ref(false)
 const reasignarError = ref('')
 const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
-/** Mesas disponible for reasignar — exclude occupied ones */
+/** Mesas disponible for reasignar — exclude occupied ones (same-date only) */
 const reasignarMesasDisponibles = computed(() => {
-  // Get occupied mesa IDs (reservas activas: confirmada o pendiente)
+  const reserva = reasignarReserva.value
+  if (!reserva) return []
+
+  // Only consider tables occupied on the SAME DATE as the reservation being reassigned
+  const reservaFecha = reserva.fecha_hora?.slice(0, 10) ?? ''
   const ocupadas = new Set<string>()
   for (const r of reservasList.value) {
+    // Skip the reservation being reassigned itself
+    if (r.id === reserva.id) continue
+    // Only consider reservations on the same date
+    if (r.fecha_hora?.slice(0, 10) !== reservaFecha) continue
     if (r.mesa_id && (r.estado === 'confirmada' || r.estado === 'pendiente')) {
       ocupadas.add(r.mesa_id)
     }
   }
 
-  // Filter: parent mesas (no children of fused groups), not occupied, optionally by zone
+  // Enabled zone names — never show tables from disabled zones
+  const enabledZoneNames = new Set(zonasConfig.value.map((z) => z.nombre))
+
+  // Filter by selected zone (if any)
   const zonaNombre = reasignarZonaId.value
     ? zonasConfig.value.find((z) => z.id === reasignarZonaId.value)?.nombre ?? null
     : null
 
-  const comensales = reasignarReserva.value?.numero_comensales ?? 0
+  const comensales = reserva.numero_comensales ?? 0
 
   return store.parentMesas.filter(
     (m) =>
       !ocupadas.has(m.id) &&
       m.capacidad_actual >= comensales &&
+      enabledZoneNames.has(m.zona) &&
       (!zonaNombre || m.zona === zonaNombre),
   )
 })
@@ -966,6 +1064,15 @@ function openReasignar(reserva: ReservaRow) {
   reasignarShow.value = true
 }
 
+watch(reasignarMesaId, (mesaId) => {
+  if (!mesaId) return
+  const mesa = store.mesas.find((m) => m.id === mesaId)
+  if (mesa) {
+    const zona = zonasConfig.value.find((z) => z.nombre === mesa.zona)
+    if (zona) reasignarZonaId.value = zona.id
+  }
+})
+
 function closeReasignar() {
   reasignarShow.value = false
   reasignarReserva.value = null
@@ -1140,10 +1247,10 @@ const reservasForCanvas = computed(() => {
   }))
 })
 
-/** Map mesa_id → reservation reference (e.g. "240718-A4C9") for today's reserved tables */
+/** Map mesa_id → reservation reference (e.g. "240718-A4C9") for selected date's reserved tables */
 const reservasMap = computed(() => {
   const map: Record<string, string> = {}
-  const todayStr = toLocalDateString()
+  const selectedDate = guardarFecha.value
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
@@ -1151,7 +1258,7 @@ const reservasMap = computed(() => {
     // Local-time date comparison (same as mesaTurnoStatus)
     const d = new Date(r.fecha_hora)
     const localDate = toLocalDateString(d)
-    if (localDate !== todayStr) continue
+    if (localDate !== selectedDate) continue
     map[r.mesa_id] = generarReferencia(r.id, r.fecha_hora)
   }
   return map
@@ -1160,10 +1267,10 @@ const reservasMap = computed(() => {
 /** Estados that should NOT appear in the tooltip (same as mesa-estado EXCLUDED_ESTADOS) */
 const TOOLTIP_EXCLUDED_ESTADOS = new Set(['cancelada', 'standby', 'completada'])
 
-/** Map mesa_id → detailed reservation info for TODAY only (multiple per mesa) for tooltip */
+/** Map mesa_id → detailed reservation info for selected date only (multiple per mesa) for tooltip */
 const reservasDetailMap = computed(() => {
   const map: Record<string, { nombre_cliente: string; fecha_hora: string; numero_comensales: number; referencia: string }[]> = {}
-  const todayStr = toLocalDateString()
+  const selectedDate = guardarFecha.value
 
   for (const r of reservasList.value) {
     if (!r.mesa_id) continue
@@ -1173,7 +1280,7 @@ const reservasDetailMap = computed(() => {
     // Local-time date comparison (same logic as mesaTurnoStatus in TableCanvas)
     const d = new Date(r.fecha_hora)
     const localDate = toLocalDateString(d)
-    if (localDate !== todayStr) continue
+    if (localDate !== selectedDate) continue
     if (!map[r.mesa_id]) map[r.mesa_id] = []
     map[r.mesa_id].push({
       nombre_cliente: nombre,
@@ -1339,6 +1446,7 @@ onMounted(async () => {
         :zonas-config="zonasConfig"
         :design-mode="false"
         :selected-ids="selectedIds"
+        :selected-date="guardarFecha"
         :canvas-ancho-base="disenoConfig.canvas_ancho_base"
         :canvas-alto-base="disenoConfig.canvas_alto_base"
         @table-click-reservation="handleTableClickWithMode"

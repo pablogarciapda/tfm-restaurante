@@ -18,5 +18,5 @@ export default defineEventHandler(async (event) => {
   if (error) throw createError({ statusCode: 500, statusMessage: `Error al cargar: ${error.message}` })
   if (!data) return { positions: [] }
 
-  return { fecha: data.fecha, turno: data.turno, zona: data.zona, positions: data.positions, updated_at: data.updated_at }
+  return { fecha: data.fecha, turno: data.turno, zona: data.zona, positions: data.positions, fusions: data.fusions ?? [], updated_at: data.updated_at }
 })
