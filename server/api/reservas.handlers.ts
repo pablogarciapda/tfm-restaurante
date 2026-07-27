@@ -413,6 +413,7 @@ export async function handleCancelReservation(
     .update({
       estado: 'cancelada',
       cancelado_en: new Date().toISOString(),
+      cancelado_por: 'cliente',
       cancel_token: null,
     })
     .eq('id', reserva.id)
