@@ -878,14 +878,26 @@ const reasignarMesasDisponibles = computed(() => {
   const reserva = reasignarReserva.value
   if (!reserva) return []
 
-  // Only consider tables occupied on the SAME DATE as the reservation being reassigned
+  // Only consider tables occupied on the SAME DATE AND TURNO as the reservation being reassigned
   const reservaFecha = reserva.fecha_hora?.slice(0, 10) ?? ''
+  const reservaHora = new Date(reserva.fecha_hora)
+  const reservaMins = reservaHora.getHours() * 60 + reservaHora.getMinutes()
+  const windows = horariosConfig.value ? buildTurnoWindows(horariosConfig.value) : null
+  const reservaTurno = windows ? reservationTurn(reservaMins, windows.comida, windows.cena) : null
+
   const ocupadas = new Set<string>()
   for (const r of reservasList.value) {
     // Skip the reservation being reassigned itself
     if (r.id === reserva.id) continue
     // Only consider reservations on the same date
     if (r.fecha_hora?.slice(0, 10) !== reservaFecha) continue
+    // Only consider reservations in the same turno
+    if (reservaTurno && windows) {
+      const rHora = new Date(r.fecha_hora)
+      const rMins = rHora.getHours() * 60 + rHora.getMinutes()
+      const rTurno = reservationTurn(rMins, windows.comida, windows.cena)
+      if (rTurno !== reservaTurno) continue
+    }
     if (r.mesa_id && (r.estado === 'confirmada' || r.estado === 'pendiente')) {
       ocupadas.add(r.mesa_id)
     }
