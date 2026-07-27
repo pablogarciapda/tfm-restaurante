@@ -142,11 +142,18 @@ export function calcularEstadoMesa(
         const mins = reservaMinutes(r.fecha_hora)
         const window = currentTurn === 'comida' ? turnos.comida : turnos.cena
         const turno = reservationTurn(mins, turnos.comida, turnos.cena)
+        // Match if: (a) reservation's turn matches the active turn AND its booking
+        // window overlaps, OR (b) the reservation start time falls within the active
+        // turn window (inclusive end). Case (b) handles the boundary where cena_fin
+        // equals the reservation time (e.g. cena_fin=23:00, reserva at 23:00) —
+        // reservationTurn uses half-open < so it returns null, but the reservation
+        // IS within the turn's service hours.
         if (turno === currentTurn) {
-          // Check if the reservation's booking window overlaps with the turn window
           const duration = turno === 'comida' ? DEFAULT_DURACION_COMIDA : DEFAULT_DURACION_CENA
           const resWin = bookingWindow(mins, turno, duration)
           inCurrentService = windowsOverlap(resWin, window)
+        } else if (mins >= window.start && mins <= window.end) {
+          inCurrentService = true
         }
       }
     }

@@ -133,9 +133,43 @@ describe('calcularEstadoMesa (MCA-005)', () => {
     expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
   })
 
-  it('libre when confirmada exactly at comida_fin (boundary belongs to next turn)', () => {
+  it('ocupada when confirmada exactly at comida_fin (reservation within turn hours)', () => {
     const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '15:30') })
-    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('libre')
+    expect(calcularEstadoMesa('m1', [r], ctx('comida'))).toBe('ocupada')
+  })
+
+  it('ocupada when confirmada exactly at cena_fin boundary (reserva at 23:00, cena_fin=23:00)', () => {
+    // Real scenario: DB has cena_fin="23:00", reservation at 23:00 local time
+    const ctxCena: MesaEstadoContext = {
+      selectedDate: TODAY,
+      currentTurn: 'cena',
+      turnos: buildTurnoWindows({
+        comida_inicio: '13:30',
+        comida_fin: '15:30',
+        cena_inicio: '21:00',
+        cena_fin: '23:00',
+        intervalo_minutos: 30,
+      }),
+    }
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '23:00') })
+    expect(calcularEstadoMesa('m1', [r], ctxCena)).toBe('ocupada')
+  })
+
+  it('libre when confirmada at 23:01 (after cena_fin=23:00)', () => {
+    // Use DB config where cena_fin=23:00 (not fallback 23:30)
+    const ctxCena: MesaEstadoContext = {
+      selectedDate: TODAY,
+      currentTurn: 'cena',
+      turnos: buildTurnoWindows({
+        comida_inicio: '13:30',
+        comida_fin: '15:30',
+        cena_inicio: '21:00',
+        cena_fin: '23:00',
+        intervalo_minutos: 30,
+      }),
+    }
+    const r = reserva({ mesa_id: 'm1', estado: 'confirmada', fecha_hora: localTime(TODAY, '23:01') })
+    expect(calcularEstadoMesa('m1', [r], ctxCena)).toBe('libre')
   })
 
   it('ocupada when confirmada within booking window of comida (14:00 blocks until 15:30)', () => {
