@@ -77,9 +77,19 @@ const STATUS_COLORS: Record<MesaEstado, string> = {
  * 'comida' → red top half (mañana)
  * 'cena'   → red bottom half (tarde)
  * 'full'   → fully red (both turns)
+ *
+ * When a specific turno is selected (comida/cena), no overlay is needed —
+ * the mesa is already fully colored by its estado (ocupada/reservada/libre)
+ * via calcularEstadoMesa. Overlays only apply in 'todos' mode where both
+ * turns share the same view.
  */
 const turnOverlay = computed<'none' | 'comida' | 'cena' | 'full'>(() => {
   if (!props.turnoStatus) return 'none'
+
+  // Specific turno selected: mesa is fully colored by estado, no half-paint needed
+  if (props.activeTurno && props.activeTurno !== 'todos') {
+    return 'none'
+  }
 
   const hasComida = props.turnoStatus.comida
   const hasCena = props.turnoStatus.cena
@@ -88,20 +98,8 @@ const turnOverlay = computed<'none' | 'comida' | 'cena' | 'full'>(() => {
   if (hasBoth) return 'full'
 
   // 'todos' mode: show overlay for whichever turn is reserved
-  if (!props.activeTurno || props.activeTurno === 'todos') {
-    if (hasComida) return 'comida'
-    if (hasCena) return 'cena'
-    return 'none'
-  }
-
-  if (props.activeTurno === 'comida') {
-    return hasComida ? 'comida' : 'none'
-  }
-
-  if (props.activeTurno === 'cena') {
-    return hasCena ? 'cena' : 'none'
-  }
-
+  if (hasComida) return 'comida'
+  if (hasCena) return 'cena'
   return 'none'
 })
 

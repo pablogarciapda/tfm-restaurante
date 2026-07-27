@@ -210,6 +210,8 @@ async function handleRestoreOriginal() {
 // ── Auto-load layout and refresh aforo when date or turno changes ──
 watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
   if (!fecha || !turno) return
+  // Sync turno to store so calcularEstadoMesa uses the correct turn window
+  store.activeTurno = turno as 'comida' | 'cena' | 'todos'
   loadingAforo.value = true
   await loadReservas()
   try {
@@ -1326,6 +1328,8 @@ onMounted(async () => {
   if (zonasConfig.value.length > 0) {
     store.activeZona = zonasConfig.value[0]!.nombre
   }
+  // Sync turno to store for mesa estado derivation
+  store.activeTurno = guardarTurno.value
 })
 
 </script>
