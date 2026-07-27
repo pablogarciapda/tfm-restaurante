@@ -109,6 +109,7 @@ async function saveSelectedFusedPositions() {
 // ── Guardar / Restaurar canvas ──
 const guardarFecha = ref(toLocalDateString())
 const guardarTurno = ref<'comida' | 'cena'>('comida')
+const canvasZoom = ref(1)
 const savingCanvas = ref(false)
 const restoringOriginal = ref(false)
 const loadingAforo = ref(false)
@@ -1423,23 +1424,46 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Zone tabs — no "Todas", one per enabled zone -->
-    <nav class="flex flex-wrap gap-2 py-2" aria-label="Zonas del local">
-      <button
-        v-for="zona in zonasConfig"
-        :key="zona.nombre"
-        class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-        :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-        @click="store.activeZona = zona.nombre"
-      >
-        {{ zona.nombre }}
-      </button>
+    <!-- Zone tabs + zoom controls -->
+    <nav class="flex items-center gap-2 py-2" aria-label="Zonas del local">
+      <div class="flex flex-wrap flex-1 gap-2">
+        <button
+          v-for="zona in zonasConfig"
+          :key="zona.nombre"
+          class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
+          :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
+          @click="store.activeZona = zona.nombre"
+        >
+          {{ zona.nombre }}
+        </button>
+      </div>
+      <!-- Zoom controls -->
+      <div class="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+          :disabled="canvasZoom <= 0.3"
+          @click="canvasZoom = Math.max(0.3, +(canvasZoom - 0.1).toFixed(1))"
+        >
+          −
+        </button>
+        <span class="min-w-[3rem] text-center text-xs text-slate">{{ Math.round(canvasZoom * 100) }}%</span>
+        <button
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+          :disabled="canvasZoom >= 2"
+          @click="canvasZoom = Math.min(2, +(canvasZoom + 0.1).toFixed(1))"
+        >
+          +
+        </button>
+      </div>
     </nav>
     </div> <!-- end sticky header -->
 
     <!-- Konva canvas — designMode always false (no Transformer) -->
     <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm"
       style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <div :style="{ transform: `scale(${canvasZoom})`, transformOrigin: 'top left' }">
       <TableCanvas
         ref="canvasRef"
         :reservas="reservasForCanvas"
@@ -1455,6 +1479,7 @@ onMounted(async () => {
         :canvas-alto-base="disenoConfig.canvas_alto_base"
         @table-click-reservation="handleTableClickWithMode"
       />
+      </div>
     </div>
 
     <!-- Fusion confirm dialog (Slice 4) -->
