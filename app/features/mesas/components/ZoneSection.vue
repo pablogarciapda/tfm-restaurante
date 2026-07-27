@@ -1,9 +1,8 @@
 <!--
-  ZoneSection.vue — Labeled semi-transparent zone rectangle (MCA-002)
+  ZoneSection.vue — Semi-transparent zone background (MCA-002)
 
   Props: zona (Zona), x, y, width, height
-  Renders a v-rect (zone background) + v-text (zone label) on the
-  background layer of the Konva stage.
+  Renders a v-rect (zone background) on the background layer of the Konva stage.
 
   Zone colors:
     Principal=#E8D5C4, Zingaro=#D4C5B9, Privado=#C9BFB0,
@@ -103,19 +102,6 @@ watch(() => props.imageUrl, (url) => loadImage(url))
       fill: fillColor,
       opacity: 0,
       stroke: 'transparent',
-      listening: false,
-    }"
-  />
-
-  <!-- Zone label text — positioned top-left in the zone area -->
-  <v-text
-    :config="{
-      x: x + 16,
-      y: y + 16,
-      text: zona,
-      fontSize: 20,
-      fontFamily: 'Playfair Display, serif',
-      fill: '#2D3748',
       listening: false,
     }"
   />
