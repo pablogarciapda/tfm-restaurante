@@ -58,6 +58,7 @@ async function loadZonasConfig() {
 
 // ── Grid toggle ──
 const showGrid = ref(false)
+const canvasZoom = ref(1)
 
 // ── Diseño config (canvas reference dimensions) ──
 const { config: disenoConfig, load: loadDisenoConfig } = useDisenoConfig()
@@ -306,9 +307,9 @@ watch(editAlto, (val) => {
   <div class="flex h-full flex-col">
     <!-- Sticky header: zone tabs + toolbar + edit panel + drawing controls -->
     <div class="flex-shrink-0 space-y-3 bg-cream pb-2">
-    <!-- Zone tabs + original design buttons -->
+    <!-- Zone tabs + zoom + original design buttons -->
     <div class="flex items-center gap-2 pt-2">
-      <nav class="flex flex-1 flex-wrap gap-2" aria-label="Zonas del local">
+      <nav class="flex flex-1 flex-wrap items-center gap-2" aria-label="Zonas del local">
         <button
           v-for="zona in zonasConfig"
           :key="zona.id"
@@ -318,6 +319,26 @@ watch(editAlto, (val) => {
         >
           {{ zona.nombre }}
         </button>
+        <!-- Zoom controls -->
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+            :disabled="canvasZoom <= 0.3"
+            @click="canvasZoom = Math.max(0.3, +(canvasZoom - 0.1).toFixed(1))"
+          >
+            −
+          </button>
+          <span class="min-w-[3rem] text-center text-xs text-slate">{{ Math.round(canvasZoom * 100) }}%</span>
+          <button
+            type="button"
+            class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+            :disabled="canvasZoom >= 2"
+            @click="canvasZoom = Math.min(2, +(canvasZoom + 0.1).toFixed(1))"
+          >
+            +
+          </button>
+        </div>
       </nav>
       <div class="flex items-center gap-2">
         <div class="relative group">
@@ -473,6 +494,7 @@ watch(editAlto, (val) => {
 
     <!-- Scrollable canvas -->
     <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div :style="{ transform: `scale(${canvasZoom})`, transformOrigin: 'top left' }">
       <TableCanvas
         ref="canvasRef"
         :zonas-config="zonasConfig"
@@ -483,6 +505,7 @@ watch(editAlto, (val) => {
         :canvas-ancho-base="disenoConfig.canvas_ancho_base"
         :canvas-alto-base="disenoConfig.canvas_alto_base"
       />
+      </div>
     </div>
 
     <!-- Toast -->
