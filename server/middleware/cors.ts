@@ -1,7 +1,7 @@
 // CORS middleware — whitelist-based origin allowlist
 //
 // Reads allowed origins from runtimeConfig.corsAllowedOrigins (comma-separated).
-// Set via env var: NUXT_CORS_ALLOWED_ORIGINS=http://57.131.33.90:3000,https://www.lazingara.es
+// Set via env var: NUXT_CORS_ALLOWED_ORIGINS=http://localhost:3000,https://www.midominio.com
 //
 // - On matching Origin → adds Access-Control-Allow-Origin + standard CORS headers
 // - On OPTIONS (preflight) → responds 204 No Content

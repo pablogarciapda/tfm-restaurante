@@ -133,7 +133,7 @@ const eventoAlt = computed(() => {
         <NuxtLink to="/contacto" class="group h-full">
           <BaseCard
             image="https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=800"
-            image-alt="Mapa de Santa María del Páramo"
+            image-alt="Mapa de ubicación del restaurante"
           >
             <h2 class="text-xl font-bold text-slate">Contacto</h2>
             <p class="mt-2 text-sm text-gray-600">

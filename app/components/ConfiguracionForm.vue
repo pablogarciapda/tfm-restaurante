@@ -1264,7 +1264,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.restaurant_nombre"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="La Zíngara"
+            placeholder="Nombre de tu restaurante"
           />
         </div>
         <div>
@@ -1276,7 +1276,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.restaurant_telefono"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="987 350 350"
+            placeholder="600 123 456"
           />
         </div>
         <div class="sm:col-span-2">
@@ -1288,7 +1288,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.restaurant_direccion"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="Avda. del Páramo, 11, 24240 Santa María del Páramo, León"
+            placeholder="Calle, número, CP, población, provincia"
           />
           <p class="mt-1 text-xs text-gray-400">
             Separa con comas para que cada parte aparezca en una línea distinta del footer.
@@ -1303,7 +1303,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.poblacion"
             type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="Santa María del Páramo, León"
+            placeholder="Ciudad, Provincia"
           />
           <p class="mt-1 text-xs text-gray-400">
             Se muestra en la página de inicio y como subtítulo del hero.
@@ -1318,7 +1318,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.restaurant_maps_url"
             type="url"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="https://maps.app.goo.gl/56uxryZVZkS3pKTMA"
+            placeholder="https://maps.app.goo.gl/..."
           />
         </div>
         <div>
@@ -1369,7 +1369,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="form.site_url"
             type="url"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="https://www.lazingara.es"
+            placeholder="https://www.mi_restaurante.com"
           />
           <p class="mt-1 text-xs text-gray-400">
             Se usa en los emails (link de cancelación, etc.). Sin esto, el dominio sale del archivo de configuración.
@@ -1521,7 +1521,7 @@ const checkboxClass = 'h-4 w-4 rounded'
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-from">Email remitente</label>
-          <input id="cfg-smtp-from" v-model="form.smtp_from_email" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="reservas@lazingara.es" />
+          <input id="cfg-smtp-from" v-model="form.smtp_from_email" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"             placeholder="noreply@midominio.com" />
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-slate" for="cfg-smtp-security">Tipo de conexión</label>

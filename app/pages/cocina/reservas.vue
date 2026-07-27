@@ -519,7 +519,7 @@ async function handleReservaSubmit() {
         body: {
           nombre: reservaForm.value.nombre,
           telefono: reservaForm.value.telefono,
-          email: reservaForm.value.email || restaurantEmail.value || 'reservas@lazingara.es',
+          email: reservaForm.value.email || restaurantEmail.value || 'reservas@midominio.com',
           fecha_hora,
           numero_comensales: reservaForm.value.comensales,
           gdpr_aceptado: true,

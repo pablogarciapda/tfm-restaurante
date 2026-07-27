@@ -16,7 +16,7 @@ const PAGES = [
   {
     path: '/',
     label: 'Home',
-    heading: 'Restaurante La Zíngara',
+    heading: null, // Dynamic from DB — just check h1 is visible
     headingTag: 'h1',
     extraAssertions: [
       'Carta',
@@ -76,9 +76,13 @@ test.describe('public-pages-design — full navigation smoke', () => {
       await page.goto(pageDef.path, { waitUntil: 'networkidle' })
 
       // Assert heading
-      await expect(page.locator(pageDef.headingTag)).toContainText(
-        pageDef.heading,
-      )
+      if (pageDef.heading) {
+        await expect(page.locator(pageDef.headingTag)).toContainText(
+          pageDef.heading,
+        )
+      } else {
+        await expect(page.locator(pageDef.headingTag)).toBeVisible()
+      }
 
       // Assert extra Spanish content items
       for (const text of pageDef.extraAssertions) {

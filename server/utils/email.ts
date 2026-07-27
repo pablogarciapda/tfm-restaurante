@@ -68,7 +68,7 @@ export async function getEmailConfig(
     port: data.smtp_port ?? 587,
     user: data.smtp_user ?? '',
     password,
-    fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@lazingara.es',
+    fromEmail: data.smtp_from_email || data.smtp_user || 'noreply@midominio.com',
     security: ['auto', 'ssl', 'starttls', 'none'].includes(securityRaw)
       ? (securityRaw as EmailConfig['security'])
       : 'auto',
