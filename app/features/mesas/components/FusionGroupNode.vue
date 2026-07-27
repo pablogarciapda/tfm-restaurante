@@ -13,7 +13,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Group as VGroup, Rect as VRect } from 'vue-konva'
+import { Group as VGroup } from 'vue-konva'
 import TableNode from './TableNode.vue'
 import type { Mesa, MesaEstado } from '#shared/contracts/mesas.contract'
 import type { TurnoFilter } from '../stores/canvas-store'
@@ -37,8 +37,6 @@ const emit = defineEmits<{
   dragend: [mesa: Mesa]
 }>()
 
-const PADDING = 10
-
 /**
  * Each member's position relative to the fusion parent.
  * The outer group sits at parentMesa.posicion_x/y, so inner TableNodes
@@ -50,66 +48,6 @@ const relativeMembers = computed(() => {
     posicion_x: m.posicion_x - props.parentMesa.posicion_x,
     posicion_y: m.posicion_y - props.parentMesa.posicion_y,
   }))
-})
-
-/**
- * Compute the bounding box that encloses ALL member shapes.
- * Used for the dashed border around the entire group.
- *
- * Shape bounds within the group's local coordinate system:
- *  - Rect/square: member pos → pos + ancho/alto
- *  - Circle: centered at member pos, radius = ancho/2
- *  - Oval: centered at member pos, radii = ancho/2 × alto/2
- */
-const groupBounds = computed(() => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const m of props.memberMesas) {
-    // Position relative to the parent (group origin)
-    const rx = m.posicion_x - props.parentMesa.posicion_x
-    const ry = m.posicion_y - props.parentMesa.posicion_y
-
-    let left: number
-    let right: number
-    let top: number
-    let bottom: number
-
-    if (m.forma === 'redonda') {
-      const r = m.ancho / 2
-      left = rx - r
-      right = rx + r
-      top = ry - r
-      bottom = ry + r
-    } else if (m.forma === 'ovalada') {
-      const rxDim = m.ancho / 2
-      const ryDim = m.alto / 2
-      left = rx - rxDim
-      right = rx + rxDim
-      top = ry - ryDim
-      bottom = ry + ryDim
-    } else {
-      // rect or square
-      left = rx
-      right = rx + m.ancho
-      top = ry
-      bottom = ry + (m.forma === 'cuadrada' ? m.ancho : m.alto)
-    }
-
-    minX = Math.min(minX, left)
-    minY = Math.min(minY, top)
-    maxX = Math.max(maxX, right)
-    maxY = Math.max(maxY, bottom)
-  }
-
-  return {
-    x: minX - PADDING,
-    y: minY - PADDING,
-    width: maxX - minX + PADDING * 2,
-    height: maxY - minY + PADDING * 2,
-  }
 })
 
 /** Konva node id for Transformer/findOne lookups — prefixed to avoid collision with TableNode ids. */
@@ -168,23 +106,6 @@ function handleGroupDragEnd(e: any) {
 
 <template>
   <v-group :config="groupConfig">
-    <!-- Dashed border around all members -->
-    <v-rect
-      :config="{
-        x: groupBounds.x,
-        y: groupBounds.y,
-        width: groupBounds.width,
-        height: groupBounds.height,
-        stroke: selected ? '#C67B5C' : '#2D3748',
-        strokeWidth: selected ? 3 : 2,
-        strokeDash: [5, 5],
-        fill: 'transparent',
-        listening: false,
-        perfectDrawEnabled: false,
-        cornerRadius: 8,
-      }"
-    />
-
     <!-- Each member rendered at relative position, non-interactive -->
     <TableNode
       v-for="member in relativeMembers"
