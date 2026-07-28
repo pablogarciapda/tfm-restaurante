@@ -226,6 +226,7 @@
 
 - Dos o más mesas se unen lógicamente -> generan `id_fusion` compartido y `mesa_padre_id`.
 - La capacidad recalculada NO es la suma literal: dos mesas de 4 fusionadas alojan 6 (no 8). Aplicar la regla de capacidad realista en el cálculo.
+- El camarero mueve las mesas manualmente antes de fusionar (sin auto-posicionamiento). Input de ocupación forzada opcional permite especificar capacidad real del bloque.
 - La ocupación resta del `capacidad_total_local` configurable.
 
 ## 5. Rutas
@@ -272,14 +273,15 @@
 - Dashboard con menú lateral.
 - CRUDs: platos (carta/menú), alérgenos, calorías, eventos.
 - **Gestor Canvas (Konva.js):**
-  - Drag & drop, rotación y redimensión de mesas.
-  - **Modo Fusión:** unión lógica con `id_fusion`, recalculo de capacidad, ID de mesa unida.
+  - Drag & drop y redimensión de mesas (modo diseño). En modo operación, el camarero mueve mesas manualmente antes de fusionar.
+  - **Modo Fusión:** unión lógica con `id_fusion`, capacidad recalculada (fórmula AD-4: 2 mesas=sum-2, 3=sum-4, 4+=sum-6). Input de ocupación forzada opcional cuando 2+ mesas seleccionadas. Padre muestra `4→6pax` (original→fusionada).
   - Resta automática del aforo total del restaurante.
   - Sincronización Realtime vía WebSockets.
   - Formas de mesa configurables (rectangular, cuadrada, redonda, ovalada).
   - Filtro por zonas con ZoneSection y AforoIndicator.
   - StandbyBanner para reservas pendientes de reasignación por fusión.
   - FusionConfirmDialog para manejar reservas afectadas por fusión.
+  - **Fallback a diseño original:** cuando no hay layout guardado para fecha+turno+zone, carga automáticamente el diseño original de esa zona. Aplica también al cambiar de zona (tabs).
 - **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, precio menú domingo, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password), **datos restaurante multi-tenant** (nombre, dirección, teléfono, email, redes sociales, logo).
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
@@ -355,19 +357,19 @@
 - **Página `/cocina/diseno` (nueva):** Editor de plano modo diseño — pestañas por zona, formas de mesa, texto/capacidad, dibujo de líneas, imagen de fondo por zona, zoom, guardar posiciones con feedback.
 - **Página `/cocina/reservas` (overhaul):** Modo operación — canvas interactivo Konva.js, multi-selección, fusión/desfusión, reservas desde panel, listado con columna Mesa, modal reasignar, filtro por defecto desde hoy.
 - **Canvas Konva.js:** Formas cuadrada (default), redonda, rectangular, ovalada. Texto centrado con selector de tamaño (10-24px). Hover tooltip con datos completos (pointer-events-none). Turnos M/T siempre visibles. Imagen de fondo por zona con zoom (− + ↺) y borrado. Dibujo de líneas (rectas y libres) en modo diseño. Drag/Resize funcional sin ghost table (mutación in-place + Object.assign en store). Transformer de Konva para Rect, Circle y Ellipse.
-- **Fusión de mesas:** Juntar mesas visualmente, capacidad recalculada (`shared/utils/fusion-math.ts`), grupo unificado. Multi-selección: Shift+Click → botón "Selec." en toolbar.
+- **Fusión de mesas:** Juntar mesas visualmente, capacidad recalculada (`shared/utils/fusion-math.ts`), grupo unificado. Multi-selección: Shift+Click → botón "Selec." en toolbar. Input de ocupación forzada opcional. Padre muestra `4→6pax` (original→fusionada).
 - **MCA-005 — Estado de mesas:** Derivado de reservas — Libre #22C55E / Ocupada #EF4444 (confirmada, turno actual) / Reservada #F59E0B (pendiente, futura). Pure helper `shared/utils/mesa-estado.ts` + Realtime refresh.
 - **MFU-007 — Editor blocked al superar aforo:** Toast "Aforo completo. Libere mesas primero."
 - **MFU-008 — Admin override:** Warning "Aforo excedido..." + "Cancelar"/"Forzar", barra aforo en rojo al superar capacidad.
 - **CFG-004/005 — Aforo del local:** Sección "Aforo del local" + radio Modo de ocupación (Automático/Manual) + input ocupacion_manual. Aforo respeta modo (Auto=SUM mesas, Manual=override).
 - **Reservas pasadas:** Bloquear Editar/Cancelar/Reasignar en reservas anteriores a hoy (`shared/utils/reserva-fecha.ts`).
 - **Canvas scroll:** Contenedor con overflow-auto (max-h-[600px]), `updateCanvasSize` adapta altura a mesas filtradas.
-- **Rotación rígida de grupos:** Botón "Rotar 90°" en `/cocina/reservas` y Transformer en `/cocina/diseno` rotan toda la fusión como bloque rígido vía `rotateGroupAroundCentroid90CW` en `shared/utils/fusion-math.ts` + composable `useFusionGroupDrag.ts` (handleDragMove, handleTransform, computeFinalSiblingTransforms, rotateGroup90CW).
+- **Fallback a diseño original:** `load-layout` retorna `exists: false` cuando no hay layout guardado. Cliente carga `/api/canvas/original` como fallback. Aplica al cambiar fecha, turno o zona (tabs). Toast indica `(diseño original)`.
 - **Texto contra-rotado centrado:** Un solo `v-text` con `\n` (número + capacidad) anclado al centro geométrico de la mesa, con `rotation: -mesa.rotacion` para que siempre se lea derecho a cualquier ángulo. Mesas chicas muestran solo el número.
 - **Reservas admin bypass SMS/CAPTCHA:** Reservas creadas desde `/cocina/reservas` por empleado autenticado no requieren verificación SMS ni CAPTCHA (flag `admin_created`).
-- **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado, rotación de grupo con matemática de centro visual correcta.
+- **Bug fixes:** `true` rendering en modal (catch block type-safe), dead code eliminado (`continuarReserva`), canvas scroll separación del listado.
 - **Canvas dimensions configurables:** Sección "Diseño del plano" en Configuración con inputs para `canvas_ancho_base` y `canvas_alto_base`. Persistencia en DB (`configuracion`), con fallback a archivo JSON (`server/data/diseno-config.json`). API en `/api/diseno-config`. Se pasan como props a TableCanvas desde diseno.vue y reservas.vue. Default: 1400×900.
-- **Tests:** 974 passed, 1 pre-existing failure, 8 skipped.
+- **Tests:** 960 passed, 2 pre-existing failures (Nuxt integration), 8 skipped.
 
 ## 8. Reglas para agentes IA
 
