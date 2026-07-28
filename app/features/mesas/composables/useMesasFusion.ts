@@ -334,7 +334,7 @@ export function useMesasFusion() {
       const ids = toStandby.map((r) => r.id)
       const { error: standbyError } = await client
         .from('reservas')
-        .update({ estado: 'standby' })
+        .update({ estado: 'standby', mesa_id: null, zona_id: null })
         .in('id', ids)
 
       if (standbyError) {

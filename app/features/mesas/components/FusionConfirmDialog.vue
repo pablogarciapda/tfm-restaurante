@@ -2,6 +2,8 @@
   FusionConfirmDialog.vue — Unfusion confirmation dialog (MFU-005)
 -->
 <script setup lang="ts">
+import { ref } from 'vue'
+
 interface ReservaStandby {
   id: string
   nombre_cliente: string
@@ -11,17 +13,34 @@ interface ReservaStandby {
   mesa_id: string
 }
 
-defineProps<{
+interface AvailableTable {
+  id: string
+  numero_mesa: number
+  capacidad_actual: number
+  zona: string
+}
+
+const props = defineProps<{
   show: boolean
   reservations: ReservaStandby[]
   fusionId: string
+  availableTables?: AvailableTable[]
 }>()
 
 const emit = defineEmits<{
   cancel: []
   standby: []
+  reassign: [reservaId: string, mesaId: string]
   close: []
 }>()
+
+const selectedMesaId = ref('')
+
+function handleReassign(reservaId: string) {
+  if (!selectedMesaId.value) return
+  emit('reassign', reservaId, selectedMesaId.value)
+  selectedMesaId.value = ''
+}
 </script>
 
 <template>
@@ -56,6 +75,30 @@ const emit = defineEmits<{
               — {{ new Date(reserva.fecha_hora).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}
             </span>
             <span class="ml-2 text-slate-500">· {{ reserva.numero_comensales }} pax</span>
+
+            <!-- Reassign to individual table -->
+            <div v-if="availableTables && availableTables.length > 0" class="mt-2 flex items-center gap-2">
+              <select
+                v-model="selectedMesaId"
+                class="rounded border border-slate-300 px-2 py-1 text-xs"
+              >
+                <option value="" disabled>Reasignar a mesa...</option>
+                <option
+                  v-for="t in availableTables.filter(t => t.capacidad_actual >= reserva.numero_comensales)"
+                  :key="t.id"
+                  :value="t.id"
+                >
+                  {{ t.zona }} — Mesa {{ t.numero_mesa }} ({{ t.capacidad_actual }} pax)
+                </option>
+              </select>
+              <button
+                class="rounded bg-emerald-500 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
+                :disabled="!selectedMesaId"
+                @click="handleReassign(reserva.id)"
+              >
+                Reasignar
+              </button>
+            </div>
           </div>
         </div>
 

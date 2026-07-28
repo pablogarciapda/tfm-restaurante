@@ -757,12 +757,36 @@ async function handleFusionCancel() {
   await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
+  await loadReservas()
 }
 
 async function handleFusionStandby() {
   await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
+  await loadReservas()
+}
+
+async function handleFusionReassign(reservaId: string, mesaId: string) {
+  // Find the target table to get its zona
+  const targetMesa = store.mesas.find((m) => m.id === mesaId)
+  if (!targetMesa) return
+
+  // Update reservation to point to the individual table
+  const { error } = await useSupabaseClient()
+    .from('reservas')
+    .update({ mesa_id: mesaId, zona_id: null })
+    .eq('id', reservaId)
+
+  if (error) {
+    console.error('Error reassigning reservation:', error)
+    return
+  }
+
+  // Now unfuse — the reassigned reservation won't match the old fusion members
+  fusionDialogShow.value = false
+  await unfuseMesas(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
+  await loadReservas()
 }
 
 function handleFusionClose() {
@@ -935,7 +959,7 @@ const confirmarResult = ref<{ notificacion: string; telefono: string | null; ema
 
 const mesasDisponibles = computed(() => {
   return store.mesas
-    .filter((m) => m.id_fusion === null && m.mesa_padre_id === null)
+    .filter((m) => m.mesa_padre_id === null)
     .sort((a, b) => a.numero_mesa - b.numero_mesa)
 })
 
@@ -1551,8 +1575,10 @@ onMounted(async () => {
       :show="fusionDialogShow"
       :reservations="fusionDialogReservations"
       :fusion-id="fusionDialogFusionId"
+      :available-tables="mesasDisponibles"
       @cancel="handleFusionCancel"
       @standby="handleFusionStandby"
+      @reassign="handleFusionReassign"
       @close="handleFusionClose"
     />
 

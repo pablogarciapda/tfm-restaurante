@@ -170,6 +170,21 @@ const fusionGroups = computed(() => {
   return groups
 })
 
+/**
+ * Fusion members map: for each mesa in a fusion group, store ALL member IDs.
+ * Used by calcularEstadoMesa to check reservations across all group members.
+ */
+const fusionMembersMap = computed(() => {
+  const map = new Map<string, Set<string>>()
+  for (const group of fusionGroups.value) {
+    const ids = new Set(group.members.map((m) => m.id))
+    for (const m of group.members) {
+      map.set(m.id, ids)
+    }
+  }
+  return map
+})
+
 /** Scale factors for proportional zones (Bug 3 fix) */
 const stageScaleX = computed(() => store.stageWidth / BASE_WIDTH.value)
 const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT.value)
@@ -293,6 +308,7 @@ const mesaEstadoContext = computed<MesaEstadoContext>(() => {
     selectedDate: props.selectedDate ?? toLocalDateString(),
     currentTurn: store.activeTurno,
     turnos: buildTurnoWindows(h),
+    fusionMembers: fusionMembersMap.value,
   }
 })
 
