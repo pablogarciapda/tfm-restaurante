@@ -31,7 +31,7 @@ import type { Mesa, Zona } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig } from '#shared/contracts/reservation.contract'
 import { calcularEstadoMesa, type MesaEstadoContext } from '#shared/utils/mesa-estado'
 import { buildTurnoWindows } from '#shared/utils/reserva-overlap'
-import { rotateGroupAroundCentroid90CW } from '#shared/utils/fusion-math'
+
 
 export interface ReservaDetail {
   nombre_cliente: string
@@ -757,37 +757,6 @@ function getMesaPositions(): Record<string, { x: number; y: number; rotation: nu
 }
 
 /**
- * Rotate the selected fused group 90° CW as a rigid block (operation mode).
- * No-early-return guards: only a fused PARENT driver (id_fusion != null AND
- * mesa_padre_id === mesa.id) can drive the rotation from the toolbar button.
- *
- * After rotation, the parent + every sibling Mesa in the store is mutated in
- * place with the new absolute { posicion_x, posicion_y, rotacion } so the
- * 'Guardar' button can persist them. The user may click 'Rotar 90°' several
- * times before saving — positions persist only on Save.
- */
-function rotateSelectedGroup90CW() {
-  if (store.selectedMesaId === null) return
-  const mesa = store.mesas.find((m) => m.id === store.selectedMesaId)
-  if (!mesa) return
-  if (!mesa.id_fusion || mesa.mesa_padre_id !== null) return
-
-  const members = store.mesas.filter((m) => m.id_fusion === mesa.id_fusion)
-  if (members.length === 0) return
-
-  const transforms = rotateGroupAroundCentroid90CW(members)
-
-  // Update store positions
-  for (const t of transforms) {
-    store.replaceMesa(t.id, {
-      posicion_x: t.posicion_x,
-      posicion_y: t.posicion_y,
-      rotacion: t.rotacion,
-    })
-  }
-}
-
-/**
  * Return the ids of the parent + every sibling in the currently selected
  * fused group, or [] when nothing fused is selected. Used by the reservas
  * 'Guardar' button to know exactly which Mesas need persistence.
@@ -803,7 +772,7 @@ function getSelectedMesaIds(): string[] {
     .map((m) => m.id)
 }
 
-defineExpose({ getMesaPositions, rotateSelectedGroup90CW, getSelectedMesaIds })
+defineExpose({ getMesaPositions, getSelectedMesaIds })
 </script>
 
 <template>

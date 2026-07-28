@@ -59,9 +59,10 @@ const groupId = computed(() => `fusion_${props.parentMesa.id}`)
  * element, so @click/@tap/@dragend produce "Extraneous non-emits" warnings).
  * Follows the same pattern as TableNode.vue.
  *
- * CRITICAL: rotation MUST be 0. Child positions from calculateFusionPositions
- * are in absolute canvas coordinates. If the group rotates, relative positions
- * are interpreted in the rotated coordinate system, causing visual misplacement.
+ * CRITICAL: rotation MUST be 0. Child positions are in absolute canvas
+ * coordinates (waiter places tables manually before fusing). If the group
+ * rotates, relative positions are interpreted in the rotated coordinate
+ * system, causing visual misplacement.
  * Each TableNode handles its own rotation independently.
  */
 const groupConfig = computed(() => ({

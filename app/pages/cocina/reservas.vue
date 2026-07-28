@@ -29,7 +29,7 @@ import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contra
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
-// ── Canvas exposed API (rotateSelectedGroup90CW + getSelectedMesaIds) ──
+// ── Canvas exposed API (getSelectedMesaIds + getMesaPositions) ──
 const canvasRef = ref<InstanceType<typeof TableCanvas> | null>(null)
 
 definePageMeta({
@@ -52,60 +52,6 @@ const {
   reassignStandbyReservation,
   checkAforoOverflow,
 } = useMesasFusion()
-
-// ── Fused group rotation toolbar (operación mode) ──
-
-/**
- * The selected mesa is the fused parent that drives the rigid rotation button.
- *
- * After AD-04 fix, the parent has mesa_padre_id = null (root of the fusion
- * group). The old check `mesa_padre_id !== sel.id` was for the previous bug
- * where the parent had mesa_padre_id = self.id (now corrected).
- */
-const selectedFusedParent = computed(() => {
-  const sel = store.selectedMesa
-  if (!sel) return null
-  if (!sel.id_fusion) return null
-  // Parent is the fusion root: mesa_padre_id IS null.
-  // Children have mesa_padre_id pointing to the parent's id.
-  if (sel.mesa_padre_id !== null) return null
-  return sel
-})
-
-async function rotateSelectedGroup90() {
-  canvasRef.value?.rotateSelectedGroup90CW()
-}
-
-async function saveSelectedFusedPositions() {
-  const ids = canvasRef.value?.getSelectedMesaIds() ?? []
-  if (ids.length === 0) return
-  const positions = canvasRef.value?.getMesaPositions() ?? {}
-  let ok = 0
-  let failed = 0
-  for (const id of ids) {
-    const mesa = store.mesas.find((m) => m.id === id)
-    if (!mesa) { failed++; continue }
-    const live = positions[id]
-    const payload = {
-      posicion_x: live?.x ?? mesa.posicion_x,
-      posicion_y: live?.y ?? mesa.posicion_y,
-      rotacion: live?.rotation ?? mesa.rotacion,
-      ancho: mesa.ancho,
-      alto: mesa.alto,
-    }
-    try {
-      await updateMesa(id, payload)
-      ok++
-    } catch {
-      failed++
-    }
-  }
-  if (failed === 0) {
-    showToast(`Grupo rotado guardado (${ok} mesas)`, 'success')
-  } else {
-    showToast(`Guardado con fallos: ${ok} OK, ${failed} error`, 'error')
-  }
-}
 
 // ── Guardar / Restaurar canvas ──
 const guardarFecha = ref(toLocalDateString())
@@ -276,8 +222,12 @@ async function handleRestoreOriginal() {
 }
 
 // ── Auto-load layout and refresh aforo when date or turno changes ──
-watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
+/** Load layout for the current fecha+turno+zone. Falls back to original design when no saved layout exists. */
+async function loadLayoutForCurrentSelection() {
+  const fecha = guardarFecha.value
+  const turno = guardarTurno.value
   if (!fecha || !turno) return
+
   // Sync turno to store so calcularEstadoMesa uses the correct turn window
   store.activeTurno = turno as 'comida' | 'cena' | 'todos'
   loadingAforo.value = true
@@ -288,9 +238,29 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
     })
     const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
 
+    // Determine positions: saved layout or fallback to original design
+    let positions: Array<{ mesa_id: string; posicion_x: number; posicion_y: number; rotacion: number }> = []
+    let savedFusions: Array<{ id_fusion: string; parent_id: string; capacity: number; mesa_ids: string[] }> = []
+    let usedOriginal = false
+
+    if (data?.exists && data?.positions?.length) {
+      // Saved layout found — use it
+      positions = data.positions
+      savedFusions = Array.isArray(data?.fusions) ? data.fusions : []
+    } else if (!data?.exists) {
+      // No layout saved for this date+turno — fallback to original design
+      try {
+        const original: any = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
+        if (original?.exists && Array.isArray(original.positions)) {
+          positions = original.positions
+          usedOriginal = true
+        }
+      } catch { /* no original design either — mesas stay at DB defaults */ }
+    }
+
     // 1. Restore positions
-    if (data?.positions?.length) {
-      for (const pos of data.positions) {
+    if (positions.length) {
+      for (const pos of positions) {
         await updateMesa(pos.mesa_id, {
           posicion_x: pos.posicion_x,
           posicion_y: pos.posicion_y,
@@ -299,10 +269,7 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
       }
     }
 
-    // 2. Restore fusions: clear all + apply saved
-    const savedFusions: Array<{ id_fusion: string; parent_id: string; capacity: number; mesa_ids: string[] }> =
-      Array.isArray(data?.fusions) ? data.fusions : []
-
+    // 2. Restore fusions: clear all + apply saved (original has no fusions)
     // Fetch all mesas (without zone filter) to clear fusions globally
     const { data: allMesas } = await client.from('mesas').select('id, capacidad_base, id_fusion')
     const clearUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
@@ -354,20 +321,34 @@ watch([guardarFecha, guardarTurno], async ([fecha, turno]) => {
     // Reload store from DB to get final state
     await loadMesas()
 
-    const posMsg = data?.positions?.length ? ` (${data.positions.length} mesas)` : ''
+    const posMsg = positions.length ? ` (${positions.length} mesas)` : ''
     const fusMsg = savedFusions.length > 0 ? ` — ${savedFusions.length} fusiones` : ''
-    if (data?.positions?.length || savedFusions.length > 0) {
-      showToast(`Layout cargado: ${fecha} (${turnoLabel})${posMsg}${fusMsg}`, 'success')
+    const originMsg = usedOriginal ? ' (diseño original)' : ''
+    if (positions.length || savedFusions.length > 0) {
+      showToast(`Layout cargado: ${fecha} (${turnoLabel})${posMsg}${fusMsg}${originMsg}`, 'success')
     }
   } catch {
     // no layout for this date/turno — silently skip
   } finally {
     loadingAforo.value = false
   }
-})
+}
+
+watch([guardarFecha, guardarTurno], () => loadLayoutForCurrentSelection())
+
+// Reload layout when zone tab changes (falls back to original if no saved layout)
+watch(() => store.activeZona, () => loadLayoutForCurrentSelection())
 
 // ── Fusion state ──
 const selectedIds = ref<string[]>([])
+const forcedCapacity = ref<number | null>(null)
+
+/** Auto-calculated capacity for the current selection (shown as default). */
+const autoCalculatedCapacity = computed(() => {
+  if (selectedIds.value.length < 2) return 0
+  const selected = store.mesas.filter((m) => selectedIds.value.includes(m.id))
+  return calculateFusedCapacity(selected)
+})
 const fusionDialogShow = ref(false)
 const fusionDialogReservations = ref<Array<{
   id: string
@@ -728,22 +709,20 @@ async function handleFuse() {
   const ids = [...selectedIds.value]
   const selected = selectedMesas()
   // Net capacity change for aforo gate: fusedCapacity - sum of individual bases.
-  // Fusion always reduces total root capacity (fused < sum bases), so net ≤ 0.
-  // The old code passed the ABSOLUTE fused value, which wrongly treated fusion
-  // as if it consumed new capacity instead of reducing it.
-  const fusedCapacity = calculateFusedCapacity(selected)
+  const usedCapacity = forcedCapacity.value ?? calculateFusedCapacity(selected)
   const sumBase = selected.reduce((s, m) => s + m.capacidad_base, 0)
   const netChange = selected.length >= 2
-    ? fusedCapacity - sumBase
+    ? usedCapacity - sumBase
     : 0
 
   await guardAforo(netChange, async () => {
-    const result = await fuseMesas(ids)
+    const result = await fuseMesas(ids, forcedCapacity.value ?? undefined)
     if (!result.success && result.error) {
       console.warn(result.error)
     }
   })
   selectedIds.value = []
+  forcedCapacity.value = null
 }
 
 async function handleUnfuse() {
@@ -1474,33 +1453,26 @@ onMounted(async () => {
       </template>
     </TableToolbar>
 
-    <!-- Rotar 90° / Guardar — only when a fused group parent is selected. -->
+    <!-- Forced occupancy input — visible when 2+ tables selected for fusion -->
     <div
-      v-if="selectedFusedParent"
+      v-if="selectedIds.length >= 2"
       class="mb-2 flex items-center gap-2 rounded-lg border border-terracotta/30 bg-cream/95 p-2"
-      data-testid="fused-group-rotate-toolbar"
+      data-testid="forced-occupancy-bar"
     >
       <span class="text-xs font-medium text-slate">
-        Grupo fusionado: {{ selectedFusedParent.numero_mesa }}
+        Ocupación del grupo fusionado:
       </span>
-      <button
-        type="button"
-        data-testid="rotate-90-btn"
-        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-slate transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-terracotta/50"
-        title="Rota TODO el grupo fusionado 90° en sentido horario como un bloque rígido (ni mesa se separa). Pulsa varias veces para girar más; pulsa Guardar para guardar las nuevas posiciones."
-        @click="rotateSelectedGroup90"
-      >
-        Rotar 90°
-      </button>
-      <button
-        type="button"
-        data-testid="save-rotated-fused-btn"
-        class="rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 focus:outline-none focus:ring-2 focus:ring-terracotta/50 disabled:cursor-not-allowed disabled:opacity-50"
-        title="Guarda en la base de datos las nuevas posiciones/rotaciones de cada mesa del grupo fusionado."
-        @click="saveSelectedFusedPositions"
-      >
-        Guardar
-      </button>
+      <input
+        v-model.number="forcedCapacity"
+        type="number"
+        :min="1"
+        :placeholder="String(autoCalculatedCapacity)"
+        class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-slate shadow-sm focus:outline-none focus:ring-2 focus:ring-terracotta/50"
+        data-testid="forced-occupancy-input"
+      />
+      <span class="text-xs text-slate/60">
+        (auto: {{ autoCalculatedCapacity }})
+      </span>
     </div>
 
     <!-- Zone tabs + zoom controls -->
