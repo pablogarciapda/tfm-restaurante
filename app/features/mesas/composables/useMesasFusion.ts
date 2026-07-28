@@ -147,8 +147,8 @@ export function useMesasFusion() {
 
   async function unfuseMesas(
     fusionId: string,
-    fecha?: string,
-    turnoWindow?: TurnoWindow,
+    fecha: string,
+    turnoWindow: TurnoWindow,
   ): Promise<UnfuseResult> {
     // Find all mesas in this fusion group
     const fusedMesaIds = store.mesas
@@ -160,28 +160,23 @@ export function useMesasFusion() {
     }
 
     // Check for active reservations on the selected date only
-    let query = client
+    const { data: reservas, error: reservasError } = await client
       .from('reservas')
       .select('*')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
-
-    if (fecha) {
-      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
-    }
-
-    const { data: reservas, error: reservasError } = await query
+      .gte('fecha_hora', fecha + 'T00:00:00')
+      .lte('fecha_hora', fecha + 'T23:59:59')
 
     if (reservasError) {
       return { success: false, error: `Error al consultar reservas: ${reservasError.message}` }
     }
 
-    let activeReservas = (reservas as ReservaStandby[]) ?? []
-
-    // Filter by turno if provided — don't block unfuse for reservations in other turns
-    if (turnoWindow) {
-      activeReservas = filterByTurno(activeReservas, turnoWindow)
-    }
+    // Filter by turno — only consider reservations in the active turn
+    const activeReservas = filterByTurno(
+      (reservas as ReservaStandby[]) ?? [],
+      turnoWindow,
+    )
 
     if (activeReservas.length > 0) {
       return {
@@ -202,8 +197,8 @@ export function useMesasFusion() {
 
   async function cancelReservationsAndUnfuse(
     fusionId: string,
-    fecha?: string,
-    turnoWindow?: TurnoWindow,
+    fecha: string,
+    turnoWindow: TurnoWindow,
   ): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
@@ -213,47 +208,23 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Fetch active reservations on the selected date
-    let query = client
+    // Fetch active reservations on the selected date, then filter by turno
+    const { data: reservas, error: fetchError } = await client
       .from('reservas')
-      .select('id')
+      .select('id, fecha_hora')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
-
-    if (fecha) {
-      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
-    }
-
-    const { data: reservas, error: fetchError } = await query
+      .gte('fecha_hora', fecha + 'T00:00:00')
+      .lte('fecha_hora', fecha + 'T23:59:59')
 
     if (fetchError) {
       return { success: false, error: `Error al consultar reservas: ${fetchError.message}` }
     }
 
-    let toCancel = (reservas as Array<{ id: string }>) ?? []
-
-    // Filter by turno if provided
-    if (turnoWindow && toCancel.length > 0) {
-      // Re-fetch with fecha_hora to filter by turno
-      let fullQuery = client
-        .from('reservas')
-        .select('id, fecha_hora')
-        .in('mesa_id', fusedMesaIds)
-        .in('estado', ['pendiente', 'confirmada'])
-
-      if (fecha) {
-        fullQuery = fullQuery
-          .gte('fecha_hora', fecha + 'T00:00:00')
-          .lte('fecha_hora', fecha + 'T23:59:59')
-      }
-
-      const { data: fullReservas } = await fullQuery
-      const filtered = filterByTurno(
-        (fullReservas as ReservaStandby[]) ?? [],
-        turnoWindow,
-      )
-      toCancel = filtered.map((r) => ({ id: r.id }))
-    }
+    const toCancel = filterByTurno(
+      (reservas as ReservaStandby[]) ?? [],
+      turnoWindow,
+    )
 
     // Cancel only turno-matching reservations
     if (toCancel.length > 0) {
@@ -277,8 +248,8 @@ export function useMesasFusion() {
 
   async function moveReservationsToStandby(
     fusionId: string,
-    fecha?: string,
-    turnoWindow?: TurnoWindow,
+    fecha: string,
+    turnoWindow: TurnoWindow,
   ): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
@@ -288,53 +259,30 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Fetch active reservations on the selected date
-    let query = client
+    // Fetch active reservations on the selected date, then filter by turno
+    const { data: reservas, error: fetchError } = await client
       .from('reservas')
-      .select('id')
+      .select('id, fecha_hora')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
-
-    if (fecha) {
-      query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
-    }
-
-    const { data: reservas, error: fetchError } = await query
+      .gte('fecha_hora', fecha + 'T00:00:00')
+      .lte('fecha_hora', fecha + 'T23:59:59')
 
     if (fetchError) {
       return { success: false, error: `Error al consultar reservas: ${fetchError.message}` }
     }
 
-    let toStandby = (reservas as Array<{ id: string }>) ?? []
-
-    // Filter by turno if provided
-    if (turnoWindow && toStandby.length > 0) {
-      let fullQuery = client
-        .from('reservas')
-        .select('id, fecha_hora')
-        .in('mesa_id', fusedMesaIds)
-        .in('estado', ['pendiente', 'confirmada'])
-
-      if (fecha) {
-        fullQuery = fullQuery
-          .gte('fecha_hora', fecha + 'T00:00:00')
-          .lte('fecha_hora', fecha + 'T23:59:59')
-      }
-
-      const { data: fullReservas } = await fullQuery
-      const filtered = filterByTurno(
-        (fullReservas as ReservaStandby[]) ?? [],
-        turnoWindow,
-      )
-      toStandby = filtered.map((r) => ({ id: r.id }))
-    }
+    const toStandby = filterByTurno(
+      (reservas as ReservaStandby[]) ?? [],
+      turnoWindow,
+    )
 
     // Move only turno-matching reservations to standby
     if (toStandby.length > 0) {
       const ids = toStandby.map((r) => r.id)
       const { error: standbyError } = await client
         .from('reservas')
-        .update({ estado: 'standby' })
+        .update({ estado: 'standby', mesa_id: null, zona_id: null })
         .in('id', ids)
 
       if (standbyError) {

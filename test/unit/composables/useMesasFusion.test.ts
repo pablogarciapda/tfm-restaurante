@@ -322,7 +322,7 @@ describe('useMesasFusion — unfuseMesas', () => {
     const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
     const { unfuseMesas } = useMesasFusion()
 
-    const result = await unfuseMesas(fusionId)
+    const result = await unfuseMesas(fusionId, '2026-07-28', { start: 810, end: 930 })
 
     expect(result.success).toBe(true)
     expect(result.hasReservations).toBe(false)
@@ -360,7 +360,7 @@ describe('useMesasFusion — unfuseMesas', () => {
     const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
     const { unfuseMesas } = useMesasFusion()
 
-    const result = await unfuseMesas(fusionId)
+    const result = await unfuseMesas(fusionId, '2026-07-02', { start: 1260, end: 1380 })
 
     // Should detect reservations and NOT unfuse
     expect(result.success).toBe(false)
@@ -403,7 +403,7 @@ describe('useMesasFusion — cancelReservationsAndUnfuse', () => {
     const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
     const { cancelReservationsAndUnfuse } = useMesasFusion()
 
-    const result = await cancelReservationsAndUnfuse(fusionId)
+    const result = await cancelReservationsAndUnfuse(fusionId, '2026-07-28', { start: 810, end: 930 })
 
     expect(result.success).toBe(true)
 
@@ -444,7 +444,7 @@ describe('useMesasFusion — moveReservationsToStandby', () => {
     const { useMesasFusion } = await import('../../../app/features/mesas/composables/useMesasFusion')
     const { moveReservationsToStandby } = useMesasFusion()
 
-    const result = await moveReservationsToStandby(fusionId)
+    const result = await moveReservationsToStandby(fusionId, '2026-07-28', { start: 810, end: 930 })
 
     expect(result.success).toBe(true)
 

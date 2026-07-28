@@ -60,6 +60,12 @@ export interface MesaEstadoContext {
     comida: { start: number; end: number }
     cena: { start: number; end: number }
   }
+  /**
+   * Fusion group map: mesaId → Set of all member IDs in the same fusion group.
+   * When a mesa is part of a fusion, reservations on ANY member should mark
+   * ALL members as occupied/reserved. If a mesa has no entry, it's not fused.
+   */
+  fusionMembers?: Map<string, Set<string>>
 }
 
 // ──────────────────────────── Helpers ───────────────────────────────
@@ -120,13 +126,23 @@ export function calcularEstadoMesa(
   reservas: ReservaMesaEstado[],
   context: MesaEstadoContext,
 ): MesaEstado {
-  const { selectedDate, currentTurn, turnos } = context
+  const { selectedDate, currentTurn, turnos, fusionMembers } = context
+
+  // If this mesa is part of a fusion group, check reservations for ALL members.
+  // A reservation on any member should mark the entire group as occupied/reserved.
+  const memberIds = fusionMembers?.get(mesaId)
+  const isFused = memberIds && memberIds.size > 1
 
   let isOcupada = false
   let isReservada = false
 
   for (const r of reservas) {
-    if (r.mesa_id !== mesaId) continue
+    // Match: direct match OR any fusion group member
+    if (isFused) {
+      if (!memberIds!.has(r.mesa_id ?? '')) continue
+    } else {
+      if (r.mesa_id !== mesaId) continue
+    }
     if (EXCLUDED_ESTADOS.has(r.estado)) continue
 
     const date = reservaDate(r.fecha_hora)

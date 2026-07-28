@@ -726,9 +726,16 @@ async function handleFuse() {
 }
 
 /** Compute current turno time window for filtering unfuse reservations. */
-function currentTurnoWindow(): { start: number; end: number } | undefined {
-  const h = horariosConfig.value
-  if (!h) return undefined
+const FALLBACK_HORARIOS: HorarioConfig = {
+  comida_inicio: '13:30',
+  comida_fin: '15:30',
+  cena_inicio: '21:00',
+  cena_fin: '23:30',
+  intervalo_minutos: 15,
+}
+
+function currentTurnoWindow(): { start: number; end: number } {
+  const h = horariosConfig.value ?? FALLBACK_HORARIOS
   const toMin = (t: string) => {
     const [hh, mm] = t.split(':').map(Number)
     return (hh ?? 0) * 60 + (mm ?? 0)
@@ -757,12 +764,36 @@ async function handleFusionCancel() {
   await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
+  await loadReservas()
 }
 
 async function handleFusionStandby() {
   await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
+  await loadReservas()
+}
+
+async function handleFusionReassign(reservaId: string, mesaId: string) {
+  // Find the target table to get its zona
+  const targetMesa = store.mesas.find((m) => m.id === mesaId)
+  if (!targetMesa) return
+
+  // Update reservation to point to the individual table
+  const { error } = await useSupabaseClient()
+    .from('reservas')
+    .update({ mesa_id: mesaId, zona_id: null })
+    .eq('id', reservaId)
+
+  if (error) {
+    console.error('Error reassigning reservation:', error)
+    return
+  }
+
+  // Now unfuse — the reassigned reservation won't match the old fusion members
+  fusionDialogShow.value = false
+  await unfuseMesas(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
+  await loadReservas()
 }
 
 function handleFusionClose() {
@@ -935,7 +966,7 @@ const confirmarResult = ref<{ notificacion: string; telefono: string | null; ema
 
 const mesasDisponibles = computed(() => {
   return store.mesas
-    .filter((m) => m.id_fusion === null && m.mesa_padre_id === null)
+    .filter((m) => m.mesa_padre_id === null)
     .sort((a, b) => a.numero_mesa - b.numero_mesa)
 })
 
@@ -1551,8 +1582,10 @@ onMounted(async () => {
       :show="fusionDialogShow"
       :reservations="fusionDialogReservations"
       :fusion-id="fusionDialogFusionId"
+      :available-tables="mesasDisponibles"
       @cancel="handleFusionCancel"
       @standby="handleFusionStandby"
+      @reassign="handleFusionReassign"
       @close="handleFusionClose"
     />
 
