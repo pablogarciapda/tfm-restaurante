@@ -212,12 +212,18 @@ const textGap = computed(() => baseFontSize.value * 1.0)
 /** Table number (or fusion label) rendered large, always shown. */
 const numberText = computed(() => props.fusionLabel || String(props.mesa.numero_mesa))
 
-/** Capacity suffix: "Xpax" or client name if reserved. Only for non-small tables. */
+/** Capacity suffix: "Xpax" or client name if reserved. For fused parents shows "original→fused". */
 const paxText = computed(() => {
   if (isSmall.value) return ''
   if (props.estado === 'reservada' && props.reservasMap?.[props.mesa.id]) {
     return props.reservasMap[props.mesa.id]
   }
+  // Fused parent: show "original→fused" (e.g. "4→6pax")
+  const isFusedParent = props.mesa.id_fusion !== null && props.mesa.mesa_padre_id === null
+  if (isFusedParent && props.mesa.capacidad_actual !== props.mesa.capacidad_base) {
+    return `${props.mesa.capacidad_base}→${props.mesa.capacidad_actual}pax`
+  }
+  // Fused child or non-fused: show base capacity
   return `${props.mesa.capacidad_base}pax`
 })
 

@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     .from('canvas_layouts').select('*').eq('fecha', fecha).eq('turno', turno).eq('zona', zona).maybeSingle()
 
   if (error) throw createError({ statusCode: 500, statusMessage: `Error al cargar: ${error.message}` })
-  if (!data) return { positions: [] }
+  if (!data) return { exists: false, positions: [] }
 
-  return { fecha: data.fecha, turno: data.turno, zona: data.zona, positions: data.positions, fusions: data.fusions ?? [], updated_at: data.updated_at }
+  return { exists: true, fecha: data.fecha, turno: data.turno, zona: data.zona, positions: data.positions, fusions: data.fusions ?? [], updated_at: data.updated_at }
 })

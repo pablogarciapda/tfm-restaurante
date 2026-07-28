@@ -365,9 +365,9 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
     })
   })
 
-  // ── Reservas toolbar: rotateSelectedGroup90CW + getSelectedMesaIds ──
+  // ── Reservas toolbar: getSelectedMesaIds ──
 
-  describe('rotated fused-group toolbar (reservas mode)', () => {
+  describe('getSelectedMesaIds (reservas mode)', () => {
     it('getSelectedMesaIds returns [] when nothing is selected', async () => {
       const store = useCanvasStore()
       store.setMesas([
@@ -415,25 +415,6 @@ describe('TableCanvas — 3-layer architecture (MCA-001)', () => {
       expect(wrapper.vm.getSelectedMesaIds()).toEqual([])
     })
 
-    it('rotateSelectedGroup90CW is exposed on the canvas vm', async () => {
-      const wrapper = await mountCanvas()
-      // @ts-expect-error: vm exposes defineExpose bindings at runtime
-      expect(typeof wrapper.vm.rotateSelectedGroup90CW).toBe('function')
-    })
-
-    it('rotateSelectedGroup90CW is a no-op (does not throw) when no layer is available in the mock', async () => {
-      // The mock v-layer has no `.getNode()` so mainLayerRef.value?.getNode() is
-      // undefined and the function returns early. We assert graceful behavior.
-      const store = useCanvasStore()
-      store.setMesas([
-        makeMesa({ id: 'parent', id_fusion: 'gX', mesa_padre_id: null }),
-        makeMesa({ id: 'child', id_fusion: 'gX', mesa_padre_id: 'parent' }),
-      ])
-      store.selectMesa('parent')
-      const wrapper = await mountCanvas()
-      // @ts-expect-error: vm exposes defineExpose bindings at runtime
-      expect(() => wrapper.vm.rotateSelectedGroup90CW()).not.toThrow()
-    })
   })
 
   // ── MCA-005: mesaEstado wired to reservas data ──

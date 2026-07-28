@@ -11,7 +11,6 @@ import { useCanvasStore } from '../stores/canvas-store'
 import {
   canFuse as pureCanFuse,
   calculateFusedCapacity,
-  calculateFusionPositions,
   unfuseTables as pureUnfuseTables,
   getAforoDisponible,
 } from '#shared/utils/fusion-math'
@@ -50,7 +49,7 @@ export function useMesasFusion() {
   // fuseMesas
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function fuseMesas(selectedIds: string[]): Promise<FuseResult> {
+  async function fuseMesas(selectedIds: string[], forcedCapacity?: number): Promise<FuseResult> {
     if (selectedIds.length < 2) {
       return { success: false, error: 'Se necesitan al menos 2 mesas para fusionar' }
     }
@@ -69,21 +68,10 @@ export function useMesasFusion() {
 
     const fusionId = crypto.randomUUID()
     const parentId = selectedIds[0]
-    const fusedCapacity = calculateFusedCapacity(selectedMesas)
+    const fusedCapacity = forcedCapacity ?? calculateFusedCapacity(selectedMesas)
     const childIds = selectedIds.filter((id) => id !== parentId)
 
-    // ── Calculate new positions for children (before any DB/store update) ──
-    const parentMesa = selectedMesas.find((m) => m.id === parentId)
-    const childMesas = selectedMesas.filter((m) => m.id !== parentId)
-    // Pass existing mesas (same zone, not in fusion group) for collision detection
-    const existingForCollision = store.mesas.filter(
-      (m) => !selectedIds.includes(m.id) && m.zona === parentMesa?.zona,
-    )
-    const positions = (parentMesa && childMesas.length > 0)
-      ? calculateFusionPositions(parentMesa, childMesas, store.stageWidth, store.stageHeight, existingForCollision)
-      : []
-
-    // ── DB: single update per mesa with ALL fields ──
+    // ── DB: update fusion fields only (positions stay where waiter placed them) ──
     // Parent: id_fusion + capacidad_actual
     const { error: parentError } = await client
       .from('mesas')
@@ -94,21 +82,15 @@ export function useMesasFusion() {
       return { success: false, error: `Error al fusionar: ${parentError.message}` }
     }
 
-    // Children: id_fusion + mesa_padre_id + capacidad_actual + positions (if calculated)
+    // Children: id_fusion + mesa_padre_id + capacidad_actual
     for (const childId of childIds) {
-      const pos = positions.find((p) => p.id === childId)
-      const updateData: Record<string, unknown> = {
-        id_fusion: fusionId,
-        mesa_padre_id: parentId,
-        capacidad_actual: fusedCapacity,
-      }
-      if (pos) {
-        updateData.posicion_x = pos.posicion_x
-        updateData.posicion_y = pos.posicion_y
-      }
       const { error: childError } = await client
         .from('mesas')
-        .update(updateData)
+        .update({
+          id_fusion: fusionId,
+          mesa_padre_id: parentId,
+          capacidad_actual: fusedCapacity,
+        })
         .eq('id', childId)
 
       if (childError) {
@@ -117,25 +99,16 @@ export function useMesasFusion() {
     }
 
     // ── Store: atomic batch update ──
-    // CRITICAL: Must update ALL mesas in ONE operation so that fusionGroups
-    // computed sees the COMPLETE group (all members have id_fusion) on the
-    // first recomputation. Sequential replaceMesa calls cause intermediate
-    // renders with INCOMPLETE members — the group border is computed with
-    // partial data, and children appear outside the bounding box.
     const batchUpdates: Array<{ id: string; data: Partial<Mesa> }> = []
     for (const id of selectedIds) {
-      const isParent = id === parentId
-      const pos = positions.find((p) => p.id === id)
-      const replaceData: Record<string, unknown> = {
-        id_fusion: fusionId,
-        mesa_padre_id: isParent ? null : parentId,
-        capacidad_actual: fusedCapacity,
-      }
-      if (pos) {
-        replaceData.posicion_x = pos.posicion_x
-        replaceData.posicion_y = pos.posicion_y
-      }
-      batchUpdates.push({ id, data: replaceData as Partial<Mesa> })
+      batchUpdates.push({
+        id,
+        data: {
+          id_fusion: fusionId,
+          mesa_padre_id: id === parentId ? null : parentId,
+          capacidad_actual: fusedCapacity,
+        } as Partial<Mesa>,
+      })
     }
     store.batchUpdateMesas(batchUpdates)
 
