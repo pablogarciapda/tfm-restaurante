@@ -726,9 +726,16 @@ async function handleFuse() {
 }
 
 /** Compute current turno time window for filtering unfuse reservations. */
-function currentTurnoWindow(): { start: number; end: number } | undefined {
-  const h = horariosConfig.value
-  if (!h) return undefined
+const FALLBACK_HORARIOS: HorarioConfig = {
+  comida_inicio: '13:30',
+  comida_fin: '15:30',
+  cena_inicio: '21:00',
+  cena_fin: '23:30',
+  intervalo_minutos: 15,
+}
+
+function currentTurnoWindow(): { start: number; end: number } {
+  const h = horariosConfig.value ?? FALLBACK_HORARIOS
   const toMin = (t: string) => {
     const [hh, mm] = t.split(':').map(Number)
     return (hh ?? 0) * 60 + (mm ?? 0)
