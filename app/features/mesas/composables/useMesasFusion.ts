@@ -14,6 +14,7 @@ import {
   unfuseTables as pureUnfuseTables,
   getAforoDisponible,
 } from '#shared/utils/fusion-math'
+import { generateUUID } from '#shared/utils/safe-uuid'
 import type { Mesa, CocinaRole, AforoOverflowCheck } from '#shared/contracts/mesas.contract'
 
 // ── Types ──
@@ -66,7 +67,7 @@ export function useMesasFusion() {
       return { success: false, error: 'Solo se pueden fusionar mesas de la misma zona' }
     }
 
-    const fusionId = crypto.randomUUID()
+    const fusionId = generateUUID()
     const parentId = selectedIds[0]
     const fusedCapacity = forcedCapacity ?? calculateFusedCapacity(selectedMesas)
     const childIds = selectedIds.filter((id) => id !== parentId)

@@ -37,7 +37,7 @@ export interface Mesa {
 
 /** Logical group of fused tables (MFU-001) */
 export interface FusionGroup {
-  /** Shared fusion identifier (crypto.randomUUID) */
+  /** Shared fusion identifier (generateUUID from safe-uuid.ts) */
   id_fusion: string
   /** First selected table becomes the parent */
   mesa_padre_id: string
