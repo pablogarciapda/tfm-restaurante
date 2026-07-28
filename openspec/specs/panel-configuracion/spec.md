@@ -8,7 +8,7 @@ System settings page at `/cocina/configuracion`. Organized in 10 labeled section
 
 | ID | Requirement | RFC 2119 |
 |----|------------|----------|
-| CFG-001 | Settings form: cliente_elige_mesa (toggle) + capacidad_total_local (number) + modo_ocupacion (radio) + ocupacion_manual (number, conditional) | MUST |
+| CFG-001 | Settings form: ~~cliente_elige_mesa (toggle)~~ **deprecated** + capacidad_total_local (number) + modo_ocupacion (radio) + ocupacion_manual (number, conditional) | MUST |
 | CFG-002 | Save updates the single `configuracion` row | MUST |
 | CFG-003 | Admin-only: editor role blocked by permissions middleware | MUST |
 | CFG-004 | "Aforo del local" informational section showing capacidad_total_local as the table manager capacity ceiling | MUST |
@@ -32,14 +32,16 @@ The system MUST render a section-based form at `/cocina/configuracion` organized
 
 #### Scenario: Form loads with current values
 
-- GIVEN configuracion row has cliente_elige_mesa=false, capacidad_total_local=80, modo_ocupacion='auto', ocupacion_manual=NULL
+- GIVEN configuracion row has capacidad_total_local=80, modo_ocupacion='auto', ocupacion_manual=NULL
 - WHEN admin visits `/cocina/configuracion`
-- THEN toggle shows unchecked; number input shows 80
+- THEN number input shows 80
 - AND "Automático" radio is selected
 - AND "Ocupación manual" input is hidden
 - AND all 10 sections render with correct headers
 
-#### Scenario: Toggle cliente_elige_mesa
+#### Scenario: ~~Toggle cliente_elige_mesa~~ DEPRECATED
+
+> **Deprecated.** This scenario is no longer applicable. `cliente_elige_mesa` is a legacy field. Client-side table selection was abandoned because zone availability cannot be guaranteed in real-time.
 
 - GIVEN cliente_elige_mesa is false
 - WHEN admin checks the toggle and clicks "Guardar configuración"
@@ -56,7 +58,9 @@ The system MUST render a section-based form at `/cocina/configuracion` organized
 
 The system MUST upsert the single `configuracion` row on save. Success toast: **"Configuración actualizada"**. Error toast on failure: **"Error al guardar"**.
 
-#### Scenario: Toggle cliente_elige_mesa
+#### Scenario: ~~Toggle cliente_elige_mesa~~ DEPRECATED
+
+> **Deprecated.** See above.
 
 - GIVEN cliente_elige_mesa is false
 - WHEN admin checks the toggle and clicks "Guardar configuración"

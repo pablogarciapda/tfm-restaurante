@@ -12,7 +12,7 @@
 
 | Área | Descripción |
 |------|-------------|
-| **Público (SSR)** | Inicio, Carta con filtros, Menú del Día, Reservas con selección de zona/mesa, Eventos, Contacto, Cancelación por token |
+| **Público (SSR)** | Inicio, Carta con filtros, Menú del Día, Reservas con selección de zona, Eventos, Contacto, Cancelación por token |
 | **Admin (SPA)** | `/cocina/**` — Dashboard, CRUD platos/eventos/usuarios/clientes, Editor menú diario, Configuración del sistema, Gestor de mesas Konva con fusión Realtime |
 
 ## Quick Start
@@ -36,7 +36,7 @@ pnpm typecheck
 
 - **Carta dinámica** con categorías reales desde DB, sección recomendados configurable, subcategorías (familias) para vinos/postres
 - **Menú diario** con precio configurable por día, soporte domingo/festivos, toggle agotado en vivo vía Realtime
-- **Reservas inteligentes** con slot grid de 15min, selector de zona/mesa, verificación SMS, CAPTCHA Turnstile, consentimiento GDPR
+- **Reservas inteligentes** con slot grid de 15min, selector de zona, verificación SMS, CAPTCHA Turnstile, consentimiento GDPR
 - **Cancelación por token** desde email, sin login
 - **Multi-tenant** — todos los datos del restaurante configurables desde admin
 - **Motor de mesas Konva.js** — canvas interactivo drag & drop, fusión de mesas, aforo, filtro por zonas

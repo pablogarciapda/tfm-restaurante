@@ -41,7 +41,7 @@
 | Columna | Tipo | Default | Notas |
 |---------|------|---------|-------|
 | `id` | `uuid` | gen_random_uuid() | PK |
-| `cliente_elige_mesa` | `boolean` | false | |
+| `cliente_elige_mesa` | `boolean` | false | **Deprecated.** See `cliente_elige_zona`. Feature abandoned — not viable. |
 | `capacidad_total_local` | `integer` | null | Check 1..999. Deprecated — usar zonas_config |
 | `modo_ocupacion` | `text` | 'auto' | 'auto' \| 'manual' |
 | `ocupacion_manual` | `integer` | 0 | >= 0 |
@@ -63,7 +63,7 @@
 | `smtp_from_name` | `text` | 'Restaurante La Zíngara' | Nombre remitente emails |
 | `texto_proteccion_datos` | `text` | null | Texto GDPR para formulario reservas |
 | `modo_reserva` | `text` | 'automatica' | 'automatica' \| 'verificada' |
-| `cliente_elige_zona` | `text` | 'none' | 'none' \| 'zona' \| 'zona_mesa' |
+| `cliente_elige_zona` | `text` | 'none' | 'none' \| 'zona' \| ~~'zona_mesa'~~ (deprecated — not viable) |
 | `captcha_habilitado` | `boolean` | false | Cloudflare Turnstile toggle |
 | `sms_verificacion` | `boolean` | false | Requerir verificación SMS independiente |
 | `notificacion_reserva` | `text` | 'email' | 'email' \| 'sms' \| 'ambos' |
@@ -236,7 +236,7 @@
 - `/` -> Inicio
 - `/carta` -> Carta con filtro por alérgenos, info calórica, sección recomendados configurable, subcategorías (familias)
 - `/menu-diario` -> Menú del Día (precio desde Configuración, agotado toggle en vivo via Realtime)
-- `/reservas` -> Formulario con slot grid (15min), selector de zona/mesa según `configuracion`, GDPR, verificación SMS
+- `/reservas` -> Formulario con slot grid (15min), selector de zona (si `cliente_elige_zona=zona`), GDPR, verificación SMS
 - `/eventos` -> Eventos
 - `/contacto` -> Contacto
 - `/cancelar` -> Cancelación de reserva por token (sin auth, desde email)
@@ -262,7 +262,8 @@
 - Home con filosofía y accesos directos.
 - Carta con filtros de alérgenos y calorías, categorías ordenadas por `categorias.puesto`, sección recomendados configurable (título + toggle desde admin), subcategorías (familias) con FamilySelector horizontal scroll.
 - Menú diario dinámico (precio desde Configuración), con Realtime para toggle agotado en vivo, soporte domingo/festivos.
-- Reservas inteligentes: modo "cliente elige mesa" (selector sobre plano) o "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona/mesa según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
+- Reservas inteligentes: modo "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
+  - ⚠️ **Feature abandonado:** "Cliente elige mesa" (seleccionar mesa individual desde la web) fue intentado pero descartado. **Razón:** no se puede permitir al cliente elegir mesa cuando no se sabe en tiempo real si una zona está cerrada, abierta, o con horario cambiado. El admin gestiona mesas desde el panel.
   - ⚠️ **BUG conocido (17 Jul — pendiente):** Al hacer una reserva, la mesa se bloquea para TODOS los slots del turno (mañana/tarde), no solo para la hora reservada. No hay ventana de tiempo para que quede libre y otro cliente pueda reservarla en otro horario del mismo turno. Pendiente de corregir.
 - Eventos en cartelera.
 - Contacto con mapa y formulario.
@@ -314,7 +315,7 @@
 - **Correcciones SSR:** hydration mismatches resueltos en carta pública (activeCategory, key groups, v-else → div)
 - 28 platos reasignados de "NUESTRAS RECOMENDACIONES" a categorías reales
 - 974 tests unitarios pasando (1 pre-existing failure; 8 skipped; 54 adicionales por fixes recientes)
-- **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona/mesa, slots de 15 minutos en horarios configurables
+- **Reserva con GDPR, SMS y slot grid:** formulario con step de consentimiento, verificación SMS opcional, selector de zona (si `cliente_elige_zona=zona`), slots de 15 minutos en horarios configurables
 - **GDPR tracking:** consentimiento explícito registrado en `clientes.gdpr_aceptado` + `gdpr_aceptado_at`. Sincronización automática de datos del cliente (nombre/apellidos/email) desde el formulario de reserva
 - **SMS toggle independiente:** `sms_verificacion` separado de `modo_reserva`. Control independiente para requerir verificación SMS
 - **Notificación configurable:** `notificacion_reserva` soporta `email` | `sms` | `ambos`. Se aplica tanto en reservas públicas como en confirmación desde admin
@@ -522,6 +523,7 @@ tfm-restaurant/
 | **Horarios configurables** | Horarios hardcodeados para comida/cena | JSONB en configuracion con comida_inicio/fin, cena_inicio/fin, intervalo_minutos (15/30) |
 | **Zonas editables** | Zonas fijas via CHECK constraint en mesas.zona | JSONB array en configuracion.zonas_config con id/nombre/capacidad/enabled. Admin puede crear/renombrar/deshabilitar zonas libremente |
 | **Capacidad desde zonas** | capacidad_total_local (default 80) no reflejaba el local real | Capacidad deducida de zonas habilitadas. 5 zonas = 264 capacidad total. Deprecado capacidad_total_local |
+| **Cliente elige mesa (abandonado)** | Se intentó permitir al cliente elegir mesa individual desde la web | Descartado: no se puede elegir mesa cuando no se sabe en tiempo real si una zona está cerrada/abierta o con horario cambiado. Admin gestiona mesas desde panel. `cliente_elige_mesa` (bool) → deprecated. `cliente_elige_zona` evolucionó a enum `none/zona` (sin `zona_mesa`) |
 | **Días bloqueados** | Sin soporte para cerrar el restaurante en fechas específicas | Tabla `dias_bloqueados` con fecha única, recurrente (MM-DD) y rangos (fecha_fin) |
 | **Slot grid en reservas** | Datetime-local obligaba a escribir hora manualmente | Date picker + botones de slot de 15min. Slots generados desde horarios_config, excluye pasados y días bloqueados |
 | **Rate limiting SMS** | Endpoint SMS sin protección contra abuso | Token bucket: 1 request/phone/min + 5 request/IP/min, devuelve 429 |

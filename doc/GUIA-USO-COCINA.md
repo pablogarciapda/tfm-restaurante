@@ -188,7 +188,7 @@ Los eventos se pueden **desactivar** sin borrarlos. Cambia su estado a "inactivo
 | Capacidad total del local | Aforo máximo del restaurante (1–999) |
 | Modo de ocupación | Automático (calcula según reservas) o Manual (introducir ocupación a mano) |
 | Ocupación manual | Solo si el modo es "Manual" |
-| Cliente elige mesa | Si activado, los clientes pueden seleccionar mesa al reservar online |
+| ~~Cliente elige mesa~~ | **Deprecated.** Feature abandonado — no es viable permitir al cliente elegir mesa cuando no se conoce la disponibilidad en tiempo real de las zonas |
 
 ### Precios
 

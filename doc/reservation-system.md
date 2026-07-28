@@ -186,6 +186,8 @@ When filtering available tables for reassignment, the system checks occupancy **
 
 ## 4. Public Reservation Flow
 
+> **Deprecated feature:** "Cliente elige mesa" (client picks individual table from web) was attempted but abandoned. Reason: impossible to guarantee real-time zone availability — a zone may be closed, have changed hours, or be at capacity without the client knowing. Table assignment is admin-only via `/cocina/reservas`.
+
 ### Steps (4-step wizard)
 
 ```

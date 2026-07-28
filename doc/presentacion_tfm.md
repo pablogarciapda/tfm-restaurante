@@ -131,7 +131,7 @@ del restaurante, tanto para clientes como para el equipo interno
 
 OBJETIVOS ESPECÍFICOS:
 1. Escaparate digital público con carta, menú diario y eventos
-2. Sistema de reservas online con selección de zona/mesa
+2. Sistema de reservas online con selección de zona
 3. Panel de administración para gestión de contenido
 4. Editor interactivo de plano de mesas con Canvas (Konva.js)
 5. Fusión inteligente de mesas y control de aforo en tiempo real
@@ -225,7 +225,7 @@ PÁGINAS PÚBLICAS (SSR):
 • Menú diario — dinámico desde BBDD, precio configurable,
          agotado en vivo con Realtime, menú dominical
 • Reservas — formulario con slot grid de 15min,
-         selector de zona/mesa, consentimiento GDPR, verificación SMS
+         selector de zona, consentimiento GDPR, verificación SMS
 • Eventos — cartelera con categorías dinámicas
 • Contacto — mapa, formulario, datos del restaurante
 • Cancelar — cancelación por token único sin login
@@ -527,6 +527,10 @@ CORTO PLAZO:
 • Corregir bug de bloqueo de mesa por turno completo
   (actualmente bloquea todos los slots del turno,
    no solo la hora reservada)
+• Feature descartado: "Cliente elige mesa" — no es viable
+  permitir al cliente elegir mesa individual cuando no se
+  conoce en tiempo real si una zona está cerrada o con
+  horario cambiado. El admin gestiona mesas desde el panel.
 
 MEDIO PLAZO:
 • Módulo de facturación / TPV integrado
