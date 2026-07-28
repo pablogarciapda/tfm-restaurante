@@ -184,7 +184,7 @@ async function handleRestoreOriginal() {
 
     // 5. Desfuse all active fusion groups in this zone
     for (const fusionId of activeFusions) {
-      await unfuseMesas(fusionId, fecha)
+      await unfuseMesas(fusionId, fecha, currentTurnoWindow())
     }
 
     // 6. Get original design positions for this zone
@@ -725,12 +725,25 @@ async function handleFuse() {
   forcedCapacity.value = null
 }
 
+/** Compute current turno time window for filtering unfuse reservations. */
+function currentTurnoWindow(): { start: number; end: number } | undefined {
+  const h = horariosConfig.value
+  if (!h) return undefined
+  const toMin = (t: string) => {
+    const [hh, mm] = t.split(':').map(Number)
+    return (hh ?? 0) * 60 + (mm ?? 0)
+  }
+  return guardarTurno.value === 'comida'
+    ? { start: toMin(h.comida_inicio), end: toMin(h.comida_fin) }
+    : { start: toMin(h.cena_inicio), end: toMin(h.cena_fin) }
+}
+
 async function handleUnfuse() {
   const fusionId = store.selectedMesa?.id_fusion
     ?? selectedMesas().find((m) => m.id_fusion)?.id_fusion
   if (!fusionId) return
 
-  const result = await unfuseMesas(fusionId, guardarFecha.value)
+  const result = await unfuseMesas(fusionId, guardarFecha.value, currentTurnoWindow())
 
   if (result.hasReservations && result.reservations) {
     fusionDialogReservations.value = result.reservations
@@ -741,13 +754,13 @@ async function handleUnfuse() {
 }
 
 async function handleFusionCancel() {
-  await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value)
+  await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }
 
 async function handleFusionStandby() {
-  await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value)
+  await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value, currentTurnoWindow())
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }

@@ -42,6 +42,31 @@ interface UnfuseResult {
   error?: string
 }
 
+/** Time window for turno filtering (half-open [start, end) in minutes from 00:00). */
+interface TurnoWindow {
+  start: number
+  end: number
+}
+
+/**
+ * Filter reservations to only those falling within the given turno window.
+ * Handles cena crossing midnight (end < start).
+ */
+function filterByTurno(
+  reservas: ReservaStandby[],
+  turnoWindow: TurnoWindow,
+): ReservaStandby[] {
+  return reservas.filter((r) => {
+    const d = new Date(r.fecha_hora)
+    const mins = d.getHours() * 60 + d.getMinutes()
+    if (turnoWindow.end <= turnoWindow.start) {
+      // Cena crosses midnight: [start, 24:00) ∪ [0, end)
+      return mins >= turnoWindow.start || mins < turnoWindow.end
+    }
+    return mins >= turnoWindow.start && mins < turnoWindow.end
+  })
+}
+
 export function useMesasFusion() {
   const client = useSupabaseClient()
   const store = useCanvasStore()
@@ -120,7 +145,11 @@ export function useMesasFusion() {
   // unfuseMesas — check reservations first, return them to UI
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function unfuseMesas(fusionId: string, fecha?: string): Promise<UnfuseResult> {
+  async function unfuseMesas(
+    fusionId: string,
+    fecha?: string,
+    turnoWindow?: TurnoWindow,
+  ): Promise<UnfuseResult> {
     // Find all mesas in this fusion group
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
@@ -147,7 +176,12 @@ export function useMesasFusion() {
       return { success: false, error: `Error al consultar reservas: ${reservasError.message}` }
     }
 
-    const activeReservas = (reservas as ReservaStandby[]) ?? []
+    let activeReservas = (reservas as ReservaStandby[]) ?? []
+
+    // Filter by turno if provided — don't block unfuse for reservations in other turns
+    if (turnoWindow) {
+      activeReservas = filterByTurno(activeReservas, turnoWindow)
+    }
 
     if (activeReservas.length > 0) {
       return {
@@ -166,7 +200,11 @@ export function useMesasFusion() {
   // cancelReservationsAndUnfuse
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function cancelReservationsAndUnfuse(fusionId: string, fecha?: string): Promise<UnfuseResult> {
+  async function cancelReservationsAndUnfuse(
+    fusionId: string,
+    fecha?: string,
+    turnoWindow?: TurnoWindow,
+  ): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
       .map((m) => m.id)
@@ -175,10 +213,10 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Cancel active reservations on the selected date only
+    // Fetch active reservations on the selected date
     let query = client
       .from('reservas')
-      .update({ estado: 'cancelada' })
+      .select('id')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
 
@@ -186,10 +224,48 @@ export function useMesasFusion() {
       query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
     }
 
-    const { error: cancelError } = await query
+    const { data: reservas, error: fetchError } = await query
 
-    if (cancelError) {
-      return { success: false, error: `Error al cancelar reservas: ${cancelError.message}` }
+    if (fetchError) {
+      return { success: false, error: `Error al consultar reservas: ${fetchError.message}` }
+    }
+
+    let toCancel = (reservas as Array<{ id: string }>) ?? []
+
+    // Filter by turno if provided
+    if (turnoWindow && toCancel.length > 0) {
+      // Re-fetch with fecha_hora to filter by turno
+      let fullQuery = client
+        .from('reservas')
+        .select('id, fecha_hora')
+        .in('mesa_id', fusedMesaIds)
+        .in('estado', ['pendiente', 'confirmada'])
+
+      if (fecha) {
+        fullQuery = fullQuery
+          .gte('fecha_hora', fecha + 'T00:00:00')
+          .lte('fecha_hora', fecha + 'T23:59:59')
+      }
+
+      const { data: fullReservas } = await fullQuery
+      const filtered = filterByTurno(
+        (fullReservas as ReservaStandby[]) ?? [],
+        turnoWindow,
+      )
+      toCancel = filtered.map((r) => ({ id: r.id }))
+    }
+
+    // Cancel only turno-matching reservations
+    if (toCancel.length > 0) {
+      const ids = toCancel.map((r) => r.id)
+      const { error: cancelError } = await client
+        .from('reservas')
+        .update({ estado: 'cancelada' })
+        .in('id', ids)
+
+      if (cancelError) {
+        return { success: false, error: `Error al cancelar reservas: ${cancelError.message}` }
+      }
     }
 
     return await performUnfusion(fusedMesaIds)
@@ -199,7 +275,11 @@ export function useMesasFusion() {
   // moveReservationsToStandby
   // ─────────────────────────────────────────────────────────────────────────
 
-  async function moveReservationsToStandby(fusionId: string, fecha?: string): Promise<UnfuseResult> {
+  async function moveReservationsToStandby(
+    fusionId: string,
+    fecha?: string,
+    turnoWindow?: TurnoWindow,
+  ): Promise<UnfuseResult> {
     const fusedMesaIds = store.mesas
       .filter((m) => m.id_fusion === fusionId)
       .map((m) => m.id)
@@ -208,10 +288,10 @@ export function useMesasFusion() {
       return { success: false, error: 'No se encontraron mesas con ese ID de fusión' }
     }
 
-    // Move active reservations to standby on the selected date only
+    // Fetch active reservations on the selected date
     let query = client
       .from('reservas')
-      .update({ estado: 'standby' })
+      .select('id')
       .in('mesa_id', fusedMesaIds)
       .in('estado', ['pendiente', 'confirmada'])
 
@@ -219,10 +299,47 @@ export function useMesasFusion() {
       query = query.gte('fecha_hora', fecha + 'T00:00:00').lte('fecha_hora', fecha + 'T23:59:59')
     }
 
-    const { error: standbyError } = await query
+    const { data: reservas, error: fetchError } = await query
 
-    if (standbyError) {
-      return { success: false, error: `Error al mover reservas a standby: ${standbyError.message}` }
+    if (fetchError) {
+      return { success: false, error: `Error al consultar reservas: ${fetchError.message}` }
+    }
+
+    let toStandby = (reservas as Array<{ id: string }>) ?? []
+
+    // Filter by turno if provided
+    if (turnoWindow && toStandby.length > 0) {
+      let fullQuery = client
+        .from('reservas')
+        .select('id, fecha_hora')
+        .in('mesa_id', fusedMesaIds)
+        .in('estado', ['pendiente', 'confirmada'])
+
+      if (fecha) {
+        fullQuery = fullQuery
+          .gte('fecha_hora', fecha + 'T00:00:00')
+          .lte('fecha_hora', fecha + 'T23:59:59')
+      }
+
+      const { data: fullReservas } = await fullQuery
+      const filtered = filterByTurno(
+        (fullReservas as ReservaStandby[]) ?? [],
+        turnoWindow,
+      )
+      toStandby = filtered.map((r) => ({ id: r.id }))
+    }
+
+    // Move only turno-matching reservations to standby
+    if (toStandby.length > 0) {
+      const ids = toStandby.map((r) => r.id)
+      const { error: standbyError } = await client
+        .from('reservas')
+        .update({ estado: 'standby' })
+        .in('id', ids)
+
+      if (standbyError) {
+        return { success: false, error: `Error al mover reservas a standby: ${standbyError.message}` }
+      }
     }
 
     return await performUnfusion(fusedMesaIds)
