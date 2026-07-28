@@ -24,6 +24,7 @@ import { esReservaPasada } from '#shared/utils/reserva-fecha'
 import { generarReferencia } from '#shared/utils/referencia'
 import { generateSlots } from '#shared/utils/slots'
 import { toLocalDateString, buildFechaHora } from '#shared/utils/date'
+import { buildTurnoWindows, reservationTurn } from '#shared/utils/reserva-overlap'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
@@ -109,6 +110,7 @@ async function saveSelectedFusedPositions() {
 // ── Guardar / Restaurar canvas ──
 const guardarFecha = ref(toLocalDateString())
 const guardarTurno = ref<'comida' | 'cena'>('comida')
+const canvasZoom = ref(1)
 const savingCanvas = ref(false)
 const restoringOriginal = ref(false)
 const loadingAforo = ref(false)
@@ -177,29 +179,95 @@ async function handleGuardarCanvas() {
 }
 
 /** Restaura el diseño original para la fecha + turno seleccionados.
- *  Guarda las posiciones originales en canvas_layouts y actualiza las mesas. */
+ *  Si hay fusiones activas o reservas vinculadas a mesas en ese dia+turno,
+ *  pide confirmacion y desvincula las reservas (mesa_id=null, zona_id=null). */
 async function handleRestoreOriginal() {
   const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
-  if (!confirm(`¿Restaurar diseño original para ${guardarFecha.value} (${turnoLabel})?\nSe guardará en layouts y se actualizarán las mesas.`)) return
+  const fecha = guardarFecha.value
+
+  // 1. Count active fusions in current zone
+  const activeFusions = new Set(
+    store.mesas
+      .filter((m) => m.id_fusion && m.zona === store.activeZona)
+      .map((m) => m.id_fusion!),
+  )
+  const fusionCount = activeFusions.size
+
+  // 2. Count reservations for this date+turn that have mesa_id assigned
+  const turno = guardarTurno.value as 'comida' | 'cena'
+  const windows = horariosConfig.value ? buildTurnoWindows(horariosConfig.value) : null
+  const affectedReservas = reservasList.value.filter((r) => {
+    if (!r.mesa_id) return false
+    if (r.estado !== 'pendiente' && r.estado !== 'confirmada') return false
+    const d = new Date(r.fecha_hora)
+    const localDate = toLocalDateString(d)
+    if (localDate !== fecha) return false
+    if (!windows) return false
+    const mins = d.getHours() * 60 + d.getMinutes()
+    const assignedTurno = reservationTurn(mins, windows.comida, windows.cena)
+    return assignedTurno === turno
+  })
+
+  // 3. Show confirmation if there are fusions or affected reservations
+  if (fusionCount > 0 || affectedReservas.length > 0) {
+    const parts: string[] = []
+    if (fusionCount > 0) parts.push(`• ${fusionCount} fusión(es) activa(s) se eliminarán`)
+    if (affectedReservas.length > 0) {
+      parts.push(`• ${affectedReservas.length} reserva(s) perderán su mesa y zona:`)
+      for (const r of affectedReservas.slice(0, 5)) {
+        const nombre = (r.cliente as any)?.nombre ?? r.nombre_cliente ?? 'Sin nombre'
+        const ref = generarReferencia(r.id, r.fecha_hora)
+        const pax = r.numero_comensales ?? '?'
+        parts.push(`    ${ref} — ${nombre} (${pax} pax)`)
+      }
+      if (affectedReservas.length > 5) parts.push(`    ... y ${affectedReservas.length - 5} más`)
+    }
+    parts.push(`\n¿Restaurar diseño original para ${fecha} (${turnoLabel})?`)
+
+    if (!confirm(parts.join('\n'))) return
+  } else {
+    if (!confirm(`¿Restaurar diseño original para ${fecha} (${turnoLabel})?\nSe actualizarán las posiciones de las mesas.`)) return
+  }
+
   restoringOriginal.value = true
   try {
-    // 1. Get original design positions for this zone
+    // 4. Unlink affected reservations (mesa_id=null, zona_id=null)
+    for (const r of affectedReservas) {
+      await client.from('reservas').update({ mesa_id: null, zona_id: null }).eq('id', r.id)
+    }
+
+    // 5. Desfuse all active fusion groups in this zone
+    for (const fusionId of activeFusions) {
+      await unfuseMesas(fusionId, fecha)
+    }
+
+    // 6. Get original design positions for this zone
     const original = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
     if (!original.exists || !Array.isArray(original.positions)) {
       showToast('No hay diseño original guardado', 'error')
       return
     }
-    // 2. Save them as a layout for the selected date+turno
+
+    // 7. Save them as a layout for the selected date+turno
     await $fetch('/api/canvas/save-layout', {
       method: 'POST',
-      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions: original.positions },
+      body: { fecha, turno: guardarTurno.value, zona: store.activeZona, positions: original.positions },
     })
-    // 3. Update mesas to match original positions
+
+    // 8. Update mesas to match original positions
     for (const pos of original.positions) {
       await updateMesa(pos.mesa_id, { posicion_x: pos.posicion_x, posicion_y: pos.posicion_y, rotacion: pos.rotacion })
     }
+
+    // 9. Reload
+    await loadReservas()
     await loadMesas(store.activeZona)
-    showToast(`Diseño original restaurado para ${guardarFecha.value} (${turnoLabel}) — ${original.positions.length} mesas`, 'success')
+
+    const details: string[] = []
+    if (affectedReservas.length > 0) details.push(`${affectedReservas.length} reserva(s) desvinculada(s)`)
+    if (fusionCount > 0) details.push(`${fusionCount} fusión(es) eliminada(s)`)
+    details.push(`${original.positions.length} mesas restaurada(s)`)
+    showToast(`Diseño original restaurado — ${details.join(', ')}`, 'success')
   } catch (e: any) {
     showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
   } finally {
@@ -683,7 +751,7 @@ async function handleUnfuse() {
     ?? selectedMesas().find((m) => m.id_fusion)?.id_fusion
   if (!fusionId) return
 
-  const result = await unfuseMesas(fusionId)
+  const result = await unfuseMesas(fusionId, guardarFecha.value)
 
   if (result.hasReservations && result.reservations) {
     fusionDialogReservations.value = result.reservations
@@ -694,13 +762,13 @@ async function handleUnfuse() {
 }
 
 async function handleFusionCancel() {
-  await cancelReservationsAndUnfuse(fusionDialogFusionId.value)
+  await cancelReservationsAndUnfuse(fusionDialogFusionId.value, guardarFecha.value)
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }
 
 async function handleFusionStandby() {
-  await moveReservationsToStandby(fusionDialogFusionId.value)
+  await moveReservationsToStandby(fusionDialogFusionId.value, guardarFecha.value)
   fusionDialogShow.value = false
   await refreshStandbyReservations()
 }
@@ -810,14 +878,26 @@ const reasignarMesasDisponibles = computed(() => {
   const reserva = reasignarReserva.value
   if (!reserva) return []
 
-  // Only consider tables occupied on the SAME DATE as the reservation being reassigned
+  // Only consider tables occupied on the SAME DATE AND TURNO as the reservation being reassigned
   const reservaFecha = reserva.fecha_hora?.slice(0, 10) ?? ''
+  const reservaHora = new Date(reserva.fecha_hora)
+  const reservaMins = reservaHora.getHours() * 60 + reservaHora.getMinutes()
+  const windows = horariosConfig.value ? buildTurnoWindows(horariosConfig.value) : null
+  const reservaTurno = windows ? reservationTurn(reservaMins, windows.comida, windows.cena) : null
+
   const ocupadas = new Set<string>()
   for (const r of reservasList.value) {
     // Skip the reservation being reassigned itself
     if (r.id === reserva.id) continue
     // Only consider reservations on the same date
     if (r.fecha_hora?.slice(0, 10) !== reservaFecha) continue
+    // Only consider reservations in the same turno
+    if (reservaTurno && windows) {
+      const rHora = new Date(r.fecha_hora)
+      const rMins = rHora.getHours() * 60 + rHora.getMinutes()
+      const rTurno = reservationTurn(rMins, windows.comida, windows.cena)
+      if (rTurno !== reservaTurno) continue
+    }
     if (r.mesa_id && (r.estado === 'confirmada' || r.estado === 'pendiente')) {
       ocupadas.add(r.mesa_id)
     }
@@ -1423,23 +1503,46 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Zone tabs — no "Todas", one per enabled zone -->
-    <nav class="flex flex-wrap gap-2 py-2" aria-label="Zonas del local">
-      <button
-        v-for="zona in zonasConfig"
-        :key="zona.nombre"
-        class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-        :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-        @click="store.activeZona = zona.nombre"
-      >
-        {{ zona.nombre }}
-      </button>
+    <!-- Zone tabs + zoom controls -->
+    <nav class="flex items-center gap-2 py-2" aria-label="Zonas del local">
+      <div class="flex flex-wrap flex-1 gap-2">
+        <button
+          v-for="zona in zonasConfig"
+          :key="zona.nombre"
+          class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
+          :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
+          @click="store.activeZona = zona.nombre"
+        >
+          {{ zona.nombre }}
+        </button>
+      </div>
+      <!-- Zoom controls -->
+      <div class="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+          :disabled="canvasZoom <= 0.3"
+          @click="canvasZoom = Math.max(0.3, +(canvasZoom - 0.1).toFixed(1))"
+        >
+          −
+        </button>
+        <span class="min-w-[3rem] text-center text-xs text-slate">{{ Math.round(canvasZoom * 100) }}%</span>
+        <button
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-slate transition-colors hover:bg-gray-50 disabled:opacity-40"
+          :disabled="canvasZoom >= 2"
+          @click="canvasZoom = Math.min(2, +(canvasZoom + 0.1).toFixed(1))"
+        >
+          +
+        </button>
+      </div>
     </nav>
     </div> <!-- end sticky header -->
 
     <!-- Konva canvas — designMode always false (no Transformer) -->
     <div class="mb-6 max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm"
       style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <div :style="{ transform: `scale(${canvasZoom})`, transformOrigin: 'top left' }">
       <TableCanvas
         ref="canvasRef"
         :reservas="reservasForCanvas"
@@ -1455,6 +1558,7 @@ onMounted(async () => {
         :canvas-alto-base="disenoConfig.canvas_alto_base"
         @table-click-reservation="handleTableClickWithMode"
       />
+      </div>
     </div>
 
     <!-- Fusion confirm dialog (Slice 4) -->

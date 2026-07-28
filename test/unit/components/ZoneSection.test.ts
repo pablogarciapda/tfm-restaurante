@@ -1,8 +1,8 @@
 /**
- * TDD: RED → GREEN → TRIANGULATE — ZoneSection component (MCA-002)
+ * TDD: ZoneSection component (MCA-002)
  *
- * Zone background rectangles with labels for the 5-zone layout.
- * Uses vue-konva v-rect + v-text (mocked at module level).
+ * Zone background rectangles for the zone layout.
+ * Uses vue-konva v-rect (mocked at module level).
  *
  * Zone colors:
  *   Principal=#E8D5C4, Zingaro=#D4C5B9, Privado=#C9BFB0,
@@ -109,7 +109,7 @@ vi.mock('vue-konva', () => ({
 // ZoneSection Tests
 // ============================================================================
 
-describe('ZoneSection — renders rect + text for each zone', () => {
+describe('ZoneSection — renders rect for each zone', () => {
   async function mountZone(zona: string, overrides?: Record<string, number>) {
     const mod = await import('../../../app/features/mesas/components/ZoneSection.vue')
     return mount(mod.default, {
@@ -175,27 +175,6 @@ describe('ZoneSection — renders rect + text for each zone', () => {
       const wrapper = await mountZone('Principal')
       const rect = wrapper.find('[data-testid="v-rect"]')
       expect(rect.attributes('data-stroke')).toBe('transparent')
-    })
-  })
-
-  describe('zone label text', () => {
-    it('renders the zona name as label text', async () => {
-      const wrapper = await mountZone('Zingaro')
-      const label = wrapper.find('[data-testid="v-text"]')
-      expect(label.attributes('data-text')).toBe('Zingaro')
-    })
-
-    it('label has correct fontSize 20', async () => {
-      const wrapper = await mountZone('Principal')
-      const label = wrapper.find('[data-testid="v-text"]')
-      expect(label.attributes('data-fontsize')).toBe('20')
-    })
-
-    it('each zone renders its own label text', async () => {
-      const terrazaWrapper = await mountZone('Terraza')
-      const barWrapper = await mountZone('Bar')
-      expect(terrazaWrapper.find('[data-testid="v-text"]').attributes('data-text')).toBe('Terraza')
-      expect(barWrapper.find('[data-testid="v-text"]').attributes('data-text')).toBe('Bar')
     })
   })
 
