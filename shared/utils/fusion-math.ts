@@ -9,6 +9,7 @@
 
 import type { Mesa, MesaEstado, AforoMode } from '../contracts/mesas.contract'
 import { toLocalDateString, isoToLocalDate } from './date'
+import { generateUUID } from './safe-uuid'
 
 // ---------------------------------------------------------------------------
 // calculateFusedCapacity
@@ -96,7 +97,7 @@ export function fuseTables(
   selectedIds: string[],
 ): { id_fusion: string; mesa_padre_id: string; capacidad_actual: number } {
   const selectedMesas = mesas.filter((m) => selectedIds.includes(m.id))
-  const id_fusion = crypto.randomUUID()
+  const id_fusion = generateUUID()
   const mesa_padre_id = selectedIds[0]!
   const capacidad_actual = calculateFusedCapacity(selectedMesas)
 
