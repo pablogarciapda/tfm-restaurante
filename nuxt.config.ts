@@ -88,6 +88,10 @@ export default defineNuxtConfig({
     labsMobileSender: '',
     labsMobileTest: '0',
 
+    // Supabase Management API credentials (server-only)
+    supabaseProjectRef: '',
+    supabaseManagementToken: '',
+
     // Public (exposed to client bundle)
     public: {
       siteUrl: '',
