@@ -47,6 +47,17 @@ export interface ZonaConfig {
   enabled: boolean
 }
 
+export interface CanvasLayoutContract {
+  id?: string
+  fecha: string
+  turno: 'comida' | 'cena'
+  zona_id?: string | null
+  zona?: string
+  positions: unknown[]
+  fusions?: unknown[]
+  updated_at?: string | null
+}
+
 // ──────────────────────────── Días Bloqueados ─────────────────────
 
 /** Blocked/closed day row from dias_bloqueados table */

@@ -102,6 +102,7 @@ const zoneImageMap = computed(() => {
   const map: Record<string, string | null | undefined> = {}
   for (const z of props.zonasConfig ?? []) {
     map[z.nombre] = z.imagen_url
+    map[z.id] = z.imagen_url
   }
   return map
 })
@@ -111,6 +112,7 @@ const zoneImageScaleMap = computed(() => {
   const map: Record<string, number> = {}
   for (const z of props.zonasConfig ?? []) {
     map[z.nombre] = (z as any).imagen_scale ?? 1
+    map[z.id] = (z as any).imagen_scale ?? 1
   }
   return map
 })
@@ -194,10 +196,11 @@ const stageScaleY = computed(() => store.stageHeight / BASE_HEIGHT.value)
  *  - Normal mode: zones positioned from ZONE_DEFS, scaled to stage size
  */
 const filteredZones = computed(() => {
+  const activeZoneName = props.zonasConfig?.find((z) => z.id === store.activeZona)?.nombre ?? store.activeZona
   if (props.singleZone && store.activeZona) {
     // Single zone fills the entire canvas at (0,0)
     return [{
-      zona: store.activeZona,
+      zona: activeZoneName,
       x: 0,
       y: 0,
       w: store.stageWidth,
@@ -205,7 +208,7 @@ const filteredZones = computed(() => {
     }]
   }
   // Multi-zone mode (or "Todas") — scale from ZONE_DEFS
-  const baseZones = store.activeZona === '' ? ZONE_DEFS : ZONE_DEFS.filter((z) => z.zona === store.activeZona)
+  const baseZones = store.activeZona === '' ? ZONE_DEFS : ZONE_DEFS.filter((z) => z.zona === activeZoneName)
   const sx = stageScaleX.value
   const sy = stageScaleY.value
   return baseZones.map((z) => ({

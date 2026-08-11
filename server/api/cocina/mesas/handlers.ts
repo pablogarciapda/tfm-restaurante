@@ -13,7 +13,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 import type { Mesa } from '#shared/contracts/mesas.contract'
+import type { ZonaConfig } from '#shared/contracts/reservation.contract'
 import { calculateFusedCapacity, canFuse } from '#shared/utils/fusion-math'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 // ── Types ──
 
@@ -23,12 +25,17 @@ type HandlerResult = { status: number; body: Record<string, unknown> }
 
 // ── Constants ──
 
-const VALID_ZONAS = ['Principal', 'Zingaro', 'Privado', 'Terraza', 'Bar']
+async function getConfiguredZones(supabase: SupabaseServerClient): Promise<ZonaConfig[] | null> {
+  const { data, error } = await supabase
+    .from('configuracion')
+    .select('zonas_config')
+    .single()
 
-function isValidZona(zona: unknown): zona is string {
-  return typeof zona === 'string' && VALID_ZONAS.includes(zona)
+  if (error) return null
+  return Array.isArray(data?.zonas_config) ? data.zonas_config as unknown as ZonaConfig[] : []
 }
 
+/** Resolve an ID or legacy display name against enabled configured zones. */
 // ─── handleListMesas ─────────────────────────────────────────────────
 
 /**
@@ -65,7 +72,7 @@ export async function handleCreateMesa(
   supabase: SupabaseServerClient,
   body: Record<string, unknown>,
 ): Promise<HandlerResult> {
-  const { numero_mesa, capacidad_base, zona } = body
+  const { numero_mesa, capacidad_base, zona, zona_id } = body
 
   // Validate required fields
   if (numero_mesa === undefined || numero_mesa === null) {
@@ -74,10 +81,12 @@ export async function handleCreateMesa(
   if (capacidad_base === undefined || capacidad_base === null || typeof capacidad_base !== 'number') {
     return { status: 400, body: { error: 'La capacidad base es requerida' } }
   }
-  if (!zona || !isValidZona(zona)) {
+  const zones = await getConfiguredZones(supabase)
+  const resolvedZona = resolveZone(zona_id ?? zona, zones)
+  if (!resolvedZona) {
     return {
       status: 400,
-      body: { error: 'La zona es requerida y debe ser: Principal, Zingaro, Privado, Terraza o Bar' },
+      body: { error: 'La zona es requerida y debe coincidir con una zona habilitada' },
     }
   }
 
@@ -85,7 +94,9 @@ export async function handleCreateMesa(
     numero_mesa: numero_mesa as number,
     capacidad_base: capacidad_base as number,
     capacidad_actual: capacidad_base as number,
-    zona,
+    zona: resolvedZona.nombre,
+    zona_id: resolvedZona.id,
+    zona_nombre: resolvedZona.nombre,
     forma: (body.forma as string) ?? 'rectangular',
     posicion_x: (body.posicion_x as number) ?? 0,
     posicion_y: (body.posicion_y as number) ?? 0,
@@ -130,18 +141,17 @@ export async function handleUpdateMesa(
     return { status: 400, body: { error: 'ID de mesa es requerido' } }
   }
 
-  // Validate zona if provided
-  if (body.zona !== undefined && !isValidZona(body.zona)) {
-    return {
-      status: 400,
-      body: { error: 'zona no válida. Debe ser: Principal, Zingaro, Privado, Terraza o Bar' },
-    }
+  const hasZonaChange = body.zona !== undefined || body.zona_id !== undefined
+  const zones = hasZonaChange ? await getConfiguredZones(supabase) : []
+  const resolvedZona = hasZonaChange ? resolveZone(body.zona_id ?? body.zona, zones) : null
+  if (hasZonaChange && !resolvedZona) {
+    return { status: 400, body: { error: 'zona no válida. Debe coincidir con una zona habilitada' } }
   }
 
   // Build update payload (only include fields present in body)
   const allowedFields = [
     'posicion_x', 'posicion_y', 'ancho', 'alto', 'rotacion',
-    'capacidad_actual', 'zona', 'numero_mesa', 'capacidad_base', 'forma',
+    'capacidad_actual', 'zona', 'zona_id', 'zona_nombre', 'numero_mesa', 'capacidad_base', 'forma',
   ]
   const updateData: Record<string, unknown> = {}
 
@@ -149,6 +159,12 @@ export async function handleUpdateMesa(
     if (field in body) {
       updateData[field] = body[field]
     }
+  }
+
+  if (resolvedZona) {
+    updateData.zona = resolvedZona.nombre
+    updateData.zona_id = resolvedZona.id
+    updateData.zona_nombre = resolvedZona.nombre
   }
 
   const { error } = await supabase

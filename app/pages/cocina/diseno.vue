@@ -41,6 +41,12 @@ interface ZonaOption {
 }
 
 const zonasConfig = ref<ZonaOption[]>([])
+const activeZoneConfig = computed(() =>
+  zonasConfig.value.find((z) => z.id === store.activeZona)
+  ?? zonasConfig.value.find((z) => z.nombre === store.activeZona),
+)
+const activeZoneId = computed(() => activeZoneConfig.value?.id ?? store.activeZona)
+const activeZoneName = computed(() => activeZoneConfig.value?.nombre ?? store.activeZona)
 
 async function loadZonasConfig() {
   try {
@@ -103,23 +109,32 @@ async function saveEditMesa() {
 }
 
 async function handleAddMesa(forma: string) {
-  const activeZone = store.activeZona || zonasConfig.value[0]?.nombre || 'Principal'
-  const mesasZona = store.mesas.filter((m) => m.zona === activeZone)
+  const zone = activeZoneConfig.value ?? zonasConfig.value[0]
+  if (!zone) {
+    showToast('No hay una zona habilitada seleccionada', 'error')
+    return
+  }
+  const mesasZona = store.mesas.filter((m) => m.zona_id === zone.id || (m.zona_id == null && m.zona === zone.nombre))
   const nextNumero = mesasZona.length > 0
     ? Math.max(...mesasZona.map((m) => m.numero_mesa)) + 1
     : 1
 
-  await createMesa({
-    numero_mesa: nextNumero,
-    capacidad_base: 4,
-    posicion_x: 50,
-    posicion_y: 50,
-    ancho: 160,
-    alto: 160,
-    rotacion: 0,
-    zona: activeZone,
-    forma: forma as FormaMesa,
-  })
+  try {
+    await createMesa({
+      numero_mesa: nextNumero,
+      capacidad_base: 4,
+      posicion_x: 50,
+      posicion_y: 50,
+      ancho: 160,
+      alto: 160,
+      rotacion: 0,
+      zona_id: zone.id,
+      zona: zone.nombre,
+      forma: forma as FormaMesa,
+    })
+  } catch (error: any) {
+    showToast(error?.statusMessage || error?.message || 'Error al crear mesa', 'error')
+  }
 }
 
 async function handleDeleteMesa() {
@@ -180,7 +195,7 @@ async function handleSaveOriginal() {
     const positions = collectMesaPositions(positionsMap)
     await $fetch('/api/canvas/save-original', {
       method: 'POST',
-      body: { zona: store.activeZona, positions },
+      body: { zona_id: activeZoneId.value, zona: activeZoneName.value, positions },
     })
     showToast('Diseño original guardado', 'success')
   } catch (e: any) {
@@ -191,13 +206,13 @@ async function handleSaveOriginal() {
 }
 
 async function handleRestoreOriginal() {
-  const zona = store.activeZona
+  const zona = activeZoneName.value
   if (!zona) { showToast('Seleccione una zona primero', 'error'); return }
   if (!confirm(`¿Restaurar el diseño original de la zona "${zona}"? Se perderán los cambios actuales.`)) return
   restoringOriginal.value = true
   try {
-    const result = await $fetch('/api/canvas/restore-original', { method: 'POST', body: { zona } })
-    await loadMesas(store.activeZona || undefined)
+    const result = await $fetch<any>('/api/canvas/restore-original', { method: 'POST', body: { zona_id: activeZoneId.value, zona } })
+    await loadMesas()
     showToast(`Diseño original restaurado (${result.restored} mesas en ${zona})`, 'success')
   } catch (e: any) {
     showToast(e?.statusMessage || 'Error al restaurar diseño original', 'error')
@@ -216,12 +231,12 @@ function showToast(msg: string, type: 'success' | 'error') {
 
 // ── Background image controls ──
 const activeZoneImage = computed(() => {
-  const zone = zonasConfig.value.find(z => z.nombre === store.activeZona)
+  const zone = activeZoneConfig.value
   return { url: zone?.imagen_url ?? null, scale: (zone as any)?.imagen_scale ?? 1 }
 })
 
 function setBackgroundScale(delta: number) {
-  const idx = zonasConfig.value.findIndex(z => z.nombre === store.activeZona)
+  const idx = zonasConfig.value.findIndex(z => z.id === activeZoneId.value)
   if (idx < 0) return
   const current = (zonasConfig.value[idx] as any).imagen_scale ?? 1
   const newScale = Math.max(0.2, Math.min(5, current + delta))
@@ -229,9 +244,9 @@ function setBackgroundScale(delta: number) {
 }
 
 async function handleDeleteBackground() {
-  if (!store.activeZona) return
+  if (!activeZoneConfig.value) return
   const zonas = zonasConfig.value.map((z) => {
-    if (z.nombre === store.activeZona) {
+    if (z.id === activeZoneId.value) {
       return { ...z, imagen_url: null, imagen_scale: 1 }
     }
     return z
@@ -246,10 +261,10 @@ async function handleDeleteBackground() {
 }
 
 async function handleBackgroundImageUpload(url: string) {
-  if (!url || !store.activeZona) return
+  if (!url || !activeZoneConfig.value) return
 
   const zonas = zonasConfig.value.map((z) => {
-    if (z.nombre === store.activeZona) {
+    if (z.id === activeZoneId.value) {
       return { ...z, imagen_url: url, imagen_scale: 1 }
     }
     return z
@@ -268,7 +283,7 @@ async function handleBackgroundImageUpload(url: string) {
 
 // ── Flash fix: set active zone immediately in setup ──
 // Prevents "all zones visible" flash while data loads
-store.activeZona = 'Principal'
+store.activeZona = ''
 
 // ── Lifecycle ──
 
@@ -279,7 +294,7 @@ onMounted(async () => {
 
   // Override with actual first enabled zone once config loads
   if (zonasConfig.value.length > 0) {
-    store.activeZona = zonasConfig.value[0]!.nombre
+    store.setActiveZona(zonasConfig.value[0]!.id, zonasConfig.value[0]!.nombre)
   }
 })
 
@@ -314,8 +329,8 @@ watch(editAlto, (val) => {
           v-for="zona in zonasConfig"
           :key="zona.id"
           class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-          :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-          @click="store.activeZona = zona.nombre"
+          :class="store.activeZona === zona.id ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
+          @click="store.setActiveZona(zona.id, zona.nombre)"
         >
           {{ zona.nombre }}
         </button>
@@ -370,7 +385,7 @@ watch(editAlto, (val) => {
       :selected-mesa="store.selectedMesa"
       :is-drawing="store.isDrawing"
       :wall-lines-count="store.wallLines.length"
-      :active-zona="store.activeZona || zonasConfig[0]?.nombre || ''"
+      :active-zona="activeZoneName || zonasConfig[0]?.nombre || ''"
       :saving="saving"
       :font-size="store.fontSize"
       :show-grid="showGrid"

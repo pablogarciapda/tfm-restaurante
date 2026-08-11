@@ -10,6 +10,7 @@
  * Admin-only.
  */
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 /** Normalize diseno_original to a keyed object, migrating flat arrays if needed. */
 function normalizeDesigns(raw: unknown): Record<string, unknown[]> {
@@ -26,20 +27,22 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
   const body = await readBody(event)
-  if (!body?.zona) throw createError({ statusCode: 400, statusMessage: 'Se requiere zona' })
+  if (!(body?.zona_id || body?.zona)) throw createError({ statusCode: 400, statusMessage: 'Se requiere zona_id/zona' })
 
   const { data: config, error: configError } = await supabase
-    .from('configuracion').select('diseno_original').limit(1).single()
+    .from('configuracion').select('diseno_original, zonas_config').limit(1).single()
 
   if (configError || !config?.diseno_original) {
     throw createError({ statusCode: 404, statusMessage: 'No hay diseño original guardado' })
   }
 
   const allDesigns = normalizeDesigns(config.diseno_original)
-  const positions = allDesigns[body.zona]
+  const zone = resolveZone(body.zona_id ?? body.zona, (config.zonas_config as any[]) ?? [], { requireEnabled: false })
+  if (!zone) throw createError({ statusCode: 400, statusMessage: 'Zona no válida' })
+  const positions = allDesigns[zone.id] || allDesigns[zone.nombre]
 
   if (!Array.isArray(positions) || positions.length === 0) {
-    throw createError({ statusCode: 404, statusMessage: `No hay diseño original para la zona "${body.zona}"` })
+    throw createError({ statusCode: 404, statusMessage: `No hay diseño original para la zona "${zone.nombre}"` })
   }
 
   let ok = 0
@@ -47,10 +50,10 @@ export default defineEventHandler(async (event) => {
     const p = pos as Record<string, unknown>
     const { error } = await supabase
       .from('mesas')
-      .update({ posicion_x: p.posicion_x, posicion_y: p.posicion_y, rotacion: p.rotacion })
-      .eq('id', p.mesa_id)
+      .update({ posicion_x: p.posicion_x as number, posicion_y: p.posicion_y as number, rotacion: p.rotacion as number })
+      .eq('id', p.mesa_id as string)
     if (!error) ok++
   }
 
-  return { success: true, zona: body.zona, restored: ok, total: positions.length }
+  return { success: true, zona_id: zone.id, zona: zone.nombre, restored: ok, total: positions.length }
 })

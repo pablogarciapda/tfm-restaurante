@@ -20,6 +20,7 @@ export interface ReservationPayload {
   email: string
   fecha_hora: string
   numero_comensales: number
+  zona_id?: string
   captcha_token?: string
 }
 
