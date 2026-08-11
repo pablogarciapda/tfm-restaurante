@@ -13,7 +13,9 @@
 // to deploy on older versions; keep that gate intact.
 //
 // Vars (see .env.example): NUXT_PUBLIC_SUPABASE_URL, NUXT_PUBLIC_SUPABASE_KEY,
-// SUPABASE_SERVICE_ROLE_KEY (server-only), NUXT_PUBLIC_SITE_URL, NUXT_LABS_MOBILE_TEST.
+// SUPABASE_SERVICE_ROLE_KEY (server-only), NUXT_SUPABASE_PROJECT_REF,
+// NUXT_SUPABASE_MANAGEMENT_TOKEN (server-only), NUXT_PUBLIC_SITE_URL,
+// NUXT_LABS_MOBILE_TEST.
 
 module.exports = {
   apps: [
@@ -35,6 +37,9 @@ module.exports = {
         NUXT_PUBLIC_SUPABASE_URL: process.env.NUXT_PUBLIC_SUPABASE_URL,
         NUXT_PUBLIC_SUPABASE_KEY: process.env.NUXT_PUBLIC_SUPABASE_KEY,
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        // Supabase Management API credentials for server-side Auth URL sync.
+        NUXT_SUPABASE_PROJECT_REF: process.env.NUXT_SUPABASE_PROJECT_REF,
+        NUXT_SUPABASE_MANAGEMENT_TOKEN: process.env.NUXT_SUPABASE_MANAGEMENT_TOKEN,
         // App (runtimeConfig.public) — site_url se lee de configuracion DB, no de env
         NUXT_PUBLIC_SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || '',
         // SMS — Nuxt runtimeConfig reads NUXT_LABS_MOBILE_* vars

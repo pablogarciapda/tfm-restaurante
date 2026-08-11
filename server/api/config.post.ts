@@ -4,6 +4,7 @@
  * smtp_password: write-only. Empty string or "••••••••" = preserve existing.
  */
 import { handleUpdateConfig } from './config.handlers'
+import { syncSupabaseAuthUrls } from '../utils/supabase-auth-config'
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
@@ -24,6 +25,25 @@ export default defineEventHandler(async (event) => {
       statusMessage: result.body.error as string,
       message: result.body.error as string,
     })
+  }
+
+  if (typeof body?.site_url === 'string') {
+    const runtimeConfig = useRuntimeConfig(event)
+    try {
+      await syncSupabaseAuthUrls({
+        projectRef: runtimeConfig.supabaseProjectRef,
+        managementToken: runtimeConfig.supabaseManagementToken,
+        siteUrl: body.site_url,
+      })
+    } catch (error) {
+      throw createError({
+        statusCode: 502,
+        statusMessage: 'Configuración guardada, pero no se pudo sincronizar Supabase Auth',
+        message: error instanceof Error
+          ? `Configuración guardada, pero no se pudo sincronizar Supabase Auth: ${error.message}`
+          : 'Configuración guardada, pero no se pudo sincronizar Supabase Auth',
+      })
+    }
   }
 
   return result.body

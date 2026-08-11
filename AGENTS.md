@@ -26,7 +26,7 @@
 - **Vue 3:** Composition API con `<script setup>` + TypeScript. NO usar Options API.
 - **Nuxt 4:** `srcDir` = `app/` (app/pages, app/components, app/composables, app/layouts, app/middleware, app/plugins, app/utils, app/assets, app/app.vue). Root conserva `server/`, `public/`, `shared/`, `nuxt.config.ts`. Rutas basadas en ficheros; `/cocina/**` es middleware-protegido (configurado vía `routeRules: { ssr: false }` para modo SPA).
 - **Tailwind:** utilidades first; evitar CSS custom salvo casos justificados.
-- **Supabase:** acceso vía `@supabase/supabase-js`; nunca exponer la service role key en el cliente.
+- **Supabase:** acceso vía `@supabase/supabase-js`; nunca exponer la service role key ni el Supabase Management PAT en el cliente. `NUXT_SUPABASE_MANAGEMENT_TOKEN` es server-only y nunca debe usar el prefijo `NUXT_PUBLIC_`.
 
 ## 3. Requerimientos No Funcionales (OBLIGATORIOS)
 
@@ -283,7 +283,7 @@
   - StandbyBanner para reservas pendientes de reasignación por fusión.
   - FusionConfirmDialog para manejar reservas afectadas por fusión.
   - **Fallback a diseño original:** cuando no hay layout guardado para fecha+turno+zone, carga automáticamente el diseño original de esa zona. Aplica también al cambiar de zona (tabs).
-- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, precio menú domingo, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password), **datos restaurante multi-tenant** (nombre, dirección, teléfono, email, redes sociales, logo).
+- **Configuración:** Toast de confirmación al guardar, CRUD inline de categorías con drag-and-drop reorder, modo ocupación, precios menú diario y sábado, precio menú domingo, CRUD categorías de eventos, **horarios configurables** (comida/cena, intervalo), **zonas editables** (nombre, capacidad, enable/disable), **días bloqueados** (individuales + recurrentes + rangos), configuración SMTP (write-only password), **datos restaurante multi-tenant** (nombre, dirección, teléfono, email, redes sociales, logo), and automatic Supabase Auth URL synchronization when `configuracion.site_url` changes.
 - **Carta Admin:** Layout sticky (toolbar fuera de scroll), drag-and-drop reorder por categoría, columna "Recomendado" con estrella clicable (★/☆), selector de familia/subcategoría, upload de imágenes con compresión WebP y ImageLightbox.
 - **Eventos Admin:** Formulario con categorías dinámicas desde `categorias_eventos`, tabla con labels desde DB.
 - **Clientes Admin:** CRUD completo con tabla, formulario de creación/edición, historial de reservas por cliente.
@@ -352,6 +352,7 @@
 - **ImageLightbox:** Modal de previsualización de imagen ampliada en PlatoForm.
 - **Configuración restauante multi-tenant:** Sección "Datos del Restaurante" en Configuración con nombre, dirección, teléfono, URL mapa, email, Instagram, Facebook, logo, site_url, población. Todos configurables y persistidos en `configuracion` row.
 - **HTTP security headers:** Cabeceras de seguridad vía Nitro hook en `server/plugins/security-headers.ts`.
+- **Supabase Auth URL sync:** Saving `configuracion.site_url` synchronizes the project-level Supabase Auth URL and preserves the existing redirect allowlist. The Management API PAT is passed only through server runtime configuration (`NUXT_SUPABASE_MANAGEMENT_TOKEN`) and must never be exposed to the client.
 
 ### Detalle de lo completado en Fase 3 — Motor de Mesas
 
@@ -395,6 +396,8 @@ Sin esto, las cookies de Supabase se marcan `Secure: true` y el navegador las ig
 Localhost funciona sin esta variable porque los navegadores eximen localhost de la regla Secure.
 
 Más detalles en `doc/vps-deployment-notes.md`.
+
+La sincronización automática de Supabase Auth requiere `NUXT_SUPABASE_PROJECT_REF` y `NUXT_SUPABASE_MANAGEMENT_TOKEN` en el entorno server-only del VPS. Después de cambiarlas, usar `bash scripts/deploy.sh` o cargar `.env`, ejecutar `pnpm build` y recargar PM2 con `--update-env`; nunca registrar ni exponer el PAT.
 
 ## 9. Estructura de carpetas
 

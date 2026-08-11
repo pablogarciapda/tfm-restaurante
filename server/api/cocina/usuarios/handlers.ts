@@ -48,7 +48,7 @@ function isDuplicateError(error: { message: string }): boolean {
 
 /**
  * Resolve the redirect URL for password recovery.
- * Reads site_url from DB config, falls back to localhost:3000 for dev.
+ * Reads the public domain from the restaurant configuration.
  */
 async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string> {
   try {
@@ -58,8 +58,9 @@ async function resolveRedirectTo(supabase: SupabaseServerClient): Promise<string
       .limit(1)
       .single()
 
-    if (data?.site_url) {
-      const base = String(data.site_url).replace(/\/$/, '')
+    const configuredSiteUrl = String(data?.site_url ?? '').trim()
+    if (configuredSiteUrl) {
+      const base = configuredSiteUrl.replace(/\/+$/, '')
       return `${base}/recuperar-password`
     }
   } catch {
@@ -350,12 +351,20 @@ export async function handleResetPassword(
     }
   }
 
-  // Supabase generateLink embeds redirect_to from the dashboard Site URL.
-  // Replace it with our recovery page URL so the user lands on the password form.
-  const resetLink = link.replace(
-    /redirect_to=[^&]+/,
-    `redirect_to=${encodeURIComponent(redirectTo)}`,
-  )
+  // Supabase may embed the dashboard Site URL in action_link. Replace the
+  // query parameter through URLSearchParams so encoded URLs and missing
+  // redirect_to parameters are handled consistently.
+  let resetLink = link
+  try {
+    const actionUrl = new URL(link)
+    actionUrl.searchParams.set('redirect_to', redirectTo)
+    resetLink = actionUrl.toString()
+  } catch {
+    return {
+      status: 500,
+      body: { error: 'El enlace de restablecimiento generado no es válido' },
+    }
+  }
 
   // Send the reset email (fire-and-forget — don't block on email failure)
   sendPasswordResetEmail({ email, resetLink }, supabase, runtimeConfig).catch((err) => {
