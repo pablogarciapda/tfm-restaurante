@@ -7,6 +7,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { sendPasswordResetEmail } from '../../../../../server/utils/email'
+
+const TEST_TENANT_SITE_URL = 'https://tenant.example.test'
+const TEST_AUTH_ACTION_URL = 'https://auth.example.test/auth/v1/verify'
 
 // Mock sendPasswordResetEmail to avoid actual SMTP calls in tests
 vi.mock('../../../../../server/utils/email', () => ({
@@ -478,6 +482,50 @@ describe('handleResetPassword (USR-005)', () => {
       email: 'user@test.com',
       options: { redirectTo: 'http://localhost:3000/recuperar-password' },
     })
+  })
+
+  it('uses the public restaurant domain and replaces Supabase redirect_to', async () => {
+    const generateLink = vi.fn().mockResolvedValue({
+      data: {
+        properties: {
+          action_link: `${TEST_AUTH_ACTION_URL}?token=abc&type=recovery&redirect_to=http%3A%2F%2Flocalhost%3A3000%2F`,
+        },
+      },
+      error: null,
+    })
+    const supabase = createMockAdmin({ generateLink })
+    supabase.from = vi.fn().mockImplementation((table: string) => {
+      if (table === 'configuracion') {
+        return {
+          select: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { site_url: ` ${TEST_TENANT_SITE_URL}/ ` },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      return {}
+    })
+
+    const handler = await getHandler()
+    const result = await handler.handleResetPassword(supabase, { email: 'user@test.com' })
+
+    expect(result.status).toBe(200)
+    expect(generateLink).toHaveBeenCalledWith({
+      type: 'recovery',
+      email: 'user@test.com',
+      options: { redirectTo: `${TEST_TENANT_SITE_URL}/recuperar-password` },
+    })
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resetLink: `${TEST_AUTH_ACTION_URL}?token=abc&type=recovery&redirect_to=${encodeURIComponent(`${TEST_TENANT_SITE_URL}/recuperar-password`)}`,
+      }),
+      supabase,
+      undefined,
+    )
   })
 
   it('returns 500 on generateLink failure (TRIANGULATE)', async () => {
