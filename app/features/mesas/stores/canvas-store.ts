@@ -24,6 +24,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   const stageHeight = ref(800)
   /** Active zone filter: '' means all zones, otherwise zone name */
   const activeZona = ref<string>('')
+  const activeZonaNombre = ref<string>('')
   /** Active turn filter for table coloring: 'todos' | 'comida' | 'cena' */
   const activeTurno = ref<TurnoFilter>('todos')
   /** Design mode toggle: true = diseño (layout editing), false = operación (reservations) */
@@ -54,13 +55,13 @@ export const useCanvasStore = defineStore('canvas', () => {
 
   /** Filter mesas by zone (returns a function to preserve reactive context) */
   function mesasByZona(zona: Zona): Mesa[] {
-    return mesas.value.filter((m) => m.zona === zona)
+    return mesas.value.filter((m) => m.zona_id === zona || m.zona === zona)
   }
 
   /** Mesas filtered by activeZona ('' = all) */
   const filteredMesas = computed<Mesa[]>(() => {
     if (activeZona.value === '') return mesas.value
-    return mesas.value.filter((m) => m.zona === activeZona.value)
+    return mesas.value.filter((m) => m.zona_id === activeZona.value || m.zona === activeZonaNombre.value || m.zona === activeZona.value)
   })
 
   /** Only root mesas (mesa_padre_id IS NULL) — not children of fused groups */
@@ -73,6 +74,11 @@ export const useCanvasStore = defineStore('canvas', () => {
   /** Replace entire mesas array (e.g. after fetch) */
   function setMesas(newMesas: Mesa[]) {
     mesas.value = newMesas
+  }
+
+  function setActiveZona(id: string, nombre = '') {
+    activeZona.value = id
+    activeZonaNombre.value = nombre
   }
 
   /** Append a single mesa to the state */
@@ -205,6 +211,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     stageWidth,
     stageHeight,
     activeZona,
+    activeZonaNombre,
     activeTurno,
     isDesignMode,
     isDrawing,
@@ -219,6 +226,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     filteredMesas,
     // Actions
     setMesas,
+    setActiveZona,
     addMesa,
     updateMesa,
     deleteMesa,

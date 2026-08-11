@@ -26,7 +26,11 @@ export interface Mesa {
   ancho: number
   alto: number
   rotacion: number
+  /** Durable ID from configuracion.zonas_config; nullable for unresolved legacy rows. */
+  zona_id?: string | null
   zona: Zona
+  /** Legacy/display-name compatibility field. */
+  zona_nombre?: string | null
   forma: FormaMesa
   mesa_padre_id: string | null
   id_fusion: string | null

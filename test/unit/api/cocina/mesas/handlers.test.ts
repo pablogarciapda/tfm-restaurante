@@ -28,6 +28,7 @@ interface MockMesaClient {
 
 interface MockSupabase {
   from: (table: string) => MockMesaClient
+  insertPayload?: unknown
 }
 
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -62,6 +63,7 @@ let handlersModule: {
 function createMockSupabase(
   overrides?: Partial<{
     selectResult: { data: unknown; error: { message: string } | null }
+    configResult: { data: unknown; error: { message: string } | null }
     insertResult: { data: unknown; error: { message: string } | null }
     updateResult: { data: unknown; error: { message: string } | null }
     deleteResult: { data: unknown; error: { message: string } | null }
@@ -75,7 +77,8 @@ function createMockSupabase(
     delete: vi.fn().mockReturnThis(),
   })
 
-  const from = vi.fn().mockImplementation((_table: string) => {
+  let insertPayload: unknown
+  const from = vi.fn().mockImplementation((table: string) => {
     const chain = makeChain()
     return {
       select: vi.fn().mockReturnValue({
@@ -85,14 +88,19 @@ function createMockSupabase(
         in: vi.fn().mockReturnThis(),
         single: vi.fn().mockReturnThis(),
         then: (resolve: (v: unknown) => void) =>
-          resolve(overrides?.selectResult ?? { data: [], error: null }),
+          resolve(table === 'configuracion'
+            ? (overrides?.configResult ?? { data: { zonas_config: [] }, error: null })
+            : (overrides?.selectResult ?? { data: [], error: null })),
       }),
-      insert: vi.fn().mockReturnValue({
+      insert: vi.fn().mockImplementation((payload: unknown) => {
+        insertPayload = payload
+        return {
         ...chain,
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockReturnThis(),
         then: (resolve: (v: unknown) => void) =>
           resolve(overrides?.insertResult ?? { data: { id: 'new-id' }, error: null }),
+        }
       }),
       update: vi.fn().mockReturnValue({
         ...chain,
@@ -111,7 +119,7 @@ function createMockSupabase(
     }
   })
 
-  return { from }
+  return { from, get insertPayload() { return insertPayload } }
 }
 
 beforeEach(() => {
@@ -257,6 +265,65 @@ describe('handleCreateMesa', () => {
     expect(result.status).toBe(201)
     expect(result.body.success).toBe(true)
     expect(result.body.mesa).toBeDefined()
+  })
+
+  it('creates a mesa for a custom enabled zone using its durable ID and display name', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      configResult: {
+        data: { zonas_config: [{ id: 'zone-custom', nombre: 'Patio Norte', capacidad: 20, enabled: true }] },
+        error: null,
+      },
+      insertResult: { data: { id: 'custom-mesa' }, error: null },
+    })
+
+    const result = await handler.handleCreateMesa(supabase, {
+      numero_mesa: 1,
+      capacidad_base: 4,
+      zona_id: 'zone-custom',
+      zona: 'Patio Norte',
+    })
+
+    expect(result.status).toBe(201)
+    expect(supabase.insertPayload).toMatchObject({
+      zona_id: 'zone-custom',
+      zona: 'Patio Norte',
+      zona_nombre: 'Patio Norte',
+    })
+  })
+
+  it('accepts a legacy name-only payload when no zone configuration exists', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase()
+
+    const result = await handler.handleCreateMesa(supabase, {
+      numero_mesa: 1,
+      capacidad_base: 4,
+      zona: 'Principal',
+    })
+
+    expect(result.status).toBe(201)
+    expect(supabase.insertPayload).toMatchObject({ zona_id: 'principal', zona: 'Principal' })
+  })
+
+  it('rejects a disabled or unknown dynamic zone', async () => {
+    const handler = await getHandler()
+    const supabase = createMockSupabase({
+      configResult: {
+        data: { zonas_config: [{ id: 'zone-disabled', nombre: 'Patio', capacidad: 10, enabled: false }] },
+        error: null,
+      },
+    })
+
+    const result = await handler.handleCreateMesa(supabase, {
+      numero_mesa: 1,
+      capacidad_base: 4,
+      zona_id: 'zone-disabled',
+      zona: 'Patio',
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body.error).toContain('zona')
   })
 
   it('returns 500 when insert fails', async () => {

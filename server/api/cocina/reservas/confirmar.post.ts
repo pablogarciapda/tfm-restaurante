@@ -10,6 +10,7 @@ import { sendConfirmationEmail } from '../../../utils/email'
 import { getSmsProvider } from '../../../utils/sms-factory'
 import { generarReferencia } from '#shared/utils/referencia'
 import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
 
   // Build update: confirm state + optionally assign mesa
   const updateData: Record<string, unknown> = { estado: 'confirmada' }
+  let selectedMesa: { numero_mesa?: number; zona_id?: string | null; zona?: string | null; zona_nombre?: string | null } | null = null
   if (mesa_id) {
     // Check for time-window conflicts before assigning
     const { data: horariosConfig } = await supabase
@@ -42,7 +44,7 @@ export default defineEventHandler(async (event) => {
       .single()
 
     if (reservaActual?.fecha_hora && horariosConfig?.horarios_config) {
-      const turnos = buildTurnoWindows(horariosConfig.horarios_config)
+       const turnos = buildTurnoWindows(horariosConfig.horarios_config as unknown as any)
       const { data: existingReservas } = await supabase
         .from('reservas')
         .select('fecha_hora, estado')
@@ -58,6 +60,20 @@ export default defineEventHandler(async (event) => {
     }
 
     updateData.mesa_id = mesa_id
+
+    const { data: mesa } = await supabase
+      .from('mesas')
+      .select('numero_mesa, zona_id, zona, zona_nombre')
+      .eq('id', mesa_id)
+      .single()
+    selectedMesa = mesa
+    const { data: zoneConfig } = await supabase.from('configuracion').select('zonas_config').limit(1).single()
+    const resolvedZone = resolveZone(
+      mesa?.zona_id ?? mesa?.zona_nombre ?? mesa?.zona,
+      (zoneConfig?.zonas_config as any[]) ?? [],
+      { requireEnabled: false },
+    )
+    if (resolvedZone) updateData.zona_id = resolvedZone.id
   }
 
   const { data: updated, error } = await supabase
@@ -96,14 +112,12 @@ export default defineEventHandler(async (event) => {
   let mesaNumero: number | null = null
   let mesaZona: string | null = null
   if (updated.mesa_id) {
-    const { data: mesa } = await supabase
-      .from('mesas')
-      .select('numero_mesa, zona')
-      .eq('id', updated.mesa_id)
-      .single()
+    const { data: mesa } = selectedMesa
+      ? { data: selectedMesa }
+      : await supabase.from('mesas').select('numero_mesa, zona, zona_nombre, zona_id').eq('id', updated.mesa_id).single()
     if (mesa) {
-      mesaNumero = mesa.numero_mesa
-      mesaZona = mesa.zona
+      mesaNumero = mesa.numero_mesa ?? null
+      mesaZona = mesa.zona ?? mesa.zona_nombre ?? null
     }
   }
 

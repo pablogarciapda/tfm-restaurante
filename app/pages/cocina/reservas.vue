@@ -40,7 +40,7 @@ definePageMeta({
 const client = useSupabaseClient()
 const store = useCanvasStore()
 // Default to first zone immediately (prevents flash of all mesas)
-store.activeZona = 'Principal'
+store.setActiveZona('principal', 'Principal')
 const { loadMesas } = useMesas()
 const { updateMesa } = useMesas()
 const {
@@ -63,7 +63,7 @@ const loadingAforo = ref(false)
 
 /** Collect current mesa positions from Konva nodes for the active zone */
 function collectLayoutPositions(positionsMap: Record<string, { x: number; y: number; rotation: number }>) {
-  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  const mesasZona = store.filteredMesas
   return mesasZona.map((mesa) => {
     const pos = positionsMap[mesa.id]
     return {
@@ -100,7 +100,7 @@ function collectFusionGroups(): Array<{ id_fusion: string; parent_id: string; ca
 
 /** Guarda el layout actual para la fecha + turno seleccionado en canvas_layouts */
 async function handleGuardarCanvas() {
-  const mesasZona = store.mesas.filter((m) => m.zona === store.activeZona)
+  const mesasZona = store.filteredMesas
   if (mesasZona.length === 0) {
     showToast('No hay mesas en la zona activa', 'error')
     return
@@ -112,7 +112,7 @@ async function handleGuardarCanvas() {
     const fusions = collectFusionGroups()
     await $fetch('/api/canvas/save-layout', {
       method: 'POST',
-      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona: store.activeZona, positions, fusions },
+      body: { fecha: guardarFecha.value, turno: guardarTurno.value, zona_id: store.activeZona, zona: store.activeZonaNombre, positions, fusions },
     })
     const turnoLabel = guardarTurno.value === 'comida' ? 'Comida' : 'Cena'
     const fusionMsg = fusions.length > 0 ? ` (${fusions.length} fusiones)` : ''
@@ -134,7 +134,7 @@ async function handleRestoreOriginal() {
   // 1. Count active fusions in current zone
   const activeFusions = new Set(
     store.mesas
-      .filter((m) => m.id_fusion && m.zona === store.activeZona)
+       .filter((m) => m.id_fusion && (m.zona_id === store.activeZona || m.zona === store.activeZonaNombre))
       .map((m) => m.id_fusion!),
   )
   const fusionCount = activeFusions.size
@@ -188,7 +188,7 @@ async function handleRestoreOriginal() {
     }
 
     // 6. Get original design positions for this zone
-    const original = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
+    const original: any = await $fetch('/api/canvas/original', { params: { zona_id: store.activeZona, zona: store.activeZonaNombre } })
     if (!original.exists || !Array.isArray(original.positions)) {
       showToast('No hay diseño original guardado', 'error')
       return
@@ -197,7 +197,7 @@ async function handleRestoreOriginal() {
     // 7. Save them as a layout for the selected date+turno
     await $fetch('/api/canvas/save-layout', {
       method: 'POST',
-      body: { fecha, turno: guardarTurno.value, zona: store.activeZona, positions: original.positions },
+      body: { fecha, turno: guardarTurno.value, zona_id: store.activeZona, zona: store.activeZonaNombre, positions: original.positions },
     })
 
     // 8. Update mesas to match original positions
@@ -207,7 +207,7 @@ async function handleRestoreOriginal() {
 
     // 9. Reload
     await loadReservas()
-    await loadMesas(store.activeZona)
+    await loadMesas()
 
     const details: string[] = []
     if (affectedReservas.length > 0) details.push(`${affectedReservas.length} reserva(s) desvinculada(s)`)
@@ -234,7 +234,7 @@ async function loadLayoutForCurrentSelection() {
   await loadReservas()
   try {
     const data: any = await $fetch('/api/canvas/load-layout', {
-      params: { fecha, turno, zona: store.activeZona },
+      params: { fecha, turno, zona_id: store.activeZona, zona: store.activeZonaNombre },
     })
     const turnoLabel = turno === 'comida' ? 'Comida' : 'Cena'
 
@@ -250,7 +250,7 @@ async function loadLayoutForCurrentSelection() {
     } else if (!data?.exists) {
       // No layout saved for this date+turno — fallback to original design
       try {
-        const original: any = await $fetch('/api/canvas/original', { params: { zona: store.activeZona } })
+        const original: any = await $fetch('/api/canvas/original', { params: { zona_id: store.activeZona, zona: store.activeZonaNombre } })
         if (original?.exists && Array.isArray(original.positions)) {
           positions = original.positions
           usedOriginal = true
@@ -466,6 +466,7 @@ const aforoInfo = computed<AforoInfo>(() => {
     const turnoFin = guardarTurno.value === 'comida' ? h.comida_fin : h.cena_fin
     const fecha = guardarFecha.value
     const zona = store.activeZona
+    const zonaNombre = store.activeZonaNombre
 
     ocupacionReal = reservasList.value
       .filter((r) => {
@@ -482,6 +483,10 @@ const aforoInfo = computed<AforoInfo>(() => {
         const finMin = tFinH! * 60 + tFinM!
         if (localMin < inicioMin || localMin > finMin) return false
         if (zona && r.zona_id && r.zona_id !== zona) return false
+        if (zona && !r.zona_id && zonaNombre && r.mesa_id) {
+          const mesa = store.mesas.find((m) => m.id === r.mesa_id)
+          if (mesa && mesa.zona !== zonaNombre) return false
+        }
         return true
       })
       .reduce((sum, r) => sum + (r.numero_comensales ?? 0), 0)
@@ -659,6 +664,7 @@ async function handleReservaSubmit() {
           email: reservaForm.value.email || restaurantEmail.value || 'reservas@midominio.com',
           fecha_hora,
           numero_comensales: reservaForm.value.comensales,
+          zona_id: reservaModalMesa.value.zona_id ?? undefined,
           gdpr_aceptado: true,
           admin_created: true,
         },
@@ -672,10 +678,11 @@ async function handleReservaSubmit() {
 
     if (result.reserva_id) {
       const client = useSupabaseClient()
-      await client.from('reservas').update({
+      const { error: assignmentError } = await client.from('reservas').update({
         mesa_id: reservaModalMesa.value.id,
-        zona_id: reservaModalMesa.value.zona_nombre || reservaModalMesa.value.zona,
+        zona_id: reservaModalMesa.value.zona_id,
       }).eq('id', result.reserva_id)
+      if (assignmentError) throw assignmentError
     }
 
     reservaSuccess.value = true
@@ -896,6 +903,12 @@ const reasignarSaving = ref(false)
 const reasignarError = ref('')
 const toastReasignar = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
+/** Resolve the editable display name without replacing the canonical zone ID. */
+function getZonaNombre(zonaId: string | null | undefined): string {
+  if (!zonaId) return '—'
+  return zonasConfig.value.find((zona) => zona.id === zonaId)?.nombre ?? zonaId
+}
+
 /** Mesas disponible for reasignar — exclude occupied ones (same-date only) */
 const reasignarMesasDisponibles = computed(() => {
   const reserva = reasignarReserva.value
@@ -927,7 +940,7 @@ const reasignarMesasDisponibles = computed(() => {
   }
 
   // Enabled zone names — never show tables from disabled zones
-  const enabledZoneNames = new Set(zonasConfig.value.map((z) => z.nombre))
+  const enabledZoneIds = new Set(zonasConfig.value.map((z) => z.id))
 
   // Filter by selected zone (if any)
   const zonaNombre = reasignarZonaId.value
@@ -940,8 +953,8 @@ const reasignarMesasDisponibles = computed(() => {
     (m) =>
       !ocupadas.has(m.id) &&
       m.capacidad_actual >= comensales &&
-      enabledZoneNames.has(m.zona) &&
-      (!zonaNombre || m.zona === zonaNombre),
+       (enabledZoneIds.has(m.zona_id ?? '') || zonasConfig.value.some((z) => z.nombre === m.zona)) &&
+       (!reasignarZonaId.value || m.zona_id === reasignarZonaId.value || m.zona === zonaNombre),
   )
 })
 
@@ -1429,7 +1442,7 @@ onMounted(async () => {
   await loadZonasConfig()
   // Update to actual first enabled zone
   if (zonasConfig.value.length > 0) {
-    store.activeZona = zonasConfig.value[0]!.nombre
+    store.setActiveZona(zonasConfig.value[0]!.id, zonasConfig.value[0]!.nombre)
   }
   // Sync turno to store for mesa estado derivation
   store.activeTurno = guardarTurno.value
@@ -1524,10 +1537,10 @@ onMounted(async () => {
       <div class="flex flex-wrap flex-1 gap-2">
         <button
           v-for="zona in zonasConfig"
-          :key="zona.nombre"
+          :key="zona.id"
           class="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors"
-          :class="store.activeZona === zona.nombre ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
-          @click="store.activeZona = zona.nombre"
+          :class="store.activeZona === zona.id ? 'bg-terracotta text-white' : 'text-slate hover:bg-terracotta/10 hover:text-terracotta'"
+          @click="store.setActiveZona(zona.id, zona.nombre)"
         >
           {{ zona.nombre }}
         </button>
@@ -1678,7 +1691,7 @@ onMounted(async () => {
                 {{ new Date(reserva.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}
               </td>
               <td class="px-4 py-2">{{ reserva.numero_comensales ?? '—' }}</td>
-              <td class="px-4 py-2">{{ reserva.zona_id || '—' }}</td>
+              <td class="px-4 py-2">{{ getZonaNombre(reserva.zona_id) }}</td>
               <td class="px-4 py-2">{{ getMesaNumero(reserva.mesa_id) }}</td>
               <td class="px-4 py-2">
                 <span
@@ -1773,7 +1786,7 @@ onMounted(async () => {
           <div v-if="reasignarReserva" class="mb-4 space-y-1 text-sm text-slate">
             <p><strong>Cliente:</strong> {{ (reasignarReserva.cliente as any)?.nombre || '—' }}</p>
             <p><strong>Fecha:</strong> {{ new Date(reasignarReserva.fecha_hora).toLocaleString('es-ES') }}</p>
-            <p><strong>Zona actual:</strong> {{ reasignarReserva.zona_id || '—' }}</p>
+            <p><strong>Zona actual:</strong> {{ getZonaNombre(reasignarReserva.zona_id) }}</p>
           </div>
 
           <!-- Zone dropdown -->
@@ -1879,7 +1892,7 @@ onMounted(async () => {
               <p><strong>Cliente:</strong> {{ (confirmarReserva.cliente as any)?.nombre || '—' }}</p>
               <p><strong>Fecha:</strong> {{ new Date(confirmarReserva.fecha_hora).toLocaleString('es-ES') }}</p>
               <p><strong>Comensales:</strong> {{ confirmarReserva.numero_comensales ?? '—' }}</p>
-              <p><strong>Zona:</strong> {{ confirmarReserva.zona_id || '—' }}</p>
+              <p><strong>Zona:</strong> {{ getZonaNombre(confirmarReserva.zona_id) }}</p>
             </div>
 
             <!-- Mesa selector -->

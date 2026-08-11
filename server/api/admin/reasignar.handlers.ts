@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 import type { ZonaConfig, HorarioConfig } from '#shared/contracts/reservation.contract'
 import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 type SupabaseServerClient = SupabaseClient<Database>
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -37,28 +38,24 @@ export async function handleReasignReserva(
     .limit(1)
     .single()
 
-  const zonas: ZonaConfig[] = (config?.zonas_config as ZonaConfig[]) || []
+  const zonas: ZonaConfig[] = (config?.zonas_config as unknown as ZonaConfig[]) || []
   const enabledZonas = zonas.filter((z) => z.enabled)
 
   // Validate zona if provided
-  if (nueva_zona_id) {
-    const zona = enabledZonas.find(
-      (z) => z.id === nueva_zona_id || z.nombre === nueva_zona_id,
-    )
-    if (!zona) {
+  const resolvedRequestedZone = nueva_zona_id ? resolveZone(nueva_zona_id, enabledZonas) : null
+  if (nueva_zona_id && !resolvedRequestedZone) {
       return {
         status: 400,
         body: { error: 'Zona no válida o no habilitada' },
       }
-    }
   }
 
   // Validate mesa if provided
   if (nueva_mesa_id) {
     const { data: mesa } = await supabase
       .from('mesas')
-      .select('id, zona, zona_nombre, capacidad_actual')
-      .eq('id', nueva_mesa_id)
+      .select('id, zona_id, zona, zona_nombre, capacidad_actual')
+      .eq('id', nueva_mesa_id as string)
       .maybeSingle()
 
     if (!mesa) {
@@ -70,12 +67,10 @@ export async function handleReasignReserva(
 
     // If zona also provided, check mesa belongs to zone
     if (nueva_zona_id) {
-      const zonaMatch = enabledZonas.find(
-        (z) => z.id === nueva_zona_id || z.nombre === nueva_zona_id,
-      )
-      if (zonaMatch) {
-        const mesaZona = mesa.zona_nombre || mesa.zona
-        if (mesaZona !== zonaMatch.nombre) {
+      if (resolvedRequestedZone) {
+        const mesaZone = resolveZone(mesa.zona_id, enabledZonas, { requireEnabled: false })
+          ?? resolveZone(mesa.zona_nombre || mesa.zona, enabledZonas, { requireEnabled: false })
+        if (!mesaZone || mesaZone.id !== resolvedRequestedZone.id) {
           return {
             status: 400,
             body: { error: 'La mesa no pertenece a la zona seleccionada' },
@@ -116,7 +111,7 @@ export async function handleReasignReserva(
         const { data: existingReservas } = await supabase
           .from('reservas')
           .select('fecha_hora, estado')
-          .eq('mesa_id', nueva_mesa_id)
+          .eq('mesa_id', nueva_mesa_id as string)
           .neq('id', reserva_id)
 
         if (existingReservas && hasMesaConflict(existingReservas, reserva.fecha_hora, turnos)) {
@@ -130,17 +125,18 @@ export async function handleReasignReserva(
   }
 
   // Find zona name from zonas_config
-  let zonaValue: string | null = null
-  if (nueva_zona_id) {
-    const zona = enabledZonas.find(
-      (z) => z.id === nueva_zona_id || z.nombre === nueva_zona_id,
-    )
-    zonaValue = zona?.nombre || (nueva_zona_id as string)
-  }
+  const mesaForAssignment = nueva_mesa_id
+    ? await supabase.from('mesas').select('zona_id, zona, zona_nombre').eq('id', nueva_mesa_id as string).maybeSingle()
+    : { data: null }
+  const mesaZone = mesaForAssignment.data
+    ? resolveZone(mesaForAssignment.data.zona_id, enabledZonas, { requireEnabled: false })
+      ?? resolveZone(mesaForAssignment.data.zona_nombre || mesaForAssignment.data.zona, enabledZonas, { requireEnabled: false })
+    : null
+  const resolvedZone = resolvedRequestedZone ?? mesaZone
 
   // Build update payload
   const updateData: Record<string, unknown> = {}
-  if (zonaValue) updateData.zona_id = zonaValue
+  if (resolvedZone) updateData.zona_id = resolvedZone.id
   if (nueva_mesa_id) updateData.mesa_id = nueva_mesa_id
 
   // Audit: store reasignacion motivo (add to notas or log)

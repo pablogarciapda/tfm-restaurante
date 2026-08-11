@@ -22,9 +22,13 @@ export interface MesaCreateData {
   ancho: number
   alto: number
   rotacion: number
+  zona_id: string
   zona: Mesa['zona']
   forma: Mesa['forma']
 }
+
+/** Compatibility input for callers/tests still using legacy name-only data. */
+export type MesaCreateDataCompat = Omit<MesaCreateData, 'zona_id'> & { zona_id?: string }
 
 export function useMesas() {
   const client = useSupabaseClient()
@@ -48,7 +52,8 @@ export function useMesas() {
   // createMesa — INSERT and push to store
   // ---------------------------------------------------------------------------
 
-  async function createMesa(data: MesaCreateData): Promise<void> {
+  async function createMesa(data: MesaCreateData | MesaCreateDataCompat): Promise<void> {
+    const zonaId = data.zona_id ?? data.zona
     const { data: created, error } = await client
       .from('mesas')
       .insert({
@@ -60,6 +65,8 @@ export function useMesas() {
         alto: data.alto,
         rotacion: data.rotacion,
         zona: data.zona,
+        zona_id: zonaId,
+        zona_nombre: data.zona,
         forma: data.forma ?? 'rectangular',
         capacidad_actual: data.capacidad_base,
       })

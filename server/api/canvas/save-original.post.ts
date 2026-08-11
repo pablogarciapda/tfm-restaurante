@@ -10,6 +10,7 @@
  * Admin-only.
  */
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 /** Normalize diseno_original to a keyed object, migrating flat arrays if needed. */
 function normalizeDesigns(raw: unknown): Record<string, unknown[]> {
@@ -28,23 +29,25 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
   const body = await readBody(event)
-  if (!body?.zona || !Array.isArray(body.positions)) {
-    throw createError({ statusCode: 400, statusMessage: 'Se requiere zona y positions[]' })
+  if (!(body?.zona_id || body?.zona) || !Array.isArray(body.positions)) {
+    throw createError({ statusCode: 400, statusMessage: 'Se requiere zona_id/zona y positions[]' })
   }
 
-  const { data: config } = await supabase.from('configuracion').select('id, diseno_original').limit(1).single()
+  const { data: config } = await supabase.from('configuracion').select('id, diseno_original, zonas_config').limit(1).single()
   if (!config) throw createError({ statusCode: 500, statusMessage: 'No se encontró la configuración' })
+  const zone = resolveZone(body.zona_id ?? body.zona, (config.zonas_config as any[]) ?? [])
+  if (!zone) throw createError({ statusCode: 400, statusMessage: 'Zona no válida o no habilitada' })
 
   // Normalize: handles both { "Principal": [...] } and flat [...] formats
   const allDesigns = normalizeDesigns(config.diseno_original)
-  allDesigns[body.zona] = body.positions
+  allDesigns[zone.id] = body.positions
 
   const { error } = await supabase
     .from('configuracion')
-    .update({ diseno_original: allDesigns })
+    .update({ diseno_original: allDesigns as any })
     .eq('id', config.id)
 
   if (error) throw createError({ statusCode: 500, statusMessage: `Error al guardar: ${error.message}` })
 
-  return { success: true, zona: body.zona, count: body.positions.length }
+  return { success: true, zona_id: zone.id, zona: zone.nombre, count: body.positions.length }
 })

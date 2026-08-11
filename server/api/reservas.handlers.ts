@@ -15,6 +15,7 @@ import { isSlotInRange } from '#shared/utils/slots'
 import { generarReferencia } from '#shared/utils/referencia'
 import { sendConfirmationEmail, sendCancellationEmail } from '../utils/email'
 import { getSmsProvider } from '../utils/sms-factory'
+import { resolveZone } from '#shared/utils/zone-resolver'
 
 type SupabaseServerClient = SupabaseClient<Database>
 type HandlerResult = { status: number; body: Record<string, unknown> }
@@ -194,12 +195,11 @@ export async function handleCreateReservation(
   }
 
   // 4f. Validate zone if provided
+  let resolvedZona: ReturnType<typeof resolveZone> = null
   if (b.zona_id) {
-    const zonas: ZonaConfig[] = (config?.zonas_config as ZonaConfig[]) || []
-    const zona = zonas.find(
-      (z) => (z.id === b.zona_id || z.nombre === b.zona_id) && z.enabled,
-    )
-    if (!zona) {
+    const zonas: ZonaConfig[] = (config?.zonas_config as unknown as ZonaConfig[]) || []
+    resolvedZona = resolveZone(b.zona_id, zonas)
+    if (!resolvedZona) {
       return {
         status: 400,
         body: { error: 'Zona no válida o no habilitada' },
@@ -276,10 +276,7 @@ export async function handleCreateReservation(
 
   // Include zona_id if provided
   if (b.zona_id) {
-    // Find zone name from config
-    const zonas: ZonaConfig[] = (config?.zonas_config as ZonaConfig[]) || []
-    const zona = zonas.find((z) => z.id === b.zona_id || z.nombre === b.zona_id)
-    reservaData.zona_id = zona?.nombre || b.zona_id
+    reservaData.zona_id = resolvedZona?.id
   }
 
   // For test compatibility: select only 'id', cancel_token is included via response

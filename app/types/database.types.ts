@@ -18,29 +18,35 @@ export type Database = {
         Row: {
           created_at: string | null
           fecha: string
+          fusions: Json
           id: string
           positions: Json
           turno: string
           updated_at: string | null
           zona: string
+          zona_id: string | null
         }
         Insert: {
           created_at?: string | null
           fecha: string
+          fusions?: Json
           id?: string
           positions?: Json
           turno: string
           updated_at?: string | null
           zona?: string
+          zona_id?: string | null
         }
         Update: {
           created_at?: string | null
           fecha?: string
+          fusions?: Json
           id?: string
           positions?: Json
           turno?: string
           updated_at?: string | null
           zona?: string
+          zona_id?: string | null
         }
         Relationships: []
       }
@@ -468,6 +474,7 @@ export type Database = {
           posicion_y: number | null
           rotacion: number | null
           updated_at: string
+          zona_id: string | null
           zona: string
           zona_nombre: string | null
         }
@@ -486,6 +493,7 @@ export type Database = {
           posicion_y?: number | null
           rotacion?: number | null
           updated_at?: string
+          zona_id?: string | null
           zona: string
           zona_nombre?: string | null
         }
@@ -504,6 +512,7 @@ export type Database = {
           posicion_y?: number | null
           rotacion?: number | null
           updated_at?: string
+          zona_id?: string | null
           zona?: string
           zona_nombre?: string | null
         }
