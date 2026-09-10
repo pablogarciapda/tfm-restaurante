@@ -421,9 +421,8 @@ const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 const horariosConfig = ref<HorarioConfig | null>(null)
 // Restaurant email used as fallback when an admin-created reservation has no
-// customer email (the POST /api/reservas handler rejects empty email). Loaded
-// from the same configuracion row as the rest of the page config.
-const restaurantEmail = ref('')
+// NOTE: admin-created reservations allow a missing client email —
+// no confirmation email is sent in that case (no restaurant-address fallback).
 
 // ── Diseño config (canvas reference dimensions) ──
 const { config: disenoConfig, load: loadDisenoConfig } = useDisenoConfig()
@@ -671,7 +670,7 @@ async function handleReservaSubmit() {
         body: {
           nombre: reservaForm.value.nombre,
           telefono: reservaForm.value.telefono,
-          email: reservaForm.value.email || restaurantEmail.value || 'reservas@midominio.com',
+          email: reservaForm.value.email,
           fecha_hora,
           numero_comensales: reservaForm.value.comensales,
           zona_id: reservaModalMesa.value.zona_id ?? undefined,
@@ -864,7 +863,6 @@ async function loadConfiguracion() {
       ocupacionManual.value = data.ocupacion_manual ?? 0
       horariosConfig.value = (data.horarios_config as HorarioConfig) ?? null
       zonasConfig.value = (data.zonas_config as ZonaOption[]) ?? []
-      restaurantEmail.value = (data.restaurant_email as string) ?? ''
     }
   } catch {
     // Keep defaults on error

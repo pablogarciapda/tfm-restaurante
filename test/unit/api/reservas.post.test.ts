@@ -516,8 +516,7 @@ describe('handleCreateReservation', () => {
     expect(result.body).toHaveProperty('success', true)
   })
 
-  it('bypasses SMS gate when admin_created=true', async () => {
-    const mockSupabase = createMockSupabase({
+  it('bypasses SMS gate when admin_created=true', async () => {    const mockSupabase = createMockSupabase({
       configSelect: vi.fn().mockResolvedValue({
         data: { modo_reserva: 'automatica', sms_verificacion: true },
         error: null,
@@ -627,6 +626,47 @@ describe('handleCreateReservation', () => {
     expect(msg).not.toMatch(/(undefined|null)/)
     // No dangling "/cancelar" link with empty origin
     expect(msg).not.toContain('/cancelar?token=')
+  })
+
+  it('accepts admin_created reservation without client email (no fallback to restaurant address)', async () => {
+    const sendNotificationMock = vi.fn().mockResolvedValue({ success: true })
+    const clienteInsert = vi.fn().mockResolvedValue({ data: { id: 'new-cliente-id' }, error: null })
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', notificacion_reserva: 'email' },
+        error: null,
+      }),
+      clienteInsert,
+      reservaInsert: vi.fn().mockResolvedValue({ data: { id: 'no-email-reserva' }, error: null }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Sin Email',
+      telefono: '600999888',
+      email: '',
+      fecha_hora: futureISO,
+      numero_comensales: 3,
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toHaveProperty('success', true)
+    // Client stored WITHOUT any email placeholder (null, not reservas@...)
+    expect(clienteInsert).toHaveBeenCalled()
+  })
+
+  it('still requires email for public (non-admin) reservations', async () => {
+    const mockSupabase = createMockSupabase({})
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Publico',
+      telefono: '600123456',
+      email: '',
+      fecha_hora: futureISO,
+      numero_comensales: 2,
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body).toHaveProperty('errors')
   })
 })
 

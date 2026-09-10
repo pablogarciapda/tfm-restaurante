@@ -45,7 +45,10 @@ function validateBody(body: ReservationBody): string[] {
     errors.push('telefono')
   }
   if (!body.email || typeof body.email !== 'string' || !body.email.trim()) {
-    errors.push('email')
+    // Email is optional for admin-created reservations (staff may not know it);
+    // do NOT fall back to the restaurant address or confirmation emails
+    // would be sent to the restaurant's own mailbox.
+    if (!body.admin_created) errors.push('email')
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email || '')) {
     if (body.email && body.email.trim()) errors.push('email_invalido')
@@ -259,11 +262,12 @@ export async function handleCreateReservation(
     const updates: Record<string, any> = {}
     const trimmedNombre = b.nombre.trim()
     const trimmedApellidos = (b.apellidos?.trim() || null) ?? null
-    const trimmedEmail = b.email.trim()
-    // Always update name/email from form — the customer is the authority on their own data
+    const trimmedEmail = b.email?.trim() || null
+    // Only sync email when the form actually provided one — never overwrite
+    // the client's data with placeholders or the restaurant's own address
+    if (trimmedEmail && trimmedEmail !== existing.email) updates.email = trimmedEmail
     if (trimmedNombre !== existing.nombre) updates.nombre = trimmedNombre
     if (trimmedApellidos !== existing.apellidos) updates.apellidos = trimmedApellidos
-    if (trimmedEmail !== existing.email) updates.email = trimmedEmail
     if (b.gdpr_aceptado && !existing.gdpr_aceptado) {
       updates.gdpr_aceptado = true
       updates.gdpr_aceptado_at = new Date().toISOString()
@@ -279,7 +283,8 @@ export async function handleCreateReservation(
       nombre: b.nombre.trim(),
       apellidos: b.apellidos?.trim() || null,
       telefono: normalizedPhone,
-      email: b.email.trim(),
+      // Never store a placeholder/restaurant address as the client's email
+      email: b.email?.trim() || null,
     }
     if (b.gdpr_aceptado) {
       insertData.gdpr_aceptado = true
