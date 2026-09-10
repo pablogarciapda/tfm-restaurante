@@ -1161,6 +1161,24 @@ const filteredReservas = computed(() => {
   return list
 })
 
+// ── Print listado (mirrors filteredReservas with the active filter + sort) ──
+const printTitulo = computed(() => {
+  const esHoy = toLocalDateString(new Date())
+  if (filterDesde.value && filterDesde.value === filterHasta.value) {
+    const [y, m, d] = filterDesde.value.split('-').map(Number)
+    const label = new Date(y!, m! - 1, d!).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    return filterDesde.value === esHoy ? `Reservas — Hoy, ${label}` : `Reservas — ${label}`
+  }
+  if (filterDesde.value && filterHasta.value) return `Reservas — ${filterDesde.value} a ${filterHasta.value}`
+  if (filterDesde.value) return `Reservas — desde ${filterDesde.value}`
+  if (filterHasta.value) return `Reservas — hasta ${filterHasta.value}`
+  return 'Reservas — Todas'
+})
+
+function imprimirListado() {
+  window.print()
+}
+
 async function loadZonasConfig() {
   try {
     const { data } = await client
@@ -1652,6 +1670,14 @@ onMounted(async () => {
             ✕ Limpiar
           </button>
           <span class="text-xs text-gray-400">{{ filteredReservas.length }} de {{ reservasList.length }}</span>
+          <button
+            type="button"
+            data-testid="imprimir-listado-btn"
+            class="ml-auto rounded bg-slate-700 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800"
+            @click="imprimirListado"
+          >
+            🖨 Imprimir
+          </button>
         </div>
       </div>
 
@@ -2368,6 +2394,45 @@ onMounted(async () => {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Print-only view: replicates the currently filtered + sorted list -->
+    <div id="reservas-print-area" class="reservas-print-area" aria-hidden="true">
+      <h1 class="print-titulo">{{ printTitulo }}</h1>
+      <p class="print-meta">
+        {{ filteredReservas.length }} reserva(s) ·
+        Generado el {{ new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}
+      </p>
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Pax</th>
+            <th>Zona</th>
+            <th>Mesa</th>
+            <th>Estado</th>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Ref</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="reserva in filteredReservas" :key="reserva.id">
+            <td>{{ new Date(reserva.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
+            <td>{{ reserva.numero_comensales ?? '—' }}</td>
+            <td>{{ getZonaNombre(reserva.zona_id) }}</td>
+            <td>{{ getMesaNumero(reserva.mesa_id) }}</td>
+            <td>{{ reserva.estado }}</td>
+            <td>
+              {{ (reserva.cliente as any)?.nombre }}
+              {{ (reserva.cliente as any)?.apellidos }}
+            </td>
+            <td>{{ (reserva.cliente as any)?.telefono || '—' }}</td>
+            <td>{{ generarReferencia(reserva.id, reserva.fecha_hora) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="filteredReservas.length === 0" class="print-meta">Sin reservas en el periodo seleccionado.</p>
+    </div>
   </div>
 </template>
 
@@ -2379,5 +2444,59 @@ onMounted(async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+</style>
+
+<!-- Print-only styles (global so the body-visibility trick reaches the admin chrome) -->
+<style>
+.reservas-print-area {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .reservas-print-area {
+    display: block;
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 12px;
+    background: #fff;
+    color: #000;
+  }
+  .reservas-print-area * {
+    visibility: visible;
+  }
+  .print-titulo {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: capitalize;
+    margin-bottom: 4px;
+  }
+  .print-meta {
+    font-size: 11px;
+    color: #444;
+    margin-bottom: 10px;
+  }
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .print-table th,
+  .print-table td {
+    border: 1px solid #999;
+    padding: 4px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .print-table thead th {
+    background: #f1f1f1;
+    font-weight: 600;
+  }
 }
 </style>
