@@ -264,7 +264,7 @@
 - Menú diario dinámico (precio desde Configuración), con Realtime para toggle agotado en vivo, soporte domingo/festivos.
 - Reservas inteligentes: modo "reserva estándar" (resta aforo). Incluye step de consentimiento GDPR, verificación SMS opcional (según `modo_reserva`), selector de zona según `cliente_elige_zona`, y slot grid de 15 minutos basado en horarios configurables. Detecta días bloqueados automáticamente.
   - ⚠️ **Feature abandonado:** "Cliente elige mesa" (seleccionar mesa individual desde la web) fue intentado pero descartado. **Razón:** no se puede permitir al cliente elegir mesa cuando no se sabe en tiempo real si una zona está cerrada, abierta, o con horario cambiado. El admin gestiona mesas desde el panel.
-  - ⚠️ **BUG conocido (17 Jul — pendiente):** Al hacer una reserva, la mesa se bloquea para TODOS los slots del turno (mañana/tarde), no solo para la hora reservada. No hay ventana de tiempo para que quede libre y otro cliente pueda reservarla en otro horario del mismo turno. Pendiente de corregir.
+  - ✅ **Regla de bloqueo por servicio (constatada 10 Sep):** una reserva bloquea la mesa para TODO el servicio del día (comida o cena). Reservar a las 22:00 impide otra reserva a las 21:00 y viceversa. Validación server-side en `POST /api/reservas` (`mesa_id` opcional + `hasMesaConflict`), `checkDisponibilidad` del panel por turno completo (no coincidencia exacta de hora) y `editar` valida al cambiar fecha/hora. helper: `shared/utils/reserva-overlap.ts`.
 - Eventos en cartelera.
 - Contacto con mapa y formulario.
 - Cancelación de reservas: página `/cancelar` con token único desde email, preview de datos, confirmación antes de cancelar.

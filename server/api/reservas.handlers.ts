@@ -13,6 +13,7 @@ import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.co
 import { normalizePhone } from '#shared/utils/phone'
 import { isSlotInRange } from '#shared/utils/slots'
 import { generarReferencia } from '#shared/utils/referencia'
+import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
 import { sendConfirmationEmail, sendCancellationEmail } from '../utils/email'
 import { getSmsProvider } from '../utils/sms-factory'
 import { resolveZone } from '#shared/utils/zone-resolver'
@@ -28,6 +29,7 @@ interface ReservationBody {
   fecha_hora: string
   numero_comensales: number
   zona_id?: string
+  mesa_id?: string
   sms_verified?: boolean
   captcha_token?: string
   gdpr_aceptado?: boolean
@@ -207,6 +209,42 @@ export async function handleCreateReservation(
     }
   }
 
+  // 4g. Validate mesa assignment + whole-service blocking (one reserva per
+  // table per service: comida or cena). The mesa is committed for the full
+  // service, so any active (not cancelada/completada) reservation in the same
+  // date + turn on that mesa conflicts.
+  if (b.mesa_id) {
+    const { data: mesa } = await supabase
+      .from('mesas')
+      .select('id')
+      .eq('id', b.mesa_id)
+      .maybeSingle()
+
+    if (!mesa) {
+      return {
+        status: 400,
+        body: { error: 'Mesa no válida' },
+      }
+    }
+
+    if (horariosConfig) {
+      const turnos = buildTurnoWindows(horariosConfig)
+      const { data: existingReservas } = await supabase
+        .from('reservas')
+        .select('fecha_hora, estado')
+        .eq('mesa_id', b.mesa_id)
+
+      if (existingReservas && hasMesaConflict(existingReservas, b.fecha_hora, turnos)) {
+        return {
+          status: 409,
+          body: {
+            error: 'La mesa ya está reservada en ese servicio (comida o cena). Elige otra mesa u otro día.',
+          },
+        }
+      }
+    }
+  }
+
   // 5. Upsert cliente by phone
   const { data: existing } = await supabase
     .from('clientes')
@@ -277,6 +315,11 @@ export async function handleCreateReservation(
   // Include zona_id if provided
   if (b.zona_id) {
     reservaData.zona_id = resolvedZona?.id
+  }
+
+  // Include mesa_id if provided (validated above with whole-service blocking)
+  if (b.mesa_id) {
+    reservaData.mesa_id = b.mesa_id
   }
 
   // For test compatibility: select only 'id', cancel_token is included via response

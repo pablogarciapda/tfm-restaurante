@@ -1,9 +1,9 @@
 /**
- * shared/utils/reserva-overlap.ts — Time-window overlap detection for reservations
+ * shared/utils/reserva-overlap.ts — Whole-service (turn) conflict detection
  *
- * Replaces the "full-turn blocking" model with a "booking duration" model:
- * a reservation at 14:00 blocks the table until 15:30 (90 min), not until
- * the end of the entire comida turn (15:30).
+ * Restaurant rule (consigna): a reservation on a mesa blocks that mesa for
+ * the ENTIRE service (comida or cena) of that day — one reservation per table
+ * per service. A reserva at 22:00 conflicts with 21:00 and vice versa.
  *
  * Auto-imported in Nuxt 4 via imports.dirs: ['shared/utils'].
  */
@@ -19,6 +19,9 @@ export interface TurnoWindow {
   start: number
   end: number
 }
+
+/** Compatibility alias used across overlap helpers and callers. */
+export type TimeWindow = TurnoWindow
 
 /**
  * Build comida + cena windows from HorarioConfig.
@@ -91,39 +94,23 @@ export function reservationTurn(
 }
 
 /**
- * Check if a new reservation overlaps with an existing one on the same table.
+ * Check if a new reservation conflicts with existing ones on the same mesa.
  *
- * @param existingMinutes - Existing reservation time in minutes
- * @param newMinutes - New reservation time in minutes
- * @param turno - Which turn both reservations are in
- * @param customDuration - Optional duration override from config
- * @returns true if the windows overlap (conflict)
- */
-export function reservaOverlaps(
-  existingMinutes: number,
-  newMinutes: number,
-  turno: 'comida' | 'cena',
-  customDuration?: number,
-): boolean {
-  const existingWin = bookingWindow(existingMinutes, turno, customDuration)
-  const newWin = bookingWindow(newMinutes, turno, customDuration)
-  return windowsOverlap(existingWin, newWin)
-}
-
-/**
- * Check if a mesa has conflicting reservations for a given time.
+ * Whole-service blocking: true when any active reservation (not cancelada /
+ * completada) exists on the same date and same turn (comida or cena),
+ * regardless of the exact hour — the table is committed for that service.
  *
- * @param existingReservas - Array of { fecha_hora, estado, mesa_id } for the same mesa on the same date
+ * @param existingReservas - Array of { fecha_hora, estado } for the same mesa
  * @param newTime - New reservation time as ISO string
  * @param turnos - Turn windows { comida: { start, end }, cena: { start, end } }
- * @returns true if there's a conflict (new reservation overlaps an existing one)
+ * @returns true if there's a conflict (same date + same turn + active estado)
  */
 export function hasMesaConflict(
   existingReservas: Array<{ fecha_hora: string; estado: string }>,
   newTime: string,
   turnos: { comida: TimeWindow; cena: TimeWindow },
 ): boolean {
-  const newDate = newTime.slice(0, 10)
+  const newDate = parseLocalDate(newTime)
   const newMins = parseLocalMinutes(newTime)
   const newTurno = reservationTurn(newMins, turnos.comida, turnos.cena)
   if (!newTurno) return false
@@ -132,14 +119,12 @@ export function hasMesaConflict(
 
   for (const r of existingReservas) {
     if (EXCLUDED.has(r.estado)) continue
-    const rDate = r.fecha_hora.slice(0, 10)
+    const rDate = parseLocalDate(r.fecha_hora)
     if (rDate !== newDate) continue
 
     const rMins = parseLocalMinutes(r.fecha_hora)
     const rTurno = reservationTurn(rMins, turnos.comida, turnos.cena)
-    if (rTurno !== newTurno) continue
-
-    if (reservaOverlaps(rMins, newMins, rTurno)) return true
+    if (rTurno === newTurno) return true
   }
 
   return false
@@ -149,4 +134,10 @@ export function hasMesaConflict(
 function parseLocalMinutes(fecha_hora: string): number {
   const d = new Date(fecha_hora)
   return d.getHours() * 60 + d.getMinutes()
+}
+
+/** Parse ISO fecha_hora to local YYYY-MM-DD (timezone-safe, no UTC slice). */
+function parseLocalDate(fecha_hora: string): string {
+  const d = new Date(fecha_hora)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

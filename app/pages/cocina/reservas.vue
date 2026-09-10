@@ -623,9 +623,8 @@ async function checkDisponibilidad() {
   const client = useSupabaseClient()
   const { data, error } = await client
     .from('reservas')
-    .select('id')
+    .select('id, fecha_hora, estado')
     .eq('mesa_id', reservaModalMesa.value.id)
-    .eq('fecha_hora', fecha_hora)
     .in('estado', ['pendiente', 'confirmada'])
 
   if (error) {
@@ -633,8 +632,19 @@ async function checkDisponibilidad() {
     return
   }
 
-  if (data && data.length > 0) {
-    reservaError.value = `Mesa ocupada el ${reservaFecha.value} a las ${reservaHora.value}`
+  // Whole-service blocking: any active reserva on the same date + same turn
+  // blocks the mesa for the entire service (comida or cena), not just the hour.
+  const windows = horariosConfig.value ? buildTurnoWindows(horariosConfig.value) : null
+  const conflict = (data ?? []).some((r: any) => {
+    if (!windows) return r.fecha_hora === fecha_hora
+    const d = new Date(r.fecha_hora)
+    if (toLocalDateString(d) !== reservaFecha.value) return false
+    const mins = d.getHours() * 60 + d.getMinutes()
+    return reservationTurn(mins, windows.comida, windows.cena) !== null
+  })
+
+  if (conflict) {
+    reservaError.value = `Mesa bloqueada para todo el servicio el ${reservaFecha.value} (comida o cena)`
   } else {
     reservaModalStep.value = 'form'
   }
@@ -665,6 +675,7 @@ async function handleReservaSubmit() {
           fecha_hora,
           numero_comensales: reservaForm.value.comensales,
           zona_id: reservaModalMesa.value.zona_id ?? undefined,
+          mesa_id: reservaModalMesa.value.id,
           gdpr_aceptado: true,
           admin_created: true,
         },
@@ -674,15 +685,6 @@ async function handleReservaSubmit() {
     if (!result.success) {
       reservaError.value = typeof result.error === 'string' ? result.error : 'Error al crear la reserva'
       return
-    }
-
-    if (result.reserva_id) {
-      const client = useSupabaseClient()
-      const { error: assignmentError } = await client.from('reservas').update({
-        mesa_id: reservaModalMesa.value.id,
-        zona_id: reservaModalMesa.value.zona_id,
-      }).eq('id', result.reserva_id)
-      if (assignmentError) throw assignmentError
     }
 
     reservaSuccess.value = true
