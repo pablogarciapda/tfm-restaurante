@@ -37,12 +37,16 @@ function createMockSupabase(overrides: {
   clienteInsert?: ReturnType<typeof vi.fn>
   reservaInsert?: ReturnType<typeof vi.fn>
   diasBloqueadosSelect?: ReturnType<typeof vi.fn>
+  mesasSelect?: ReturnType<typeof vi.fn>
+  reservasSelect?: ReturnType<typeof vi.fn>
 }) {
   const configSelect = overrides.configSelect ?? vi.fn().mockResolvedValue({ data: null, error: null })
   const clienteSelect = overrides.clienteSelect ?? vi.fn().mockResolvedValue({ data: null, error: null })
   const clienteInsert = overrides.clienteInsert ?? vi.fn().mockResolvedValue({ data: null, error: null })
   const reservaInsert = overrides.reservaInsert ?? vi.fn().mockResolvedValue({ data: null, error: null })
   const diasBloqueadosSelect = overrides.diasBloqueadosSelect ?? vi.fn().mockResolvedValue({ data: [], error: null })
+  const mesasSelect = overrides.mesasSelect ?? vi.fn().mockResolvedValue({ data: null, error: null })
+  const reservasSelect = overrides.reservasSelect ?? vi.fn().mockResolvedValue({ data: [], error: null })
 
   // Track which table is being queried
   let currentTable = ''
@@ -111,7 +115,13 @@ function createMockSupabase(overrides: {
       if (table === 'clientes') {
         return createChain(clienteSelect, clienteInsert)
       }
+      if (table === 'mesas') {
+        return createChain(mesasSelect)
+      }
       if (table === 'reservas') {
+        if (overrides.reservasSelect) {
+          return createChain(reservasSelect, reservaInsert)
+        }
         return createChain(reservaInsert, reservaInsert)
       }
       return createChain(vi.fn().mockResolvedValue({ data: null, error: null }))
@@ -506,8 +516,7 @@ describe('handleCreateReservation', () => {
     expect(result.body).toHaveProperty('success', true)
   })
 
-  it('bypasses SMS gate when admin_created=true', async () => {
-    const mockSupabase = createMockSupabase({
+  it('bypasses SMS gate when admin_created=true', async () => {    const mockSupabase = createMockSupabase({
       configSelect: vi.fn().mockResolvedValue({
         data: { modo_reserva: 'automatica', sms_verificacion: true },
         error: null,
@@ -617,5 +626,179 @@ describe('handleCreateReservation', () => {
     expect(msg).not.toMatch(/(undefined|null)/)
     // No dangling "/cancelar" link with empty origin
     expect(msg).not.toContain('/cancelar?token=')
+  })
+
+  it('accepts admin_created reservation without client email (no fallback to restaurant address)', async () => {
+    const sendNotificationMock = vi.fn().mockResolvedValue({ success: true })
+    const clienteInsert = vi.fn().mockResolvedValue({ data: { id: 'new-cliente-id' }, error: null })
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', notificacion_reserva: 'email' },
+        error: null,
+      }),
+      clienteInsert,
+      reservaInsert: vi.fn().mockResolvedValue({ data: { id: 'no-email-reserva' }, error: null }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Sin Email',
+      telefono: '600999888',
+      email: '',
+      fecha_hora: futureISO,
+      numero_comensales: 3,
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toHaveProperty('success', true)
+    // Client stored WITHOUT any email placeholder (null, not reservas@...)
+    expect(clienteInsert).toHaveBeenCalled()
+  })
+
+  it('still requires email for public (non-admin) reservations', async () => {
+    const mockSupabase = createMockSupabase({})
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Publico',
+      telefono: '600123456',
+      email: '',
+      fecha_hora: futureISO,
+      numero_comensales: 2,
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body).toHaveProperty('errors')
+  })
+})
+
+// ──────────────────── Whole-service mesa blocking ────────────────────
+
+const HORARIOS = {
+  comida_inicio: '13:30',
+  comida_fin: '15:30',
+  cena_inicio: '21:00',
+  cena_fin: '23:30',
+  intervalo_minutos: 15,
+}
+
+function localISO(daysAhead: number, h: number, m = 0): string {
+  // Mirror buildFechaHora (client): local date+time with numeric offset,
+  // so slice(11,16) yields the LOCAL hour like real client payloads do.
+  const d = new Date(Date.now() + daysAhead * 86400000)
+  d.setHours(h, m, 0, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const off = d.getTimezoneOffset()
+  const sign = off <= 0 ? '+' : '-'
+  const abs = Math.abs(off)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(h)}:${pad(m)}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+}
+
+describe('handleCreateReservation — whole-service mesa blocking', () => {
+  beforeEach(() => {
+    sendNotificationMock.mockClear()
+  })
+
+  it('rejects (409) when mesa already reserved in the same service (21:00 blocks 22:00)', async () => {
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', horarios_config: HORARIOS },
+        error: null,
+      }),
+      mesasSelect: vi.fn().mockResolvedValue({ data: { id: 'mesa-1' }, error: null }),
+      reservasSelect: vi.fn().mockResolvedValue({
+        data: [{ fecha_hora: localISO(3, 21, 0), estado: 'confirmada' }],
+        error: null,
+      }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Test',
+      telefono: '600123456',
+      email: 'test@test.com',
+      fecha_hora: localISO(3, 22, 0),
+      numero_comensales: 2,
+      mesa_id: 'mesa-1',
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(409)
+    expect(result.body).toHaveProperty('error')
+  })
+
+  it('accepts reservation on the same mesa in a different service (comida vs cena)', async () => {
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', horarios_config: HORARIOS },
+        error: null,
+      }),
+      mesasSelect: vi.fn().mockResolvedValue({ data: { id: 'mesa-1' }, error: null }),
+      reservasSelect: vi.fn().mockResolvedValue({
+        data: [{ fecha_hora: localISO(3, 21, 0), estado: 'confirmada' }],
+        error: null,
+      }),
+      clienteSelect: vi.fn().mockResolvedValue({ data: { id: 'existing-client-id' }, error: null }),
+      reservaInsert: vi.fn().mockResolvedValue({ data: { id: 'different-service-reserva' }, error: null }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Test',
+      telefono: '600123456',
+      email: 'test@test.com',
+      fecha_hora: localISO(3, 14, 0),
+      numero_comensales: 2,
+      mesa_id: 'mesa-1',
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toHaveProperty('success', true)
+  })
+
+  it('rejects (400) an unknown mesa_id', async () => {
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica' },
+        error: null,
+      }),
+      mesasSelect: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Test',
+      telefono: '600123456',
+      email: 'test@test.com',
+      fecha_hora: localISO(3, 21, 0),
+      numero_comensales: 2,
+      mesa_id: 'no-existe',
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.body).toHaveProperty('error', 'Mesa no válida')
+  })
+
+  it('rejects (409) when mesa has a pendiente reserva in the same service', async () => {
+    const mockSupabase = createMockSupabase({
+      configSelect: vi.fn().mockResolvedValue({
+        data: { modo_reserva: 'automatica', horarios_config: HORARIOS },
+        error: null,
+      }),
+      mesasSelect: vi.fn().mockResolvedValue({ data: { id: 'mesa-1' }, error: null }),
+      reservasSelect: vi.fn().mockResolvedValue({
+        data: [{ fecha_hora: localISO(3, 21, 0), estado: 'pendiente' }],
+        error: null,
+      }),
+    })
+
+    const result = await handleCreateReservation(mockSupabase as any, {
+      nombre: 'Test',
+      telefono: '600123456',
+      email: 'test@test.com',
+      fecha_hora: localISO(3, 23, 15),
+      numero_comensales: 2,
+      mesa_id: 'mesa-1',
+      admin_created: true,
+    })
+
+    expect(result.status).toBe(409)
   })
 })

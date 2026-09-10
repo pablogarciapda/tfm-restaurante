@@ -10,6 +10,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { sendConfirmationEmail } from '../../../utils/email'
 import { getSmsProvider } from '../../../utils/sms-factory'
 import { generarReferencia } from '#shared/utils/referencia'
+import { hasMesaConflict, buildTurnoWindows } from '#shared/utils/reserva-overlap'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -46,7 +47,7 @@ export default defineEventHandler(async (event) => {
   // 1. Fetch current reservation
   const { data: reserva, error: fetchErr } = await supabase
     .from('reservas')
-    .select('id, cliente_id, fecha_hora, numero_comensales, estado')
+    .select('id, cliente_id, fecha_hora, numero_comensales, estado, mesa_id')
     .eq('id', reserva_id)
     .single()
 
@@ -56,6 +57,32 @@ export default defineEventHandler(async (event) => {
 
   if (reserva.estado === 'cancelada' || reserva.estado === 'completada') {
     throw createError({ statusCode: 400, statusMessage: 'No se puede editar una reserva cancelada o completada' })
+  }
+
+  // 1b. Whole-service blocking: check the new fecha_hora against active
+  // reservations on the same mesa (one reserva per table per service).
+  if (reserva.mesa_id) {
+    const { data: horariosConfig } = await supabase
+      .from('configuracion')
+      .select('horarios_config')
+      .limit(1)
+      .single()
+
+    if (horariosConfig?.horarios_config) {
+      const turnos = buildTurnoWindows(horariosConfig.horarios_config as unknown as any)
+      const { data: existingReservas } = await supabase
+        .from('reservas')
+        .select('fecha_hora, estado')
+        .eq('mesa_id', reserva.mesa_id)
+        .neq('id', reserva_id)
+
+      if (existingReservas && hasMesaConflict(existingReservas, fecha_hora, turnos)) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: 'La mesa ya tiene una reserva en ese servicio. Cambia la mesa o el horario.',
+        })
+      }
+    }
   }
 
   // 2. Update client data if provided
