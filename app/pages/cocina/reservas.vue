@@ -1205,12 +1205,12 @@ function imprimirListado() {
   <style>
     @page { size: A4 portrait; margin: 14mm; }
     * { box-sizing: border-box; }
-    body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; margin: 0; }
+    body { font-family: 'Courier New', 'Nimbus Mono PS', monospace; color: #1a1a1a; margin: 0; font-size: 13px; }
     header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #c25b3c; padding-bottom: 8px; margin-bottom: 6px; }
     h1 { font-size: 18px; margin: 0; text-transform: capitalize; }
     .brand { color: #c25b3c; font-size: 14px; font-weight: bold; }
     .meta { color: #666; font-size: 11px; margin: 0 0 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { border: 1px solid #bbb; padding: 4px 6px; text-align: left; vertical-align: top; }
     thead th { background: #f5f3f0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
     .center { text-align: center; }
