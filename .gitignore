@@ -27,3 +27,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# POS agent local secrets (service role key)
+tools/pos-agent/.env
+node_modules

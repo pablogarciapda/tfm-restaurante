@@ -1,0 +1,13 @@
+{
+  "name": "zingara-pos-agent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Prints new web reservations on the restaurant Epson TM-T20III POS printer via Supabase Realtime",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env --experimental-strip-types agent.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.0"
+  }
+}
