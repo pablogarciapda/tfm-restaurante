@@ -1173,8 +1173,77 @@ const printTitulo = computed(() => {
   return 'Reservas — Todas'
 })
 
+/**
+ * Print via a detached iframe document: reliable regardless of the admin
+ * layout (scroll containers, transforms) and fully styled template.
+ */
 function imprimirListado() {
-  window.print()
+  const { restaurant_nombre } = useRestaurantConfig().restaurant
+
+  const esc = (s: unknown) => String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  const rows = filteredReservas.value.map((r) => {
+    const c = r.cliente as any
+    return `<tr>
+      <td>${esc(new Date(r.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</td>
+      <td class="center">${esc(r.numero_comensales ?? '—')}</td>
+      <td>${esc(getZonaNombre(r.zona_id))}</td>
+      <td>${esc(getMesaNumero(r.mesa_id))}</td>
+      <td>${esc(r.estado)}</td>
+      <td>${esc(c?.nombre)} ${esc(c?.apellidos)}</td>
+      <td>${esc(c?.telefono || '—')}</td>
+      <td class="mono">${esc(generarReferencia(r.id, r.fecha_hora))}</td>
+    </tr>`
+  }).join('\n')
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(printTitulo.value)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; margin: 0; }
+    header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #c25b3c; padding-bottom: 8px; margin-bottom: 6px; }
+    h1 { font-size: 18px; margin: 0; text-transform: capitalize; }
+    .brand { color: #c25b3c; font-size: 14px; font-weight: bold; }
+    .meta { color: #666; font-size: 11px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid #bbb; padding: 4px 6px; text-align: left; vertical-align: top; }
+    thead th { background: #f5f3f0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .center { text-align: center; }
+    .mono { font-family: Menlo, Consolas, monospace; font-size: 9px; }
+    footer { margin-top: 10px; color: #999; font-size: 9px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>${esc(printTitulo.value)}</h1>
+    <span class="brand">${esc(restaurant_nombre)}</span>
+  </header>
+  <p class="meta">${filteredReservas.value.length} reserva(s) · Generado el ${esc(new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</p>
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Pax</th><th>Zona</th><th>Mesa</th><th>Estado</th><th>Nombre</th><th>Teléfono</th><th>Ref</th></tr>
+    </thead>
+    <tbody>${rows || '<tr><td colspan="8">Sin reservas en el periodo seleccionado.</td></tr>'}</tbody>
+  </table>
+  <footer>Documento interno generado por el panel de administración</footer>
+</body>
+</html>`
+
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentDocument
+  doc!.open()
+  doc!.write(html)
+  doc!.close()
+  iframe.contentWindow!.focus()
+  iframe.contentWindow!.print()
+  setTimeout(() => iframe.remove(), 5000)
 }
 
 async function loadZonasConfig() {
@@ -2393,44 +2462,6 @@ onMounted(async () => {
       </Transition>
     </Teleport>
 
-    <!-- Print-only view: replicates the currently filtered + sorted list -->
-    <div id="reservas-print-area" class="reservas-print-area" aria-hidden="true">
-      <h1 class="print-titulo">{{ printTitulo }}</h1>
-      <p class="print-meta">
-        {{ filteredReservas.length }} reserva(s) ·
-        Generado el {{ new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}
-      </p>
-      <table class="print-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Pax</th>
-            <th>Zona</th>
-            <th>Mesa</th>
-            <th>Estado</th>
-            <th>Nombre</th>
-            <th>Teléfono</th>
-            <th>Ref</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="reserva in filteredReservas" :key="reserva.id">
-            <td>{{ new Date(reserva.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
-            <td>{{ reserva.numero_comensales ?? '—' }}</td>
-            <td>{{ getZonaNombre(reserva.zona_id) }}</td>
-            <td>{{ getMesaNumero(reserva.mesa_id) }}</td>
-            <td>{{ reserva.estado }}</td>
-            <td>
-              {{ (reserva.cliente as any)?.nombre }}
-              {{ (reserva.cliente as any)?.apellidos }}
-            </td>
-            <td>{{ (reserva.cliente as any)?.telefono || '—' }}</td>
-            <td>{{ generarReferencia(reserva.id, reserva.fecha_hora) }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="filteredReservas.length === 0" class="print-meta">Sin reservas en el periodo seleccionado.</p>
-    </div>
   </div>
 </template>
 
@@ -2442,59 +2473,5 @@ onMounted(async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-</style>
-
-<!-- Print-only styles (global so the body-visibility trick reaches the admin chrome) -->
-<style>
-.reservas-print-area {
-  display: none;
-}
-
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  .reservas-print-area {
-    display: block;
-    visibility: visible;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 12px;
-    background: #fff;
-    color: #000;
-  }
-  .reservas-print-area * {
-    visibility: visible;
-  }
-  .print-titulo {
-    font-size: 18px;
-    font-weight: 700;
-    text-transform: capitalize;
-    margin-bottom: 4px;
-  }
-  .print-meta {
-    font-size: 11px;
-    color: #444;
-    margin-bottom: 10px;
-  }
-  .print-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-  }
-  .print-table th,
-  .print-table td {
-    border: 1px solid #999;
-    padding: 4px 6px;
-    text-align: left;
-    vertical-align: top;
-  }
-  .print-table thead th {
-    background: #f1f1f1;
-    font-weight: 600;
-  }
 }
 </style>
