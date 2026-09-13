@@ -25,6 +25,7 @@ import { generarReferencia } from '#shared/utils/referencia'
 import { generateSlots } from '#shared/utils/slots'
 import { toLocalDateString, buildFechaHora } from '#shared/utils/date'
 import { buildTurnoWindows, reservationTurn } from '#shared/utils/reserva-overlap'
+import { DEFAULT_INFORME_CONFIG, normalizeInformeConfig, informeFontCss, type InformeConfig } from '#shared/utils/informe-config'
 import type { AforoInfo, Mesa, CocinaRole } from '#shared/contracts/mesas.contract'
 import type { HorarioConfig, ZonaConfig } from '#shared/contracts/reservation.contract'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
@@ -420,6 +421,7 @@ const capacidadTotal = ref(80)
 const modoOcupacion = ref<'auto' | 'manual'>('auto')
 const ocupacionManual = ref(0)
 const horariosConfig = ref<HorarioConfig | null>(null)
+const informePrintConfig = ref<InformeConfig>({ ...DEFAULT_INFORME_CONFIG })
 // Restaurant email used as fallback when an admin-created reservation has no
 // NOTE: admin-created reservations allow a missing client email —
 // no confirmation email is sent in that case (no restaurant-address fallback).
@@ -849,7 +851,7 @@ async function loadConfiguracion() {
   try {
     const { data, error } = await client
       .from('configuracion')
-      .select('modo_ocupacion, ocupacion_manual, horarios_config, zonas_config, restaurant_email')
+      .select('modo_ocupacion, ocupacion_manual, horarios_config, zonas_config, informe_config')
       .single()
 
     if (error) throw error
@@ -863,6 +865,7 @@ async function loadConfiguracion() {
       ocupacionManual.value = data.ocupacion_manual ?? 0
       horariosConfig.value = (data.horarios_config as HorarioConfig) ?? null
       zonasConfig.value = (data.zonas_config as ZonaOption[]) ?? []
+      informePrintConfig.value = normalizeInformeConfig(data.informe_config)
     }
   } catch {
     // Keep defaults on error
@@ -1179,23 +1182,44 @@ const printTitulo = computed(() => {
  */
 function imprimirListado() {
   const { restaurant_nombre } = useRestaurantConfig().restaurant
+  const cfg = normalizeInformeConfig(informePrintConfig.value)
+  const fontCss = informeFontCss(cfg.fuente)
 
   const esc = (s: unknown) => String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-  const rows = filteredReservas.value.map((r) => {
+  const headers = ['Fecha', 'Pax']
+  const cellsFor = (r: any) => {
     const c = r.cliente as any
-    return `<tr>
-      <td>${esc(new Date(r.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</td>
-      <td class="center">${esc(r.numero_comensales ?? '—')}</td>
-      <td>${esc(getZonaNombre(r.zona_id))}</td>
-      <td>${esc(getMesaNumero(r.mesa_id))}</td>
-      <td>${esc(r.estado)}</td>
-      <td>${esc(c?.nombre)} ${esc(c?.apellidos)}</td>
-      <td>${esc(c?.telefono || '—')}</td>
-      <td class="mono">${esc(generarReferencia(r.id, r.fecha_hora))}</td>
-    </tr>`
-  }).join('\n')
+    const values: string[] = [
+      esc(new Date(r.fecha_hora).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })),
+      esc(r.numero_comensales ?? '—'),
+    ]
+    if (cfg.mostrar_zona_mesa) {
+      values.push(esc(getZonaNombre(r.zona_id)), esc(getMesaNumero(r.mesa_id)))
+    }
+    values.push(esc(r.estado))
+    values.push(`${esc(c?.nombre)} ${esc(c?.apellidos)}`)
+    if (cfg.mostrar_telefono) {
+      values.push(esc(c?.telefono || '—'))
+    }
+    if (cfg.mostrar_referencia) {
+      values.push(esc(generarReferencia(r.id, r.fecha_hora)))
+    }
+    return values.map((v) => `<td>${v}</td>`).join('')
+  }
+  if (cfg.mostrar_zona_mesa) {
+    headers.push('Zona', 'Mesa')
+  }
+  headers.push('Estado', 'Nombre')
+  if (cfg.mostrar_telefono) {
+    headers.push('Teléfono')
+  }
+  if (cfg.mostrar_referencia) {
+    headers.push('Ref')
+  }
+
+  const rows = filteredReservas.value.map((r) => `<tr>${cellsFor(r)}</tr>`).join('\n')
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -1205,17 +1229,16 @@ function imprimirListado() {
   <style>
     @page { size: A4 portrait; margin: 14mm; }
     * { box-sizing: border-box; }
-    body { font-family: 'Courier New', 'Nimbus Mono PS', monospace; color: #1a1a1a; margin: 0; font-size: 13px; }
+    body { font-family: ${fontCss}; color: #1a1a1a; margin: 0; font-size: ${cfg.tamano + 1}px; }
     header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #c25b3c; padding-bottom: 8px; margin-bottom: 6px; }
-    h1 { font-size: 18px; margin: 0; text-transform: capitalize; }
-    .brand { color: #c25b3c; font-size: 14px; font-weight: bold; }
-    .meta { color: #666; font-size: 11px; margin: 0 0 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    h1 { font-size: ${cfg.tamano + 6}px; margin: 0; text-transform: capitalize; }
+    .brand { color: #c25b3c; font-size: ${cfg.tamano + 2}px; font-weight: bold; }
+    .meta { color: #666; font-size: ${cfg.tamano - 1}px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: ${cfg.tamano}px; }
     th, td { border: 1px solid #bbb; padding: 4px 6px; text-align: left; vertical-align: top; }
-    thead th { background: #f5f3f0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .center { text-align: center; }
-    .mono { font-family: Menlo, Consolas, monospace; font-size: 9px; }
-    footer { margin-top: 10px; color: #999; font-size: 9px; }
+    thead th { background: #f5f3f0; font-size: ${cfg.tamano - 1}px; text-transform: uppercase; letter-spacing: 0.04em; }
+    td.pax { text-align: center; }
+    footer { margin-top: 10px; color: #999; font-size: ${cfg.tamano - 3}px; }
   </style>
 </head>
 <body>
@@ -1226,9 +1249,9 @@ function imprimirListado() {
   <p class="meta">${filteredReservas.value.length} reserva(s) · Generado el ${esc(new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</p>
   <table>
     <thead>
-      <tr><th>Fecha</th><th>Pax</th><th>Zona</th><th>Mesa</th><th>Estado</th><th>Nombre</th><th>Teléfono</th><th>Ref</th></tr>
+      <tr><th>${headers.join('</th><th>')}</th></tr>
     </thead>
-    <tbody>${rows || '<tr><td colspan="8">Sin reservas en el periodo seleccionado.</td></tr>'}</tbody>
+    <tbody>${rows || `<tr><td colspan="${headers.length}">Sin reservas en el periodo seleccionado.</td></tr>`}</tbody>
   </table>
   <footer>Documento interno generado por el panel de administración</footer>
 </body>

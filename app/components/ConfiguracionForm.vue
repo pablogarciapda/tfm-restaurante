@@ -9,6 +9,7 @@
 import { reactive, ref, watch, computed, onMounted } from 'vue'
 import { generateSlots } from '#shared/utils/slots'
 import { capacidadFromZonas } from '#shared/utils/capacidad-from-zonas'
+import { normalizeInformeConfig, informeFontCss, INFORME_FUENTES, DEFAULT_INFORME_CONFIG, type InformeConfig } from '#shared/utils/informe-config'
 import { toProxyUrl } from '~/utils/image-url'
 import { useDisenoConfig } from '~/composables/useDisenoConfig'
 
@@ -210,6 +211,16 @@ const {
 
 const canvasAncho = ref(1400)
 const canvasAlto = ref(900)
+
+// ── Informe (print report template) ──
+const informeConfig = ref<InformeConfig>({ ...DEFAULT_INFORME_CONFIG })
+
+const informePreviewStyle = computed(() => ({
+  fontFamily: informeFontCss(informeConfig.value.fuente),
+  fontSize: `${informeConfig.value.tamano}px`,
+}))
+
+const informeFuenteOptions = Object.entries(INFORME_FUENTES).map(([value, meta]) => ({ value, label: meta.label }))
 
 onMounted(async () => {
   await loadDisenoConfig()
@@ -517,6 +528,9 @@ watch(
       iconPreview.value = toProxyUrl(form.restaurant_icon_url) ?? null
     }
     if ((cfg as any).site_url !== undefined) form.site_url = (cfg as any).site_url as string
+    if ((cfg as any).informe_config !== undefined) {
+      informeConfig.value = normalizeInformeConfig(cfg.informe_config)
+    }
     // smtp_password is NEVER loaded — always empty on GET
   },
   { deep: true },
@@ -538,7 +552,10 @@ function validate(): boolean {
 
 function handleSubmit() {
   if (!validate()) return
-  const data = { ...form }
+  const data = {
+    ...form,
+    informe_config: informeConfig.value,
+  }
   // Normalize: convert empty string numeric fields to null (v-model.number quirk)
   if (data.precio_menu_diario === '') data.precio_menu_diario = null
   if (data.precio_menu_sabado === '') data.precio_menu_sabado = null
@@ -1098,6 +1115,103 @@ const checkboxClass = 'h-4 w-4 rounded'
         </div>
       </div>
       <p v-if="disenoError" class="mt-2 text-xs text-red-600">{{ disenoError }}</p>
+    </div>
+
+    <!-- Section 7b: Informe (print report template) -->
+    <div :class="sectionClass">
+      <h2 :class="sectionTitleClass">Informe de reservas</h2>
+      <p class="mb-4 text-xs text-gray-400">
+        Plantilla del documento que se genera al pulsar Imprimir en el listado de reservas.
+        El preview refleja los cambios sin guardar (se aplican al guardar).
+      </p>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div>
+          <div class="mb-4">
+            <label :class="labelClass" for="cfg-informe-fuente">Fuente</label>
+            <select
+              id="cfg-informe-fuente"
+              v-model="informeConfig.fuente"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm w-56"
+            >
+              <option v-for="opt in informeFuenteOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label :class="labelClass" for="cfg-informe-tamano">Tamaño de texto (px)</label>
+            <input
+              id="cfg-informe-tamano"
+              v-model.number="informeConfig.tamano"
+              type="number"
+              min="8"
+              max="16"
+              class="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <p class="mt-1 text-xs text-gray-400">8 – 16 px (12 recomendado)</p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input v-model="informeConfig.mostrar_telefono" type="checkbox" class="h-4 w-4 rounded" />
+              Mostrar columna Teléfono
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input v-model="informeConfig.mostrar_referencia" type="checkbox" class="h-4 w-4 rounded" />
+              Mostrar columna Referencia
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input v-model="informeConfig.mostrar_zona_mesa" type="checkbox" class="h-4 w-4 rounded" />
+              Mostrar columnas Zona y Mesa
+            </label>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div>
+          <span class="mb-1 block text-sm font-medium text-slate">Preview</span>
+          <div class="rounded-lg border-2 border-terracotta/60 bg-white shadow-sm overflow-hidden">
+            <div style="border-bottom: 2px solid #c25b3c; display: flex; justify-content: space-between; align-items: baseline; padding: 6px 10px;">
+              <span style="font-weight: bold; text-transform: capitalize;" :style="informePreviewStyle">Reservas — Hoy</span>
+              <span style="color: #c25b3c; font-weight: bold;" :style="informePreviewStyle">{{ form.restaurant_nombre || 'La Zíngara' }}</span>
+            </div>
+            <table :style="informePreviewStyle" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f5f3f0;">
+                  <th style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">FECHA</th>
+                  <th style="border: 1px solid #bbb; padding: 3px 6px; text-align: center;">PAX</th>
+                  <th v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">ZONA</th>
+                  <th v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">MESA</th>
+                  <th style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">ESTADO</th>
+                  <th style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">NOMBRE</th>
+                  <th v-if="informeConfig.mostrar_telefono" style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">TELÉFONO</th>
+                  <th v-if="informeConfig.mostrar_referencia" style="border: 1px solid #bbb; padding: 3px 6px; text-align: left;">REF</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">19/09/2026 21:00</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px; text-align: center;">4</td>
+                  <td v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px;">Principal</td>
+                  <td v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px;">7</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">confirmada</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">María García</td>
+                  <td v-if="informeConfig.mostrar_telefono" style="border: 1px solid #bbb; padding: 3px 6px;">600 123 456</td>
+                  <td v-if="informeConfig.mostrar_referencia" style="border: 1px solid #bbb; padding: 3px 6px;">AB2C-19SEP</td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">19/09/2026 13:30</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px; text-align: center;">2</td>
+                  <td v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px;">Terraza</td>
+                  <td v-if="informeConfig.mostrar_zona_mesa" style="border: 1px solid #bbb; padding: 3px 6px;">—</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">pendiente</td>
+                  <td style="border: 1px solid #bbb; padding: 3px 6px;">Juan Pérez</td>
+                  <td v-if="informeConfig.mostrar_telefono" style="border: 1px solid #bbb; padding: 3px 6px;">611 222 333</td>
+                  <td v-if="informeConfig.mostrar_referencia" style="border: 1px solid #bbb; padding: 3px 6px;">CD4E-19SEP</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Section 8: Recomendaciones -->
