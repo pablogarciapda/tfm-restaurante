@@ -41,6 +41,13 @@ describe('normalizeInformeConfig', () => {
     expect(normalizeInformeConfig({ mostrar_referencia: 0 }).mostrar_referencia).toBe(false)
   })
 
+  it('normalizes orientation (vertical/apaisado), rejects unknown values', () => {
+    expect(normalizeInformeConfig({ orientacion: 'apaisado' }).orientacion).toBe('apaisado')
+    expect(normalizeInformeConfig({ orientacion: 'vertical' }).orientacion).toBe('vertical')
+    expect(normalizeInformeConfig({ orientacion: 'diagonal' }).orientacion).toBe('vertical')
+    expect(normalizeInformeConfig(undefined).orientacion).toBe('vertical')
+  })
+
   it('resolves report font css', () => {
     expect(informeFontCss('courier')).toContain('Courier New')
     expect(informeFontCss('times')).toContain('Times')
