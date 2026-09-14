@@ -14,6 +14,8 @@ export interface InformeConfig {
   fuente: 'courier' | 'times' | 'georgia' | 'arial'
   /** Base table font size in px (clamped 8..16). */
   tamano: number
+  /** Page orientation of the printed report. */
+  orientacion: 'vertical' | 'apaisado'
   /** Include the Teléfono column. */
   mostrar_telefono: boolean
   /** Include the Ref column. */
@@ -37,6 +39,7 @@ export const INFORME_TAMANO_MAX = 16
 export const DEFAULT_INFORME_CONFIG: InformeConfig = {
   fuente: 'courier',
   tamano: 12,
+  orientacion: 'vertical',
   mostrar_telefono: true,
   mostrar_referencia: true,
   mostrar_zona_mesa: true,
@@ -72,6 +75,7 @@ export function normalizeInformeConfig(raw: unknown): InformeConfig {
     tamano: typeof num === 'number' && Number.isFinite(num)
       ? Math.min(INFORME_TAMANO_MAX, Math.max(INFORME_TAMANO_MIN, num))
       : DEFAULT_INFORME_CONFIG.tamano,
+    orientacion: r.orientacion === 'apaisado' ? 'apaisado' : r.orientacion === 'vertical' ? 'vertical' : DEFAULT_INFORME_CONFIG.orientacion,
     mostrar_telefono: toBool(r.mostrar_telefono, DEFAULT_INFORME_CONFIG.mostrar_telefono),
     mostrar_referencia: toBool(r.mostrar_referencia, DEFAULT_INFORME_CONFIG.mostrar_referencia),
     mostrar_zona_mesa: toBool(r.mostrar_zona_mesa, DEFAULT_INFORME_CONFIG.mostrar_zona_mesa),

@@ -1227,7 +1227,7 @@ function imprimirListado() {
   <meta charset="utf-8">
   <title>${esc(printTitulo.value)}</title>
   <style>
-    @page { size: A4 portrait; margin: 14mm; }
+    @page { size: A4 ${cfg.orientacion === 'apaisado' ? 'landscape' : 'portrait'}; margin: 14mm; }
     * { box-sizing: border-box; }
     body { font-family: ${fontCss}; color: #1a1a1a; margin: 0; font-size: ${cfg.tamano + 1}px; }
     header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #c25b3c; padding-bottom: 8px; margin-bottom: 6px; }

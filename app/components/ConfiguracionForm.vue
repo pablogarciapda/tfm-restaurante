@@ -529,7 +529,7 @@ watch(
     }
     if ((cfg as any).site_url !== undefined) form.site_url = (cfg as any).site_url as string
     if ((cfg as any).informe_config !== undefined) {
-      informeConfig.value = normalizeInformeConfig(cfg.informe_config)
+      informeConfig.value = normalizeInformeConfig((cfg as any).informe_config)
     }
     // smtp_password is NEVER loaded — always empty on GET
   },
@@ -592,7 +592,7 @@ const checkboxClass = 'h-4 w-4 rounded'
       <div class="grid gap-6 lg:grid-cols-2">
         <!-- Left column: Meal hours (cocina) -->
         <div class="rounded-lg border border-gray-200 p-4">
-          <div class="mb-3 flex items-center justify-between">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-semibold text-slate">Turnos de cocina</h3>
             <label class="flex items-center gap-2 text-sm text-gray-600">
               <input
@@ -695,7 +695,7 @@ const checkboxClass = 'h-4 w-4 rounded'
 
         <!-- Right column: Establishment hours -->
         <div class="rounded-lg border border-gray-200 p-4">
-          <div class="mb-3 flex items-center justify-between">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-semibold text-slate">Horario del establecimiento</h3>
             <label class="flex items-center gap-2 text-sm text-gray-600">
               <input
@@ -707,7 +707,8 @@ const checkboxClass = 'h-4 w-4 rounded'
             </label>
           </div>
 
-          <div class="overflow-x-auto">
+          <!-- Desktop: table with day rows -->
+          <div class="hidden overflow-x-auto sm:block">
             <table class="w-full text-left text-sm">
               <thead>
                 <tr class="border-b border-gray-200 text-xs text-gray-500">
@@ -759,6 +760,56 @@ const checkboxClass = 'h-4 w-4 rounded'
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Mobile: card per day -->
+          <div class="space-y-3 sm:hidden">
+            <div
+              v-for="dia in form.horarios_config.establecimiento.dias"
+              :key="`movil-${dia.dia}`"
+              class="rounded-lg border border-gray-200 p-3"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="font-medium capitalize text-slate">{{ dia.dia }}</span>
+                <div class="flex items-center gap-3 text-xs text-gray-500">
+                  <label class="flex items-center gap-1">
+                    Descanso
+                    <input
+                      v-model="dia.descanso"
+                      type="checkbox"
+                      :data-testid="`cfg-est-descanso-${dia.dia}`"
+                      class="h-4 w-4 rounded"
+                      :disabled="dia.vacaciones"
+                    />
+                  </label>
+                  <label class="flex items-center gap-1">
+                    Vacaciones
+                    <input
+                      v-model="dia.vacaciones"
+                      type="checkbox"
+                      :data-testid="`cfg-est-vacaciones-${dia.dia}`"
+                      class="h-4 w-4 rounded"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="mt-2 flex gap-2">
+                <input
+                  v-model="dia.apertura"
+                  type="time"
+                  :data-testid="`cfg-est-apertura-${dia.dia}`"
+                  class="w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                  :disabled="dia.descanso || dia.vacaciones"
+                />
+                <input
+                  v-model="dia.cierre"
+                  type="time"
+                  :data-testid="`cfg-est-cierre-${dia.dia}`"
+                  class="w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                  :disabled="dia.descanso || dia.vacaciones"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1149,6 +1200,20 @@ const checkboxClass = 'h-4 w-4 rounded'
             />
             <p class="mt-1 text-xs text-gray-400">8 – 16 px (12 recomendado)</p>
           </div>
+          <div class="mb-4">
+            <label :class="labelClass" for="cfg-informe-orientacion">Orientación</label>
+            <select
+              id="cfg-informe-orientacion"
+              v-model="informeConfig.orientacion"
+              class="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="vertical">Vertical (A4 retrato)</option>
+              <option value="apaisado">Apaisado (A4 horizontal)</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-400">
+              {{ informeConfig.orientacion === 'apaisado' ? 'Al imprimir tendrá el doble de ancho útil — más columnas sin partir.' : 'Formato clásico A4 vertical.' }}
+            </p>
+          </div>
           <div class="flex flex-col gap-2">
             <label class="flex items-center gap-2 text-sm text-gray-600">
               <input v-model="informeConfig.mostrar_telefono" type="checkbox" class="h-4 w-4 rounded" />
@@ -1166,7 +1231,7 @@ const checkboxClass = 'h-4 w-4 rounded'
         </div>
 
         <!-- Live preview -->
-        <div>
+        <div :class="informeConfig.orientacion === 'apaisado' ? 'lg:col-span-2' : ''">
           <span class="mb-1 block text-sm font-medium text-slate">Preview</span>
           <div class="rounded-lg border-2 border-terracotta/60 bg-white shadow-sm overflow-hidden">
             <div style="border-bottom: 2px solid #c25b3c; display: flex; justify-content: space-between; align-items: baseline; padding: 6px 10px;">
