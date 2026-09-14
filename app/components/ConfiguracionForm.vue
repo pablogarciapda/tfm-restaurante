@@ -965,7 +965,7 @@ const checkboxClass = 'h-4 w-4 rounded'
         <div
           v-for="(zona, index) in form.zonas_config"
           :key="zona.id"
-          :class="['flex items-center gap-3 rounded-lg px-2 py-2 transition-all', zoneDragClasses(index)]"
+          :class="['flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-2 py-2 transition-all', zoneDragClasses(index)]"
           draggable="true"
           @dragstart="onZoneDragStart(index)"
           @dragenter="onZoneDragEnter(index)"
@@ -979,7 +979,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             v-model="zona.nombre"
             type="text"
             data-testid="zona-nombre"
-            class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            class="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-auto sm:flex-1"
             placeholder="Nombre de la zona"
           />
           <input
@@ -988,7 +988,7 @@ const checkboxClass = 'h-4 w-4 rounded'
             min="0"
             max="999"
             data-testid="zona-capacidad"
-            class="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            class="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-24"
           />
           <label class="flex items-center gap-1 cursor-pointer text-sm">
             <input

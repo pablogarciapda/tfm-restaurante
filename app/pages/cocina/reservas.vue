@@ -1179,11 +1179,31 @@ const printTitulo = computed(() => {
 /**
  * Print via a detached iframe document: reliable regardless of the admin
  * layout (scroll containers, transforms) and fully styled template.
+ *
+ * Without `turno`: prints the currently filtered list (fidelity to what
+ * the staff see). With `turno` ('comida' | 'cena'): always prints TODAY's
+ * reservations for that turno, filtered by the configured turn windows
+ * from horarios_config (fallback boundary 16:00 when unconfigured).
  */
-function imprimirListado() {
+function imprimirListado(turno?: 'comida' | 'cena') {
   const { restaurant_nombre } = useRestaurantConfig().restaurant
   const cfg = normalizeInformeConfig(informePrintConfig.value)
   const fontCss = informeFontCss(cfg.fuente)
+
+  let lista = filteredReservas.value
+  let titulo = printTitulo.value
+  if (turno) {
+    const hoy = toLocalDateString(new Date())
+    const windows = horariosConfig.value ? buildTurnoWindows(horariosConfig.value) : null
+    lista = reservasList.value.filter((r) => {
+      const d = new Date(r.fecha_hora)
+      if (toLocalDateString(d) !== hoy) return false
+      const mins = d.getHours() * 60 + d.getMinutes()
+      if (windows) return reservationTurn(mins, windows.comida, windows.cena) === turno
+      return turno === 'cena' ? mins >= 16 * 60 : mins < 16 * 60
+    })
+    titulo = `Reservas — ${turno === 'comida' ? 'Comidas' : 'Cenas'}, ${hoy}`
+  }
 
   const esc = (s: unknown) => String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1219,13 +1239,13 @@ function imprimirListado() {
     headers.push('Ref')
   }
 
-  const rows = filteredReservas.value.map((r) => `<tr>${cellsFor(r)}</tr>`).join('\n')
+  const rows = lista.map((r) => `<tr>${cellsFor(r)}</tr>`).join('\n')
 
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>${esc(printTitulo.value)}</title>
+  <title>${esc(titulo)}</title>
   <style>
     @page { size: A4 ${cfg.orientacion === 'apaisado' ? 'landscape' : 'portrait'}; margin: 14mm; }
     * { box-sizing: border-box; }
@@ -1243,10 +1263,10 @@ function imprimirListado() {
 </head>
 <body>
   <header>
-    <h1>${esc(printTitulo.value)}</h1>
+    <h1>${esc(titulo)}</h1>
     <span class="brand">${esc(restaurant_nombre)}</span>
   </header>
-  <p class="meta">${filteredReservas.value.length} reserva(s) · Generado el ${esc(new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</p>
+  <p class="meta">${lista.length} reserva(s) · Generado el ${esc(new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}</p>
   <table>
     <thead>
       <tr><th>${headers.join('</th><th>')}</th></tr>
@@ -1764,9 +1784,25 @@ onMounted(async () => {
             type="button"
             data-testid="imprimir-listado-btn"
             class="ml-auto rounded bg-slate-700 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800"
-            @click="imprimirListado"
+            @click="imprimirListado()"
           >
             🖨 Imprimir
+          </button>
+          <button
+            type="button"
+            data-testid="imprimir-comidas-btn"
+            class="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
+            @click="imprimirListado('comida')"
+          >
+            ☀ Comidas
+          </button>
+          <button
+            type="button"
+            data-testid="imprimir-cenas-btn"
+            class="rounded bg-indigo-700 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-800"
+            @click="imprimirListado('cena')"
+          >
+            🌙 Cenas
           </button>
         </div>
       </div>
